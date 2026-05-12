@@ -28,6 +28,8 @@ import {
   mkSelectStyle
 } from "./_shared.js";
 
+const BLANK_KPI = { name:"", project_id:"", category:"Brand Awareness", target_value:100, current_value:0, unit:"%", status:"Not Started", notes:"" };
+
 export const KPIs = React.memo(function KPIs() {
   const { kpis, setKpis, projects } = useApp();
   const { theme: t } = useTheme();
@@ -35,14 +37,26 @@ export const KPIs = React.memo(function KPIs() {
   const iS = mkInputStyle(t); const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);
   const [filter, setFilter] = useState("All");
   const [showForm, setShowForm] = useState(false);
+  const [editKpi, setEditKpi] = useState(null);
+  const [editForm, setEditForm] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
-  const [form, setForm] = useState({ name:"", project_id:"", category:"Brand Awareness", target_value:100, current_value:0, unit:"%", status:"Not Started", notes:"" });
+  const [form, setForm] = useState(BLANK_KPI);
   const statuses = ["All","On Track","At Risk","Behind","Achieved","Not Started"];
   const filtered = kpis.filter(k => filter==="All" || k.status===filter);
+
   const handleCreate = () => {
     setKpis([...kpis, { ...form, id:"k"+Date.now() }]);
     toast({ message: `KPI "${form.name}" created`, sub: `${form.category} · Target: ${form.target_value}${form.unit}`, type: "success" });
     setShowForm(false);
+    setForm(BLANK_KPI);
+  };
+
+  const openEdit = (k) => { setEditKpi(k); setEditForm({ name:k.name, project_id:k.project_id||"", category:k.category||"Brand Awareness", target_value:k.target_value, current_value:k.current_value, unit:k.unit||"%", status:k.status||"Not Started", notes:k.notes||"" }); };
+  const handleEditSave = () => {
+    if (!editForm?.name?.trim()) { toast({ message:"Name is required.", type:"error" }); return; }
+    setKpis(kpis.map(k => k.id === editKpi.id ? { ...editKpi, ...editForm } : k));
+    toast({ message: `KPI "${editForm.name}" updated.` });
+    setEditKpi(null); setEditForm(null);
   };
   return (
     <div>
@@ -60,7 +74,10 @@ export const KPIs = React.memo(function KPIs() {
           const pct = k.target_value > 0 ? Math.min(100, Math.round((k.current_value/k.target_value)*100)) : 0;
           return (
             <div key={k.id} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, position:"relative" }}>
-              <button onClick={() => setConfirmDelete(k)} title="Delete KPI" style={{ position:"absolute", top:10, right:10, background:"none", border:"none", color:t.textGhost, cursor:"pointer", fontSize:15, lineHeight:1, padding:"1px 4px", borderRadius:4 }}>×</button>
+              <div style={{ position:"absolute", top:10, right:10, display:"flex", gap:4 }}>
+                <button onClick={() => openEdit(k)} title="Edit KPI" style={{ background:"none", border:"none", color:t.textGhost, cursor:"pointer", fontSize:13, padding:"1px 5px", borderRadius:4 }}>✏</button>
+                <button onClick={() => setConfirmDelete(k)} title="Delete KPI" style={{ background:"none", border:"none", color:t.textGhost, cursor:"pointer", fontSize:15, lineHeight:1, padding:"1px 4px", borderRadius:4 }}>×</button>
+              </div>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
                 <div style={{ paddingRight:20 }}>
                   <div style={{ fontSize:14, fontWeight:700, color:t.text, marginBottom:2 }}>{k.name}</div>
@@ -97,6 +114,24 @@ export const KPIs = React.memo(function KPIs() {
           <button style={btnPrimary} onClick={handleCreate} disabled={!form.name}>Create KPI</button>
         </div>
       </Modal>
+      {editForm && (
+        <Modal open={!!editKpi} onClose={() => { setEditKpi(null); setEditForm(null); }} title="Edit KPI">
+          <FormField label="Name"><input style={iS} value={editForm.name} onChange={e=>setEditForm({...editForm,name:e.target.value})} /></FormField>
+          <FormField label="Project"><select style={sS} value={editForm.project_id} onChange={e=>setEditForm({...editForm,project_id:e.target.value})}><option value="">No project</option>{projects.map(p=><option key={p.id} value={p.id}>{p.title}</option>)}</select></FormField>
+          <FormField label="Category"><select style={sS} value={editForm.category} onChange={e=>setEditForm({...editForm,category:e.target.value})}>{["Brand Awareness","Engagement","Conversion","Revenue","Reach","Retention","Lead Generation","Other"].map(c=><option key={c}>{c}</option>)}</select></FormField>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 }}>
+            <FormField label="Target"><input type="number" style={iS} value={editForm.target_value} onChange={e=>setEditForm({...editForm,target_value:Number(e.target.value)})} /></FormField>
+            <FormField label="Current"><input type="number" style={iS} value={editForm.current_value} onChange={e=>setEditForm({...editForm,current_value:Number(e.target.value)})} /></FormField>
+            <FormField label="Unit"><select style={sS} value={editForm.unit} onChange={e=>setEditForm({...editForm,unit:e.target.value})}>{["%","Count","Currency","Score"].map(u=><option key={u}>{u}</option>)}</select></FormField>
+          </div>
+          <FormField label="Status"><select style={sS} value={editForm.status} onChange={e=>setEditForm({...editForm,status:e.target.value})}>{["On Track","At Risk","Behind","Achieved","Not Started"].map(s=><option key={s}>{s}</option>)}</select></FormField>
+          <FormField label="Notes"><textarea style={{...iS,height:60,resize:"vertical"}} value={editForm.notes} onChange={e=>setEditForm({...editForm,notes:e.target.value})} /></FormField>
+          <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+            <button style={bs} onClick={() => { setEditKpi(null); setEditForm(null); }}>Cancel</button>
+            <button style={btnPrimary} onClick={handleEditSave} disabled={!editForm.name}>Save Changes</button>
+          </div>
+        </Modal>
+      )}
       <ConfirmModal
         open={!!confirmDelete}
         onClose={() => setConfirmDelete(null)}

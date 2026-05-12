@@ -28,27 +28,39 @@ import {
   mkSelectStyle
 } from "./_shared.js";
 
+const STAGES = ["Brief", "Strategy", "Creative", "Review", "Delivered"];
+const BLANK_FORM = { title:"", client_id:"", description:"", stage:"Brief", priority:"Medium", assigneeId:"", start_date:"", due_date:"", status:"Active", progress:0, kpi_summary:"" };
+
 // ─── PROJECTS ─────────────────────────────────────────────────────────────────
 export const Projects = React.memo(function Projects() {
-  const { projects, setProjects, clients, nav } = useApp();
+  const { projects, setProjects, clients, users, nav } = useApp();
   const { theme: t } = useTheme();
   const toast = useToast();
   const iS = mkInputStyle(t); const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);
   const [filter, setFilter] = useState("All");
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
-  const [form, setForm] = useState({ title:"", client_id:"", description:"", stage:"Brief", priority:"Medium", assigned_to_name:"", assigned_to_email:"", start_date:"", due_date:"", status:"Active", progress:0, kpi_summary:"" });
-  const stages = ["Brief", "Strategy", "Creative", "Review", "Delivered"];
+  const [form, setForm] = useState(BLANK_FORM);
   const priorities = ["All", "Critical", "High", "Medium", "Low"];
   const filtered = projects.filter(p => filter === "All" || p.priority === filter);
 
   const handleCreate = () => {
-    const { assigned_to_name, assigned_to_email, ...rest } = form;
-    const np = { ...rest, id: "p"+Date.now(), assigned_to: { name: assigned_to_name, email: assigned_to_email } };
+    const { assigneeId, ...rest } = form;
+    const assignee = assigneeId ? users.find(u => u.id === assigneeId) : null;
+    const np = { ...rest, id: "p"+Date.now(), assigned_to: assignee ? { name: assignee.name, email: assignee.email } : {} };
     setProjects([...projects, np]);
     toast({ message: `Project "${form.title}" created`, sub: `${form.stage} · ${form.priority} priority`, type: "success" });
     setShowForm(false);
-    setForm({ title:"", client_id:"", description:"", stage:"Brief", priority:"Medium", assigned_to_name:"", assigned_to_email:"", start_date:"", due_date:"", status:"Active", progress:0, kpi_summary:"" });
+    setForm(BLANK_FORM);
+  };
+
+  const advanceStage = (e, p) => {
+    e.stopPropagation();
+    const idx = STAGES.indexOf(p.stage);
+    if (idx < 0 || idx >= STAGES.length - 1) return;
+    const nextStage = STAGES[idx + 1];
+    setProjects(projects.map(x => x.id === p.id ? { ...x, stage: nextStage } : x));
+    toast({ message: `"${p.title}" moved to ${nextStage}` });
   };
 
   return (
@@ -63,16 +75,18 @@ export const Projects = React.memo(function Projects() {
         ))}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 14 }}>
-        {stages.map(stage => (
+        {STAGES.map((stage, stageIdx) => (
           <div key={stage}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
               <div style={{ width: 10, height: 10, borderRadius: "50%", background: stageColor(stage) }} />
               <span style={{ fontSize: 12, fontWeight: 700, color: t.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>{stage}</span>
+              {stageIdx < STAGES.length - 1 && <span style={{ fontSize: 10, color: t.textGhost }}>→</span>}
               <span style={{ marginLeft: "auto", fontSize: 11, color: t.textFaint }}>{filtered.filter(p=>p.stage===stage).length}</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {filtered.filter(p => p.stage === stage).map(p => {
                 const client = clients.find(c => c.id === p.client_id);
+                const nextStage = STAGES[stageIdx + 1];
                 return (
                   <div key={p.id} onClick={() => nav("project-detail", p.id)} style={{ background: t.card, border: `1px solid ${t.border2}`, borderRadius: 12, padding: 14, cursor: "pointer", position:"relative" }}>
                     <button onClick={e => { e.stopPropagation(); setConfirmDelete(p); }} title="Delete project" style={{ position:"absolute", top:8, right:8, background:"none", border:"none", color:t.textGhost, cursor:"pointer", fontSize:15, lineHeight:1, padding:"1px 4px", borderRadius:4 }}>×</button>
@@ -84,6 +98,11 @@ export const Projects = React.memo(function Projects() {
                     </div>
                     <ProgressBar value={p.progress} color={stageColor(stage)} />
                     <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4 }}>{p.progress}% · {fmtDate(p.due_date)}</div>
+                    {nextStage && (
+                      <button onClick={e => advanceStage(e, p)} style={{ display:"block", width:"100%", marginTop:8, background:t.accent+"18", border:`1px solid ${t.accent}33`, color:t.accent, borderRadius:6, padding:"4px 0", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                        → Move to {nextStage}
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -113,7 +132,12 @@ export const Projects = React.memo(function Projects() {
           <FormField label="Start Date"><input type="date" style={iS} value={form.start_date} onChange={e=>setForm({...form,start_date:e.target.value})} /></FormField>
           <FormField label="Due Date"><input type="date" style={iS} value={form.due_date} onChange={e=>setForm({...form,due_date:e.target.value})} /></FormField>
         </div>
-        <FormField label="Assign To (name)"><input style={iS} value={form.assigned_to_name} onChange={e=>setForm({...form,assigned_to_name:e.target.value})} placeholder="Full name" /></FormField>
+        <FormField label="Assign To">
+          <select style={sS} value={form.assigneeId} onChange={e=>setForm({...form,assigneeId:e.target.value})}>
+            <option value="">Unassigned</option>
+            {users.map(u=><option key={u.id} value={u.id}>{u.name}{u.department?` · ${u.department}`:""}</option>)}
+          </select>
+        </FormField>
         <FormField label="Description"><textarea style={{...iS,height:80,resize:"vertical"}} value={form.description} onChange={e=>setForm({...form,description:e.target.value})} /></FormField>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
           <button style={bs} onClick={()=>setShowForm(false)}>Cancel</button>

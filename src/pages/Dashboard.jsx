@@ -42,31 +42,32 @@ export const Dashboard = React.memo(function Dashboard() {
     return stages.map(s => ({ stage: s, count: projects.filter(p => p.stage === s && p.status === "Active").length }));
   }, [projects]);
 
-  // Real activity feed derived from actual data, sorted newest-first
+  // Real activity feed — includes creations AND edits (via updated_at from Supabase trigger)
   const recentActivity = useMemo(() => {
-    return [
-      ...projects.map(p => ({
-        id: `p-${p.id}`,
-        description: `Project "${p.title}" created`,
-        user: p.assigned_to?.name || "Team",
-        timestamp: p.created_at,
-      })),
-      ...tasks.map(t2 => ({
-        id: `t-${t2.id}`,
-        description: t2.status === "Done" ? `Task "${t2.title}" completed` : `Task "${t2.title}" added`,
-        user: t2.assigned_to?.name || "Team",
-        timestamp: t2.created_at,
-      })),
-      ...clients.map(c => ({
-        id: `c-${c.id}`,
-        description: `Client "${c.name}" added`,
-        user: "Team",
-        timestamp: c.created_at,
-      })),
-    ]
+    const GAP = 15_000; // ms gap between created_at and updated_at to count as a real edit
+    const entries = [];
+
+    for (const p of projects) {
+      entries.push({ id:`pc-${p.id}`, description:`Project "${p.title}" created`, user: p.assigned_to?.name || "Team", timestamp: p.created_at });
+      if (p.updated_at && p.created_at && new Date(p.updated_at) - new Date(p.created_at) > GAP) {
+        entries.push({ id:`pu-${p.id}`, description:`Project "${p.title}" moved to ${p.stage}`, user: p.assigned_to?.name || "Team", timestamp: p.updated_at });
+      }
+    }
+    for (const t2 of tasks) {
+      entries.push({ id:`tc-${t2.id}`, description:`Task "${t2.title}" added`, user: t2.assigned_to?.name || "Team", timestamp: t2.created_at });
+      if (t2.updated_at && t2.created_at && new Date(t2.updated_at) - new Date(t2.created_at) > GAP) {
+        const label = t2.status === "Done" ? `Task "${t2.title}" marked Done` : `Task "${t2.title}" → ${t2.status}`;
+        entries.push({ id:`tu-${t2.id}`, description: label, user: t2.assigned_to?.name || "Team", timestamp: t2.updated_at });
+      }
+    }
+    for (const c of clients) {
+      entries.push({ id:`cc-${c.id}`, description:`Client "${c.name}" added`, user: "Team", timestamp: c.created_at });
+    }
+
+    return entries
       .filter(e => e.timestamp)
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-      .slice(0, 8);
+      .slice(0, 10);
   }, [projects, tasks, clients]);
 
   const bs = mkBtnSecondary(t);
@@ -85,10 +86,11 @@ export const Dashboard = React.memo(function Dashboard() {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
         <div style={{ background: t.card, border: `1px solid ${t.border2}`, borderRadius: 14, padding: 20 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
             <h3 style={{ margin: 0, color: t.text, fontSize: 15, fontWeight: 700 }}>Project Pipeline</h3>
             <button onClick={() => nav("projects")} style={{ ...bs, padding: "6px 14px", fontSize: 12 }}>View Board →</button>
           </div>
+          <p style={{ margin: "0 0 14px", fontSize: 11, color: t.textGhost }}>Active projects by stage — spot where work is bottlenecking</p>
           {stageCounts.map(({ stage, count }) => (
             <div key={stage} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
               <div style={{ width: 90, fontSize: 12, color: t.textMuted, fontWeight: 600 }}>{stage}</div>
