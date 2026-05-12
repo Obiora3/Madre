@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppContext } from "./context/app-context.jsx";
 import { AuthScreen } from "./components/AuthScreen.jsx";
 import { useAppData } from "./hooks/useAppData.js";
