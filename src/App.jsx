@@ -133,12 +133,8 @@ export default function AgencyFlow() {
 
             {/* Sidebar */}
             <div style={{ width: sidebarOpen ? 220 : 0, minWidth: sidebarOpen ? 220 : 0, background:st.surface, display:"flex", flexDirection:"column", overflow:"hidden", transition:"width 0.25s ease, min-width 0.25s ease, background 0.3s ease", flexShrink:0 }}>
-              <div style={{ height:headerHeight, boxSizing:"border-box", padding:"0 16px", borderBottom:`1px solid ${st.border}`, display:"flex", alignItems:"center", gap:10 }}>
-                <img src="/logo.png" alt="logo" style={{ width:36, height:36, objectFit:"contain", flexShrink:0 }} />
-                <div>
-                  <div style={{ fontSize:16, fontWeight:800, color:st.accent, letterSpacing:"-0.02em", lineHeight:1.2 }}>{whiteLabelSettings.agency_name}</div>
-                  <div style={{ fontSize:11, color:st.textGhost, marginTop:2 }}>{whiteLabelSettings.tagline}</div>
-                </div>
+              <div style={{ height:headerHeight, boxSizing:"border-box", padding:"0 16px", borderBottom:`1px solid ${st.border}`, display:"flex", alignItems:"center" }}>
+                <img src="/logo.png" alt="logo" style={{ width:40, height:40, objectFit:"contain" }} />
               </div>
               <div className="app-sidebar-scroll" style={{ flex:1, overflowY:"auto", padding:"14px 12px 10px" }}>
                 <div style={{ marginBottom:8 }}>
