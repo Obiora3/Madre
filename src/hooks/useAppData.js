@@ -59,10 +59,13 @@ const EMPTY = { projects: [], tasks: [], clients: [], kpis: [], departments: [],
 // Uses name-matching to remap client FKs when Supabase clients have different IDs.
 
 async function migrateLocalData(agencyId, dbSnapshot) {
-  const migKey = `af_migrated_${agencyId}`;
+  // v2: bumped so previous incomplete migrations are retried
+  const migKey = `af_migrated_v2_${agencyId}`;
   if (localStorage.getItem(migKey)) return dbSnapshot;
 
   const emptyTables = MIGRATION_ORDER.filter(t => !dbSnapshot[t]?.length);
+  // Clear any old migration flag from previous version
+  localStorage.removeItem(`af_migrated_${agencyId}`);
   if (!emptyTables.length) { localStorage.setItem(migKey, "1"); return dbSnapshot; }
 
   const isMockId = id => /^[a-zA-Z]{1,3}\d{1,3}$/.test(String(id ?? ""));
@@ -252,7 +255,7 @@ export function useAppData(agencyId) {
         supabase.from(t).delete().eq("agency_id", agencyId)
       ));
       // Clear migration flag so the next load re-migrates fresh
-      localStorage.removeItem(`af_migrated_${agencyId}`);
+      localStorage.removeItem(`af_migrated_v2_${agencyId}`);
       setDb(EMPTY);
       dbRef.current = EMPTY;
       loadedRef.current = null;

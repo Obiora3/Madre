@@ -64,22 +64,31 @@ export function useAuth() {
   const [accounts, setAccounts] = useLocalStorage("af_auth_accounts", []);
   const [currentUser, setCurrentUser] = useLocalStorage("af_current_user", null);
 
-  // Fetches agency info from the profiles join and merges it into currentUser
+  // Fetches agency info and merges it into currentUser.
+  // Uses two queries so agency_id is always set even if the agencies join fails.
   const loadUserAgency = useCallback(async (userId) => {
     if (!isSupabaseConfigured || !supabase) return;
-    const { data } = await supabase
+
+    const { data: profile } = await supabase
       .from("profiles")
-      .select("agency_id, agencies(id, name, code)")
+      .select("agency_id")
       .eq("id", userId)
       .single();
-    if (data?.agencies) {
-      setCurrentUser(prev => prev ? {
-        ...prev,
-        agency_id: data.agency_id,
-        agency_code: data.agencies.code,
-        agency_name: data.agencies.name,
-      } : null);
-    }
+
+    if (!profile?.agency_id) return;
+
+    const { data: agency } = await supabase
+      .from("agencies")
+      .select("id, name, code")
+      .eq("id", profile.agency_id)
+      .single();
+
+    setCurrentUser(prev => prev ? {
+      ...prev,
+      agency_id: profile.agency_id,
+      agency_code: agency?.code ?? null,
+      agency_name: agency?.name ?? null,
+    } : null);
   }, [setCurrentUser]);
 
   useEffect(() => {
@@ -240,12 +249,10 @@ export function useAuth() {
       const { error } = await supabase.rpc("join_agency", { p_code: agencyCode.trim().toUpperCase() });
       if (error) throw new Error(error.message);
     }
-    // Re-fetch so currentUser gets agency_code / agency_name
-    setCurrentUser(prev => {
-      if (prev?.id) loadUserAgency(prev.id);
-      return prev;
-    });
-  }, [setCurrentUser, loadUserAgency]);
+    // Re-fetch agency info — must be awaited so agency_id is set before the caller returns
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.id) await loadUserAgency(user.id);
+  }, [loadUserAgency]);
 
   const updateProfile = useCallback(async ({ name, job_title, department, skills }) => {
     if (isSupabaseConfigured && supabase) {
