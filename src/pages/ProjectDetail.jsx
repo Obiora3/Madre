@@ -30,7 +30,7 @@ import {
 
 // ─── PROJECT DETAIL ───────────────────────────────────────────────────────────
 export const ProjectDetail = React.memo(function ProjectDetail() {
-  const { projects, setProjects, tasks, setTasks, kpis, clients, nav, pageParam: id } = useApp();
+  const { projects, setProjects, tasks, setTasks, kpis, clients, users, departments, nav, pageParam: id } = useApp();
   const onBack = () => nav("projects");
   const { theme: t } = useTheme();
   const toast = useToast();
@@ -38,6 +38,9 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   const project = projects.find(p => p.id === id);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [taskForm, setTaskForm] = useState({ title:"", description:"", status:"To Do", priority:"Medium", due_date:"", estimated_hours:0 });
+  const [taskAssigneeKey, setTaskAssigneeKey] = useState("");
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editForm, setEditForm] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState("");
   const [aiError, setAiError] = useState(null);
@@ -47,11 +50,46 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   const projectTasks = tasks.filter(t2 => t2.project_id === id);
   const projectKPIs = kpis.filter(k => k.project_id === id);
 
+  const openEdit = () => {
+    setEditForm({
+      title: project.title || "",
+      client_id: project.client_id || "",
+      description: project.description || "",
+      stage: project.stage || "Brief",
+      priority: project.priority || "Medium",
+      status: project.status || "Active",
+      assigned_to_name: project.assigned_to?.name || "",
+      assigned_to_email: project.assigned_to?.email || "",
+      start_date: project.start_date || "",
+      due_date: project.due_date || "",
+      progress: project.progress ?? 0,
+      kpi_summary: project.kpi_summary || "",
+    });
+    setShowEditForm(true);
+  };
+
+  const handleEditSave = () => {
+    if (!editForm?.title?.trim()) { toast({ message: "Title is required.", type: "error" }); return; }
+    const { assigned_to_name, assigned_to_email, ...rest } = editForm;
+    setProjects(projects.map(p => p.id === id ? { ...project, ...rest, assigned_to: { name: assigned_to_name, email: assigned_to_email } } : p));
+    toast({ message: "Project updated." });
+    setShowEditForm(false);
+  };
+
   const handleAddTask = () => {
-    setTasks([...tasks, { ...taskForm, id: "t"+Date.now(), project_id: id, assigned_to: { name: project.assigned_to?.name, email: project.assigned_to?.email } }]);
+    let assignedTo = {};
+    if (taskAssigneeKey.startsWith("user:")) {
+      const u = users.find(x => x.id === taskAssigneeKey.slice(5));
+      if (u) assignedTo = { name: u.name, email: u.email, department: u.department || "" };
+    } else if (taskAssigneeKey.startsWith("dept:")) {
+      const d = departments.find(x => x.id === taskAssigneeKey.slice(5));
+      if (d) assignedTo = { name: d.name, email: "" };
+    }
+    setTasks([...tasks, { ...taskForm, id: "t"+Date.now(), project_id: id, assigned_to: assignedTo }]);
     toast({ message: `Task "${taskForm.title}" added`, sub: `${taskForm.priority} priority · Due ${fmtDate(taskForm.due_date)}`, type: "success" });
     setShowTaskForm(false);
     setTaskForm({ title:"", description:"", status:"To Do", priority:"Medium", due_date:"", estimated_hours:0 });
+    setTaskAssigneeKey("");
   };
   const changeTaskStatus = (tid, newStatus) => {
     const task = tasks.find(t2 => t2.id === tid);
@@ -75,12 +113,15 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
 
   return (
     <div>
-      <button onClick={onBack} style={{...bs, marginBottom:20, fontSize:12}}>← Back to Projects</button>
+      <div style={{ display:"flex", gap:8, marginBottom:20 }}>
+        <button onClick={onBack} style={{...bs, fontSize:12}}>← Back to Projects</button>
+        <button onClick={openEdit} style={{...bs, fontSize:12}}>✏ Edit Project</button>
+      </div>
       <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:24, marginBottom:20 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16 }}>
           <div>
             <h1 style={{ margin:"0 0 6px", fontSize:22, fontWeight:800, color:t.text }}>{project.title}</h1>
-            <div style={{ color:t.textMuted, fontSize:13 }}>{client?.name} · {project.description}</div>
+            <div style={{ color:t.textMuted, fontSize:13 }}>{client?.name}{project.description ? ` · ${project.description}` : ""}</div>
           </div>
           <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
             <Badge label={project.stage} color={stageColor(project.stage)} />
@@ -139,6 +180,13 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
       </div>
       <Modal open={showTaskForm} onClose={()=>setShowTaskForm(false)} title="Add Task">
         <FormField label="Title"><input style={iS} value={taskForm.title} onChange={e=>setTaskForm({...taskForm,title:e.target.value})} /></FormField>
+        <FormField label="Assign To">
+          <select style={sS} value={taskAssigneeKey} onChange={e=>setTaskAssigneeKey(e.target.value)}>
+            <option value="">Unassigned</option>
+            {users.length > 0 && <optgroup label="Team Members">{users.map(u=><option key={u.id} value={`user:${u.id}`}>{u.name}{u.department?` (${u.department})`:""}</option>)}</optgroup>}
+            {departments.length > 0 && <optgroup label="Departments">{departments.map(d=><option key={d.id} value={`dept:${d.id}`}>{d.name}</option>)}</optgroup>}
+          </select>
+        </FormField>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           <FormField label="Status"><select style={sS} value={taskForm.status} onChange={e=>setTaskForm({...taskForm,status:e.target.value})}>{["To Do","In Progress","In Review","Done"].map(s=><option key={s}>{s}</option>)}</select></FormField>
           <FormField label="Priority"><select style={sS} value={taskForm.priority} onChange={e=>setTaskForm({...taskForm,priority:e.target.value})}>{["Critical","High","Medium","Low"].map(s=><option key={s}>{s}</option>)}</select></FormField>
@@ -152,6 +200,54 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
           <button style={btnPrimary} onClick={handleAddTask} disabled={!taskForm.title}>Add Task</button>
         </div>
       </Modal>
+
+      {editForm && (
+        <Modal open={showEditForm} onClose={()=>setShowEditForm(false)} title="Edit Project">
+          <FormField label="Title"><input style={iS} value={editForm.title} onChange={e=>setEditForm({...editForm,title:e.target.value})} /></FormField>
+          <FormField label="Client">
+            <select style={sS} value={editForm.client_id} onChange={e=>setEditForm({...editForm,client_id:e.target.value})}>
+              <option value="">No client</option>
+              {clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </FormField>
+          <FormField label="Description"><input style={iS} value={editForm.description} onChange={e=>setEditForm({...editForm,description:e.target.value})} /></FormField>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <FormField label="Stage">
+              <select style={sS} value={editForm.stage} onChange={e=>setEditForm({...editForm,stage:e.target.value})}>
+                {["Brief","Strategy","Creative","Review","Delivered"].map(s=><option key={s}>{s}</option>)}
+              </select>
+            </FormField>
+            <FormField label="Priority">
+              <select style={sS} value={editForm.priority} onChange={e=>setEditForm({...editForm,priority:e.target.value})}>
+                {["Critical","High","Medium","Low"].map(s=><option key={s}>{s}</option>)}
+              </select>
+            </FormField>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <FormField label="Status">
+              <select style={sS} value={editForm.status} onChange={e=>setEditForm({...editForm,status:e.target.value})}>
+                {["Active","On Hold","Completed","Cancelled"].map(s=><option key={s}>{s}</option>)}
+              </select>
+            </FormField>
+            <FormField label="Progress (%)">
+              <input type="number" min="0" max="100" style={iS} value={editForm.progress} onChange={e=>setEditForm({...editForm,progress:Math.min(100,Math.max(0,Number(e.target.value)))})} />
+            </FormField>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <FormField label="Assigned To (name)"><input style={iS} value={editForm.assigned_to_name} onChange={e=>setEditForm({...editForm,assigned_to_name:e.target.value})} /></FormField>
+            <FormField label="Assigned To (email)"><input style={iS} value={editForm.assigned_to_email} onChange={e=>setEditForm({...editForm,assigned_to_email:e.target.value})} /></FormField>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <FormField label="Start Date"><input type="date" style={iS} value={editForm.start_date} onChange={e=>setEditForm({...editForm,start_date:e.target.value})} /></FormField>
+            <FormField label="Due Date"><input type="date" style={iS} value={editForm.due_date} onChange={e=>setEditForm({...editForm,due_date:e.target.value})} /></FormField>
+          </div>
+          <FormField label="KPI Summary"><input style={iS} value={editForm.kpi_summary} onChange={e=>setEditForm({...editForm,kpi_summary:e.target.value})} placeholder="Brief summary of KPI targets" /></FormField>
+          <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+            <button style={bs} onClick={()=>setShowEditForm(false)}>Cancel</button>
+            <button style={btnPrimary} onClick={handleEditSave} disabled={!editForm.title}>Save Changes</button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 })

@@ -1,37 +1,26 @@
 import {
   React,
-  useEffect,
   useMemo,
-  useRef,
-  useState,
-  MOCK_ACTIVITIES,
   useApp,
   useTheme,
-  useToast,
-  callClaude,
   fmtDate,
   priorityColor,
   stageColor,
   statusColor,
-  AIBlock,
-  Avatar,
   Badge,
-  ConfirmModal,
-  FormField,
-  Modal,
   ProgressBar,
   StatCard,
-  TaskStatusButton,
-  btnPrimary,
   mkBtnSecondary,
-  mkInputStyle,
-  mkSelectStyle
 } from "./_shared.js";
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 export const Dashboard = React.memo(function Dashboard() {
   const { projects, tasks, clients, kpis, nav } = useApp();
   const { theme: t } = useTheme();
+
+  const todayLabel = useMemo(() => {
+    return new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  }, []);
 
   // Stat card values — recompute only when source arrays change
   const { activeProjects, doneTasks, activeClients, kpiOnTrack, overdueTasks, highPriority } = useMemo(() => {
@@ -53,13 +42,40 @@ export const Dashboard = React.memo(function Dashboard() {
     return stages.map(s => ({ stage: s, count: projects.filter(p => p.stage === s && p.status === "Active").length }));
   }, [projects]);
 
+  // Real activity feed derived from actual data, sorted newest-first
+  const recentActivity = useMemo(() => {
+    return [
+      ...projects.map(p => ({
+        id: `p-${p.id}`,
+        description: `Project "${p.title}" created`,
+        user: p.assigned_to?.name || "Team",
+        timestamp: p.created_at,
+      })),
+      ...tasks.map(t2 => ({
+        id: `t-${t2.id}`,
+        description: t2.status === "Done" ? `Task "${t2.title}" completed` : `Task "${t2.title}" added`,
+        user: t2.assigned_to?.name || "Team",
+        timestamp: t2.created_at,
+      })),
+      ...clients.map(c => ({
+        id: `c-${c.id}`,
+        description: `Client "${c.name}" added`,
+        user: "Team",
+        timestamp: c.created_at,
+      })),
+    ]
+      .filter(e => e.timestamp)
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .slice(0, 8);
+  }, [projects, tasks, clients]);
+
   const bs = mkBtnSecondary(t);
 
   return (
     <div>
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: t.text }}>Agency Overview</h1>
-        <p style={{ margin: "4px 0 0", color: t.textFaint, fontSize: 14 }}>Monday, 11 May 2026</p>
+        <p style={{ margin: "4px 0 0", color: t.textFaint, fontSize: 14 }}>{todayLabel}</p>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 28 }}>
         <StatCard icon="🚀" label="Active Projects" value={activeProjects.length} sub="across all clients" />
@@ -83,7 +99,9 @@ export const Dashboard = React.memo(function Dashboard() {
         </div>
         <div style={{ background: t.card, border: `1px solid ${t.border2}`, borderRadius: 14, padding: 20 }}>
           <h3 style={{ margin: "0 0 16px", color: t.text, fontSize: 15, fontWeight: 700 }}>Recent Activity</h3>
-          {MOCK_ACTIVITIES.map(a => (
+          {recentActivity.length === 0 ? (
+            <p style={{ color: t.textFaint, fontSize: 13, margin: 0 }}>No activity yet. Start by creating a project or adding a client.</p>
+          ) : recentActivity.map(a => (
             <div key={a.id} style={{ display: "flex", gap: 12, marginBottom: 12, alignItems: "flex-start" }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: t.accent, marginTop: 5, flexShrink: 0 }} />
               <div>
