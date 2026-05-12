@@ -41,8 +41,7 @@ async function syncCollection(table, oldItems, newItems, agencyId) {
 
 const TABLES = ["projects", "tasks", "clients", "kpis", "departments", "pitches"];
 const LS_DEFAULTS = {
-  projects: MOCK_PROJECTS, tasks: MOCK_TASKS, clients: MOCK_CLIENTS,
-  kpis: MOCK_KPIS, departments: MOCK_DEPARTMENTS, pitches: MOCK_PITCHES,
+  projects: [], tasks: [], clients: [], kpis: [], departments: [], pitches: [],
 };
 const LS_KEYS = {
   projects: "af_projects", tasks: "af_tasks", clients: "af_clients",
@@ -139,12 +138,12 @@ export function useAppData(agencyId) {
   const live = isSupabaseConfigured && Boolean(agencyId);
 
   // ── localStorage fallback ─────────────────────────────────────────────────
-  const [lsProjects,    setLsProjects]    = useLocalStorage("af_projects",    MOCK_PROJECTS);
-  const [lsTasks,       setLsTasks]       = useLocalStorage("af_tasks",       MOCK_TASKS);
-  const [lsClients,     setLsClients]     = useLocalStorage("af_clients",     MOCK_CLIENTS);
-  const [lsKpis,        setLsKpis]        = useLocalStorage("af_kpis",        MOCK_KPIS);
-  const [lsDepartments, setLsDepartments] = useLocalStorage("af_departments", MOCK_DEPARTMENTS);
-  const [lsPitches,     setLsPitches]     = useLocalStorage("af_pitches",     MOCK_PITCHES);
+  const [lsProjects,    setLsProjects]    = useLocalStorage("af_projects",    []);
+  const [lsTasks,       setLsTasks]       = useLocalStorage("af_tasks",       []);
+  const [lsClients,     setLsClients]     = useLocalStorage("af_clients",     []);
+  const [lsKpis,        setLsKpis]        = useLocalStorage("af_kpis",        []);
+  const [lsDepartments, setLsDepartments] = useLocalStorage("af_departments", []);
+  const [lsPitches,     setLsPitches]     = useLocalStorage("af_pitches",     []);
 
   // ── Supabase state ────────────────────────────────────────────────────────
   const [db, setDb]           = useState(EMPTY);
@@ -254,15 +253,21 @@ export function useAppData(agencyId) {
       await Promise.all(TABLES.map(t =>
         supabase.from(t).delete().eq("agency_id", agencyId)
       ));
-      // Clear migration flag so the next load re-migrates fresh
+      // Clear localStorage data and migration flag so nothing gets re-migrated
+      TABLES.forEach(t => localStorage.removeItem(LS_KEYS[t]));
       localStorage.removeItem(`af_migrated_v2_${agencyId}`);
+      localStorage.removeItem(`af_migrated_${agencyId}`);
+      setLsProjects([]); setLsTasks([]);
+      setLsClients([]);  setLsKpis([]);
+      setLsDepartments([]); setLsPitches([]);
       setDb(EMPTY);
       dbRef.current = EMPTY;
       loadedRef.current = null;
     } else {
-      setLsProjects(MOCK_PROJECTS); setLsTasks(MOCK_TASKS);
-      setLsClients(MOCK_CLIENTS);   setLsKpis(MOCK_KPIS);
-      setLsDepartments(MOCK_DEPARTMENTS); setLsPitches(MOCK_PITCHES);
+      TABLES.forEach(t => localStorage.removeItem(LS_KEYS[t]));
+      setLsProjects([]); setLsTasks([]);
+      setLsClients([]);  setLsKpis([]);
+      setLsDepartments([]); setLsPitches([]);
     }
   }, [agencyId, setLsProjects, setLsTasks, setLsClients, setLsKpis, setLsDepartments, setLsPitches]);
 

@@ -99,7 +99,7 @@ function AgencyPanel({ currentUser, setupAgency, t, iS, bs }) {
 }
 
 export function Profile() {
-  const { currentUser, updateProfile, setupAgency } = useApp();
+  const { currentUser, updateProfile, setupAgency, resetAllData } = useApp();
   const { theme: t } = useTheme();
   const toast = useToast();
   const iS = mkInputStyle(t);
@@ -178,6 +178,24 @@ export function Profile() {
             </div>
           </div>
           <AgencyPanel currentUser={currentUser} setupAgency={setupAgency} t={t} iS={iS} bs={bs} />
+
+          {/* Danger zone */}
+          <div style={{ background: t.card, border: `1px solid #ef444466`, borderRadius: 14, padding: 20, marginTop: 16 }}>
+            <h3 style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 700, color: "#ef4444" }}>Clear All Data</h3>
+            <div style={{ fontSize: 12, color: t.textMuted, marginBottom: 14 }}>
+              Permanently deletes every project, task, client, KPI, department and pitch. This cannot be undone.
+            </div>
+            <button
+              onClick={async () => {
+                if (!window.confirm("Delete ALL data permanently? This cannot be undone.")) return;
+                await resetAllData();
+                toast({ message: "All data cleared.", type: "success" });
+              }}
+              style={{ background: "#ef4444", color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+            >
+              Clear All Data
+            </button>
+          </div>
         </div>
 
         {/* Right — account info */}
