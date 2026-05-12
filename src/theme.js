@@ -1,0 +1,61 @@
+import { createContext, useContext } from "react";
+
+// ─── THEME ────────────────────────────────────────────────────────────────────
+export const ThemeContext = createContext(null);
+export const useTheme = () => useContext(ThemeContext);
+
+export const DARK = {
+  mode: "dark",
+  bg:          "#0a0a12",
+  surface:     "#0f0f1a",
+  card:        "#161622",
+  cardHover:   "#1c1c2e",
+  border:      "#1a1a2e",
+  border2:     "#252535",
+  text:        "#F0EDFF",
+  textSub:     "#E0DDFF",
+  textMuted:   "#888",
+  textFaint:   "#555",
+  textGhost:   "#444",
+  input:       "#0f0f1a",
+  inputBorder: "#252535",
+  navActive:   "#7C3AED22",
+  navActiveText:"#A78BFA",
+  navText:     "#777",
+  accent:      "#7C3AED",
+  accentLight: "#A78BFA",
+  divider:     "#1e1e2e",
+  statBg:      "#0f0f1a",
+  codeBg:      "#0f0f1a",
+  shadow:      "0 20px 60px #00000088",
+  toggleBg:    "#252535",
+  aiText:      "#C4BFFF",
+};
+
+export const LIGHT = {
+  mode: "light",
+  bg:          "#F0EFF8",
+  surface:     "#FFFFFF",
+  card:        "#FFFFFF",
+  cardHover:   "#F7F6FF",
+  border:      "#E4E2F0",
+  border2:     "#DDD9F0",
+  text:        "#1A1730",
+  textSub:     "#2E2A4A",
+  textMuted:   "#6B6880",
+  textFaint:   "#9896A8",
+  textGhost:   "#B5B3C2",
+  input:       "#F7F6FF",
+  inputBorder: "#DDD9F0",
+  navActive:   "#7C3AED18",
+  navActiveText:"#6D28D9",
+  navText:     "#7B7890",
+  accent:      "#7C3AED",
+  accentLight: "#8B5CF6",
+  divider:     "#ECEAF5",
+  statBg:      "#F7F6FF",
+  codeBg:      "#F3F2FA",
+  shadow:      "0 20px 60px #00000022",
+  toggleBg:    "#E4E2F0",
+  aiText:      "#4C3D9E",
+};
