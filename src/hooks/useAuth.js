@@ -1,5 +1,6 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { MOCK_USERS } from "../data/mockData.js";
+import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import { useLocalStorage } from "./useLocalStorage.js";
 
 const DEMO_PASSWORD = "agencyflow";
@@ -17,6 +18,23 @@ const publicUser = (user) => ({
   skills: user.skills || ["Client Services"],
   avatar_url: user.avatar_url || null
 });
+
+const publicSupabaseUser = (user) => {
+  const meta = user.user_metadata || {};
+  const name = meta.name || user.email?.split("@")[0] || "User";
+
+  return publicUser({
+    id: user.id,
+    name,
+    email: user.email,
+    role: meta.role || "admin",
+    department: meta.department || "Leadership",
+    department_id: meta.department_id || "d1",
+    job_title: meta.job_title || "Account Owner",
+    skills: meta.skills || ["Client Services"],
+    avatar_url: meta.avatar_url || null
+  });
+};
 
 const randomSalt = () => {
   if (globalThis.crypto?.getRandomValues) {
@@ -40,6 +58,26 @@ export function useAuth() {
   const [accounts, setAccounts] = useLocalStorage("af_auth_accounts", []);
   const [currentUser, setCurrentUser] = useLocalStorage("af_current_user", null);
 
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return undefined;
+
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      setCurrentUser(data.session?.user ? publicSupabaseUser(data.session.user) : null);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user ? publicSupabaseUser(session.user) : null);
+    });
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, [setCurrentUser]);
+
   const signUp = useCallback(async ({ name, email, password }) => {
     const cleanName = name.trim();
     const cleanEmail = normalizeEmail(email);
@@ -47,6 +85,27 @@ export function useAuth() {
     if (!cleanName) throw new Error("Enter your name.");
     if (!cleanEmail || !cleanEmail.includes("@")) throw new Error("Enter a valid email address.");
     if (password.length < 6) throw new Error("Use at least 6 characters for your password.");
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password,
+        options: {
+          data: {
+            name: cleanName,
+            role: "admin",
+            department: "Leadership",
+            department_id: "d1",
+            job_title: "Account Owner",
+            skills: ["Client Services"]
+          }
+        }
+      });
+
+      if (error) throw new Error(error.message);
+      if (data.user) setCurrentUser(publicSupabaseUser(data.user));
+      return;
+    }
+
     if (accounts.some((account) => normalizeEmail(account.email) === cleanEmail)) {
       throw new Error("An account already exists for that email.");
     }
@@ -72,6 +131,18 @@ export function useAuth() {
 
   const signIn = useCallback(async ({ email, password }) => {
     const cleanEmail = normalizeEmail(email);
+
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password
+      });
+
+      if (error) throw new Error(error.message);
+      if (data.user) setCurrentUser(publicSupabaseUser(data.user));
+      return;
+    }
+
     const account = accounts.find((item) => normalizeEmail(item.email) === cleanEmail);
 
     if (!account) {
@@ -94,8 +165,25 @@ export function useAuth() {
     setCurrentUser(publicUser(MOCK_USERS[0]));
   }, [setCurrentUser]);
 
-  const signOut = useCallback(() => {
+  const signOut = useCallback(async () => {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw new Error(error.message);
+    }
+
     setCurrentUser(null);
+  }, [setCurrentUser]);
+
+  const updateProfile = useCallback(async ({ name, job_title, department, skills }) => {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.auth.updateUser({
+        data: { name, job_title, department, skills }
+      });
+      if (error) throw new Error(error.message);
+      if (data.user) setCurrentUser(publicSupabaseUser(data.user));
+      return;
+    }
+    setCurrentUser(prev => prev ? { ...prev, name, job_title, department, skills } : null);
   }, [setCurrentUser]);
 
   return {
@@ -104,6 +192,7 @@ export function useAuth() {
     signIn,
     signUp,
     continueAsDemo,
-    signOut
+    signOut,
+    updateProfile
   };
 }

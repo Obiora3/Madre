@@ -1,0 +1,120 @@
+import { useState } from "react";
+import { useApp } from "../context/app-context.jsx";
+import { useTheme } from "../theme.js";
+import { useToast } from "../toast.jsx";
+import { Avatar, FormField } from "../components/common.jsx";
+import { btnPrimary, mkBtnSecondary, mkInputStyle } from "../styles/formStyles.js";
+
+export function Profile() {
+  const { currentUser, updateProfile } = useApp();
+  const { theme: t } = useTheme();
+  const toast = useToast();
+  const iS = mkInputStyle(t);
+  const bs = mkBtnSecondary(t);
+
+  const [form, setForm] = useState({
+    name: currentUser?.name || "",
+    job_title: currentUser?.job_title || "",
+    department: currentUser?.department || "",
+    skills: (currentUser?.skills || []).join(", "),
+  });
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (!form.name.trim()) { toast({ message: "Name is required.", type: "error" }); return; }
+    setSaving(true);
+    try {
+      await updateProfile({
+        name: form.name.trim(),
+        job_title: form.job_title.trim(),
+        department: form.department.trim(),
+        skills: form.skills.split(",").map(s => s.trim()).filter(Boolean),
+      });
+      toast({ message: "Profile updated successfully." });
+    } catch (err) {
+      toast({ message: err.message, type: "error" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div>
+      <h1 style={{ margin: "0 0 24px", fontSize: 26, fontWeight: 800, color: t.text }}>My Profile</h1>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, maxWidth: 820 }}>
+
+        {/* Left — edit form */}
+        <div>
+          <div style={{ background: t.card, border: `1px solid ${t.border2}`, borderRadius: 14, padding: 20, marginBottom: 16, display: "flex", alignItems: "center", gap: 16 }}>
+            <Avatar name={currentUser?.name} size={60} />
+            <div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: t.text }}>{currentUser?.name}</div>
+              <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>{currentUser?.email}</div>
+              <span style={{ display: "inline-block", marginTop: 6, background: t.accent + "22", color: t.accent, border: `1px solid ${t.accent}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
+                {currentUser?.role}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ background: t.card, border: `1px solid ${t.border2}`, borderRadius: 14, padding: 20 }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700, color: t.text }}>Edit Details</h3>
+            <FormField label="Full Name">
+              <input style={iS} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+            </FormField>
+            <FormField label="Job Title">
+              <input style={iS} value={form.job_title} onChange={e => setForm({ ...form, job_title: e.target.value })} placeholder="e.g. Creative Director" />
+            </FormField>
+            <FormField label="Department">
+              <input style={iS} value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} placeholder="e.g. Creative" />
+            </FormField>
+            <FormField label="Skills (comma-separated)">
+              <input style={iS} value={form.skills} onChange={e => setForm({ ...form, skills: e.target.value })} placeholder="e.g. Branding, Strategy, Design" />
+            </FormField>
+            <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+              <button style={{ ...btnPrimary, opacity: saving ? 0.75 : 1 }} onClick={save} disabled={saving}>
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
+              <button style={bs} onClick={() => setForm({
+                name: currentUser?.name || "",
+                job_title: currentUser?.job_title || "",
+                department: currentUser?.department || "",
+                skills: (currentUser?.skills || []).join(", "),
+              })}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Right — account info */}
+        <div style={{ background: t.card, border: `1px solid ${t.border2}`, borderRadius: 14, padding: 20, height: "fit-content" }}>
+          <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700, color: t.text }}>Account Info</h3>
+          {[
+            ["Email", currentUser?.email],
+            ["Role", currentUser?.role],
+            ["Department", currentUser?.department || "—"],
+            ["Job Title", currentUser?.job_title || "—"],
+          ].map(([label, value]) => (
+            <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${t.border}` }}>
+              <span style={{ fontSize: 12, color: t.textMuted, fontWeight: 600 }}>{label}</span>
+              <span style={{ fontSize: 12, color: t.text, fontWeight: 700 }}>{value}</span>
+            </div>
+          ))}
+          {currentUser?.skills?.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 12, color: t.textMuted, fontWeight: 600, marginBottom: 8 }}>Skills</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {currentUser.skills.map(skill => (
+                  <span key={skill} style={{ background: t.statBg, border: `1px solid ${t.border2}`, borderRadius: 6, padding: "3px 8px", fontSize: 11, color: t.textSub, fontWeight: 600 }}>
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+      </div>
+    </div>
+  );
+}

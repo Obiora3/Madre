@@ -1,32 +1,13 @@
 import {
   React,
-  useEffect,
-  useMemo,
-  useRef,
   useState,
-  MOCK_ACTIVITIES,
   DEFAULT_WHITE_LABEL_SETTINGS,
   useApp,
   useTheme,
-  useToast,
-  callClaude,
-  fmtDate,
-  priorityColor,
-  stageColor,
-  statusColor,
-  AIBlock,
-  Avatar,
-  Badge,
-  ConfirmModal,
   FormField,
-  Modal,
-  ProgressBar,
-  StatCard,
-  TaskStatusButton,
   btnPrimary,
   mkBtnSecondary,
-  mkInputStyle,
-  mkSelectStyle
+  mkInputStyle
 } from "./_shared.js";
 
 export const WhiteLabel = React.memo(function WhiteLabel() {
@@ -40,10 +21,6 @@ export const WhiteLabel = React.memo(function WhiteLabel() {
   const iS = mkInputStyle(t); const bs = mkBtnSecondary(t);
   const [settings, setSettings] = useState(whiteLabelSettings);
   const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    setSettings(whiteLabelSettings);
-  }, [whiteLabelSettings]);
 
   const save = () => {
     setWhiteLabelSettings(settings);

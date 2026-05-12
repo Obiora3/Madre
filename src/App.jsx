@@ -3,6 +3,7 @@ import { AppContext } from "./context/app-context.jsx";
 import { AuthScreen } from "./components/AuthScreen.jsx";
 import { useAppData } from "./hooks/useAppData.js";
 import { useAuth } from "./hooks/useAuth.js";
+import { useLocalStorage } from "./hooks/useLocalStorage.js";
 import { useWhiteLabelSettings } from "./hooks/useWhiteLabelSettings.js";
 import { DARK, LIGHT, ThemeContext } from "./theme.js";
 import { ToastContainer, ToastContext } from "./toast.jsx";
@@ -12,7 +13,7 @@ import "./app.css";
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function AgencyFlow() {
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useLocalStorage("af_dark_mode", true);
   const toggleTheme = () => setDarkMode(d => !d);
   const {
     settings: whiteLabelSettings,
@@ -70,11 +71,12 @@ export default function AgencyFlow() {
   const appValue = useMemo(() => ({
     projects, setProjects, tasks, setTasks, clients, setClients,
     kpis, setKpis, departments, setDepartments, pitches, setPitches,
-    users: appUsers, currentUser, signOut: auth.signOut, nav, page, pageParam, resetAllData,
+    users: appUsers, currentUser, signOut: auth.signOut, updateProfile: auth.updateProfile,
+    nav, page, pageParam, resetAllData,
     whiteLabelSettings, setWhiteLabelSettings, resetWhiteLabelSettings,
   }), [
     projects, tasks, clients, kpis, departments, pitches, appUsers, currentUser,
-    auth.signOut, nav, page, pageParam, resetAllData, whiteLabelSettings,
+    auth.signOut, auth.updateProfile, nav, page, pageParam, resetAllData, whiteLabelSettings,
     setWhiteLabelSettings, resetWhiteLabelSettings
   ]);
 
@@ -145,13 +147,14 @@ export default function AgencyFlow() {
                 ))}
               </div>
               <div style={{ padding:"12px 16px", borderTop:`1px solid ${st.border}` }}>
-                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <button onClick={() => nav("profile")} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", background:"transparent", border:"none", cursor:"pointer", padding:"4px 0", borderRadius:8, textAlign:"left" }}>
                   <Avatar name={currentUser.name} size={32} />
-                  <div style={{ overflow:"hidden" }}>
+                  <div style={{ overflow:"hidden", flex:1 }}>
                     <div style={{ fontSize:12, fontWeight:700, color:st.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{currentUser.name}</div>
                     <div style={{ fontSize:10, color:st.textFaint }}>{currentUser.role}</div>
                   </div>
-                </div>
+                  <span style={{ fontSize:11, color:st.textGhost }}>✏</span>
+                </button>
                 <button onClick={auth.signOut} style={{ width:"100%", marginTop:10, background:"transparent", border:`1px solid ${st.border2}`, color:st.textMuted, borderRadius:7, padding:"7px 10px", fontSize:12, fontWeight:700, cursor:"pointer" }}>Sign Out</button>
                 {!whiteLabelSettings.hide_attribution && (
                   <div style={{ fontSize:10, color:st.textGhost, marginTop:10 }}>Powered by AgencyFlow</div>
@@ -175,7 +178,9 @@ export default function AgencyFlow() {
                 <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:12 }}>
                   <ThemeToggle />
                   <NotificationBell />
-                  <Avatar name={currentUser.name} size={34} />
+                  <button onClick={() => nav("profile")} title="Edit profile" style={{ background:"none", border:"none", cursor:"pointer", padding:0, borderRadius:"50%" }}>
+                    <Avatar name={currentUser.name} size={34} />
+                  </button>
                 </div>
               </div>
               {/* Content */}

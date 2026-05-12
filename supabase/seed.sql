@@ -1,0 +1,3 @@
+-- Optional local demo seed. These rows use fixed mock IDs but require an
+-- authenticated owner_id, so seed through the app after signing in or adapt
+-- this file with a known auth.users.id for local development.
