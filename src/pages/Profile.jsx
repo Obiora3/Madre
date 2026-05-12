@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useApp } from "../context/app-context.jsx";
 import { useTheme } from "../theme.js";
 import { useToast } from "../toast.jsx";
@@ -11,6 +11,15 @@ export function Profile() {
   const toast = useToast();
   const iS = mkInputStyle(t);
   const bs = mkBtnSecondary(t);
+
+  const [copied, setCopied] = useState(false);
+  const copyCode = useCallback(() => {
+    if (!currentUser?.agency_code) return;
+    navigator.clipboard.writeText(currentUser.agency_code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [currentUser?.agency_code]);
 
   const [form, setForm] = useState({
     name: currentUser?.name || "",
@@ -84,6 +93,26 @@ export function Profile() {
               </button>
             </div>
           </div>
+          {/* Agency card */}
+          {currentUser?.agency_code && (
+            <div style={{ background: t.card, border: `1px solid ${t.border2}`, borderRadius: 14, padding: 20, marginTop: 16 }}>
+              <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 700, color: t.text }}>Agency</h3>
+              <div style={{ fontSize: 13, color: t.textMuted, marginBottom: 10 }}>
+                {currentUser.agency_name || "Your Agency"}
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, marginBottom: 6 }}>
+                INVITE CODE — share this with teammates so they can join
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ flex: 1, background: t.statBg, border: `1px solid ${t.border2}`, borderRadius: 8, padding: "10px 14px", fontFamily: "monospace", fontSize: 18, fontWeight: 800, color: t.accent, letterSpacing: "0.15em" }}>
+                  {currentUser.agency_code}
+                </div>
+                <button onClick={copyCode} style={{ background: copied ? "#059669" : t.accent, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", transition: "background 0.2s" }}>
+                  {copied ? "Copied!" : "Copy"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right — account info */}

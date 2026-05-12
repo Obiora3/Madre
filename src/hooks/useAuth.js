@@ -16,13 +16,15 @@ const publicUser = (user) => ({
   department_id: user.department_id || "d1",
   job_title: user.job_title || "Account Owner",
   skills: user.skills || ["Client Services"],
-  avatar_url: user.avatar_url || null
+  avatar_url: user.avatar_url || null,
+  agency_id: user.agency_id || null,
+  agency_code: user.agency_code || null,
+  agency_name: user.agency_name || null,
 });
 
 const publicSupabaseUser = (user) => {
   const meta = user.user_metadata || {};
   const name = meta.name || user.email?.split("@")[0] || "User";
-
   return publicUser({
     id: user.id,
     name,
@@ -32,7 +34,7 @@ const publicSupabaseUser = (user) => {
     department_id: meta.department_id || "d1",
     job_title: meta.job_title || "Account Owner",
     skills: meta.skills || ["Client Services"],
-    avatar_url: meta.avatar_url || null
+    avatar_url: meta.avatar_url || null,
   });
 };
 
@@ -42,21 +44,43 @@ const randomSalt = () => {
     globalThis.crypto.getRandomValues(bytes);
     return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
   }
-
   return `${Date.now()}-${Math.random()}`;
 };
 
 async function hashPassword(password, salt) {
   if (!globalThis.crypto?.subtle) return `local:${salt}:${password}`;
-
   const input = new TextEncoder().encode(`${salt}:${password}`);
   const digest = await globalThis.crypto.subtle.digest("SHA-256", input);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+// Generates a random 8-char uppercase agency code, e.g. "NOVA8K2X"
+const generateAgencyCode = () => {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+};
+
 export function useAuth() {
   const [accounts, setAccounts] = useLocalStorage("af_auth_accounts", []);
   const [currentUser, setCurrentUser] = useLocalStorage("af_current_user", null);
+
+  // Fetches agency info from the profiles join and merges it into currentUser
+  const loadUserAgency = useCallback(async (userId) => {
+    if (!isSupabaseConfigured || !supabase) return;
+    const { data } = await supabase
+      .from("profiles")
+      .select("agency_id, agencies(id, name, code)")
+      .eq("id", userId)
+      .single();
+    if (data?.agencies) {
+      setCurrentUser(prev => prev ? {
+        ...prev,
+        agency_id: data.agency_id,
+        agency_code: data.agencies.code,
+        agency_name: data.agencies.name,
+      } : null);
+    }
+  }, [setCurrentUser]);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return undefined;
@@ -65,26 +89,34 @@ export function useAuth() {
 
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
-      setCurrentUser(data.session?.user ? publicSupabaseUser(data.session.user) : null);
+      const user = data.session?.user ? publicSupabaseUser(data.session.user) : null;
+      setCurrentUser(user);
+      if (user) loadUserAgency(user.id);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setCurrentUser(session?.user ? publicSupabaseUser(session.user) : null);
+      const user = session?.user ? publicSupabaseUser(session.user) : null;
+      setCurrentUser(user);
+      if (user) loadUserAgency(user.id);
     });
 
     return () => {
       mounted = false;
       listener.subscription.unsubscribe();
     };
-  }, [setCurrentUser]);
+  }, [setCurrentUser, loadUserAgency]);
 
-  const signUp = useCallback(async ({ name, email, password }) => {
+  const signUp = useCallback(async ({ name, email, password, agencyMode, agencyName, agencyCode }) => {
     const cleanName = name.trim();
     const cleanEmail = normalizeEmail(email);
 
     if (!cleanName) throw new Error("Enter your name.");
     if (!cleanEmail || !cleanEmail.includes("@")) throw new Error("Enter a valid email address.");
     if (password.length < 6) throw new Error("Use at least 6 characters for your password.");
+
+    if (agencyMode === "create" && !agencyName?.trim()) throw new Error("Enter your agency name.");
+    if (agencyMode === "join" && !agencyCode?.trim()) throw new Error("Enter the agency code.");
+
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.auth.signUp({
         email: cleanEmail,
@@ -92,42 +124,65 @@ export function useAuth() {
         options: {
           data: {
             name: cleanName,
-            role: "admin",
+            role: agencyMode === "create" ? "admin" : "user",
             department: "Leadership",
             department_id: "d1",
             job_title: "Account Owner",
-            skills: ["Client Services"]
-          }
-        }
+            skills: ["Client Services"],
+          },
+        },
       });
 
       if (error) throw new Error(error.message);
-      if (data.user) setCurrentUser(publicSupabaseUser(data.user));
+      if (!data.user) throw new Error("Sign up failed. Please try again.");
+
+      // Link or create agency
+      if (agencyMode === "create") {
+        const code = generateAgencyCode();
+        const { error: rpcError } = await supabase.rpc("create_agency", {
+          p_name: agencyName.trim(),
+          p_code: code,
+        });
+        if (rpcError) throw new Error(rpcError.message);
+      } else if (agencyMode === "join") {
+        const { error: rpcError } = await supabase.rpc("join_agency", {
+          p_code: agencyCode.trim().toUpperCase(),
+        });
+        if (rpcError) throw new Error(rpcError.message);
+      }
+
+      const supabaseUser = publicSupabaseUser(data.user);
+      setCurrentUser(supabaseUser);
+      await loadUserAgency(data.user.id);
       return;
     }
 
-    if (accounts.some((account) => normalizeEmail(account.email) === cleanEmail)) {
+    // ── Local fallback (no Supabase) ──────────────────────────────────────────
+    if (accounts.some((a) => normalizeEmail(a.email) === cleanEmail)) {
       throw new Error("An account already exists for that email.");
     }
 
     const salt = randomSalt();
+    const localAgencyCode = agencyMode === "create" ? generateAgencyCode() : (agencyCode?.trim().toUpperCase() || null);
     const account = {
       id: `auth-${Date.now()}`,
       name: cleanName,
       email: cleanEmail,
-      role: accounts.length === 0 ? "admin" : "user",
+      role: agencyMode === "create" ? "admin" : "user",
       department: "Leadership",
       department_id: "d1",
       job_title: "Account Owner",
       skills: ["Client Services"],
       avatar_url: null,
+      agency_code: localAgencyCode,
+      agency_name: agencyMode === "create" ? agencyName?.trim() : null,
       password_salt: salt,
-      password_hash: await hashPassword(password, salt)
+      password_hash: await hashPassword(password, salt),
     };
 
     setAccounts([...accounts, account]);
     setCurrentUser(publicUser(account));
-  }, [accounts, setAccounts, setCurrentUser]);
+  }, [accounts, setAccounts, setCurrentUser, loadUserAgency]);
 
   const signIn = useCallback(async ({ email, password }) => {
     const cleanEmail = normalizeEmail(email);
@@ -135,11 +190,13 @@ export function useAuth() {
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
-        password
+        password,
       });
-
       if (error) throw new Error(error.message);
-      if (data.user) setCurrentUser(publicSupabaseUser(data.user));
+      if (data.user) {
+        setCurrentUser(publicSupabaseUser(data.user));
+        await loadUserAgency(data.user.id);
+      }
       return;
     }
 
@@ -151,15 +208,13 @@ export function useAuth() {
         setCurrentUser(publicUser(demoUser));
         return;
       }
-
       throw new Error("No account found for that email.");
     }
 
     const hash = await hashPassword(password, account.password_salt);
     if (hash !== account.password_hash) throw new Error("Incorrect password.");
-
     setCurrentUser(publicUser(account));
-  }, [accounts, setCurrentUser]);
+  }, [accounts, setCurrentUser, loadUserAgency]);
 
   const continueAsDemo = useCallback(() => {
     setCurrentUser(publicUser(MOCK_USERS[0]));
@@ -170,17 +225,19 @@ export function useAuth() {
       const { error } = await supabase.auth.signOut();
       if (error) throw new Error(error.message);
     }
-
     setCurrentUser(null);
   }, [setCurrentUser]);
 
   const updateProfile = useCallback(async ({ name, job_title, department, skills }) => {
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.auth.updateUser({
-        data: { name, job_title, department, skills }
+        data: { name, job_title, department, skills },
       });
       if (error) throw new Error(error.message);
-      if (data.user) setCurrentUser(publicSupabaseUser(data.user));
+      if (data.user) {
+        const updated = publicSupabaseUser(data.user);
+        setCurrentUser(prev => prev ? { ...updated, agency_id: prev.agency_id, agency_code: prev.agency_code, agency_name: prev.agency_name } : null);
+      }
       return;
     }
     setCurrentUser(prev => prev ? { ...prev, name, job_title, department, skills } : null);
@@ -193,6 +250,6 @@ export function useAuth() {
     signUp,
     continueAsDemo,
     signOut,
-    updateProfile
+    updateProfile,
   };
 }
