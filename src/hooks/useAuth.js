@@ -3,7 +3,7 @@ import { MOCK_USERS } from "../data/mockData.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import { useLocalStorage } from "./useLocalStorage.js";
 
-const DEMO_PASSWORD = "agencyflow";
+const DEMO_PASSWORD = "madre";
 
 const normalizeEmail = (email) => email.trim().toLowerCase();
 

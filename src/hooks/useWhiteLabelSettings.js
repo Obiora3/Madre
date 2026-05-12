@@ -2,7 +2,7 @@ import { useCallback, useMemo } from "react";
 import { useLocalStorage } from "./useLocalStorage.js";
 
 export const DEFAULT_WHITE_LABEL_SETTINGS = {
-  agency_name: "AgencyFlow",
+  agency_name: "Madre",
   tagline: "Your Agency, Delivered.",
   primary_colour: "#7C3AED",
   accent_colour: "#A78BFA",

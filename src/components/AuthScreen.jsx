@@ -209,7 +209,7 @@ export function AuthScreen({ brand, onSignIn, onSignUp, onDemo }) {
           </button>
 
           <div style={{ color: t.textFaint, fontSize: 11, lineHeight: 1.5, marginTop: 16 }}>
-            Demo sign in: adaeze@agency.io · password agencyflow
+            Demo sign in: adaeze@agency.io · password madre
           </div>
         </div>
       </div>

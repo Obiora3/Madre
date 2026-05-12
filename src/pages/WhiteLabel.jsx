@@ -58,7 +58,7 @@ export const WhiteLabel = React.memo(function WhiteLabel() {
           </div>
           <div style={{ background:t.card,border:`1px solid ${t.border2}`,borderRadius:14,padding:20,marginBottom:20 }}>
             <h3 style={{ margin:"0 0 16px",fontSize:14,fontWeight:700,color:t.text }}>Display</h3>
-            {[["dark_sidebar","Dark Sidebar"],["hide_attribution",'Hide "Powered by AgencyFlow"']].map(([key,label])=>(
+            {[["dark_sidebar","Dark Sidebar"],["hide_attribution",'Hide "Powered by Madre"']].map(([key,label])=>(
               <div key={key} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12 }}>
                 <span style={{ fontSize:13,color:t.textSub }}>{label}</span>
                 <button onClick={()=>setSettings({...settings,[key]:!settings[key]})} style={{ width:44,height:24,borderRadius:99,border:"none",cursor:"pointer",background:settings[key]?"#7C3AED":t.toggleBg,position:"relative",transition:"background 0.2s" }}>
@@ -97,7 +97,7 @@ export const WhiteLabel = React.memo(function WhiteLabel() {
               <div style={{ height:32,background:t.toggleBg,borderRadius:8,marginBottom:12 }} />
               <div style={{ height:32,background:t.toggleBg,borderRadius:8,marginBottom:12,width:"70%" }} />
               <button style={{ background:settings.primary_colour,color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontSize:12,fontWeight:700,cursor:"pointer" }}>+ New Project</button>
-              {!settings.hide_attribution && <div style={{ fontSize:10,color:t.textGhost,marginTop:40 }}>Powered by AgencyFlow</div>}
+              {!settings.hide_attribution && <div style={{ fontSize:10,color:t.textGhost,marginTop:40 }}>Powered by Madre</div>}
             </div>
           </div>
         </div>

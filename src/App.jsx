@@ -12,7 +12,7 @@ import { GlobalSearch, PageRouter } from "./pages/index.jsx";
 import "./app.css";
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
-export default function AgencyFlow() {
+export default function Madre() {
   const [darkMode, setDarkMode] = useLocalStorage("af_dark_mode", true);
   const toggleTheme = () => setDarkMode(d => !d);
   const {
@@ -165,7 +165,7 @@ export default function AgencyFlow() {
                 </button>
                 <button onClick={auth.signOut} style={{ width:"100%", marginTop:10, background:"transparent", border:`1px solid ${st.border2}`, color:st.textMuted, borderRadius:7, padding:"7px 10px", fontSize:12, fontWeight:700, cursor:"pointer" }}>Sign Out</button>
                 {!whiteLabelSettings.hide_attribution && (
-                  <div style={{ fontSize:10, color:st.textGhost, marginTop:10 }}>Powered by AgencyFlow</div>
+                  <div style={{ fontSize:10, color:st.textGhost, marginTop:10 }}>Powered by Madre</div>
                 )}
               </div>
             </div>
