@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useApp } from "../context/app-context.jsx";
 import { useTheme } from "../theme.js";
 import { useToast } from "../toast.jsx";
 import { Avatar, FormField } from "../components/common.jsx";
 import { btnPrimary, mkBtnSecondary, mkInputStyle } from "../styles/formStyles.js";
+import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 
 function AgencyPanel({ currentUser, setupAgency, t, iS, bs }) {
   const toast = useToast();
@@ -98,6 +99,72 @@ function AgencyPanel({ currentUser, setupAgency, t, iS, bs }) {
   );
 }
 
+function DiagnosticsPanel({ t }) {
+  const { currentUser } = useApp();
+  const [info, setInfo] = useState(null);
+  const [checking, setChecking] = useState(false);
+
+  const check = async () => {
+    setChecking(true);
+    const result = {
+      agency_id: currentUser?.agency_id ?? "NOT SET",
+      mode: isSupabaseConfigured && currentUser?.agency_id ? "LIVE (Supabase)" : "LOCAL (localStorage only)",
+      supabase_connected: isSupabaseConfigured,
+    };
+    if (isSupabaseConfigured && supabase) {
+      const [pr, cl, ta] = await Promise.all([
+        supabase.from("projects").select("id, agency_id", { count: "exact" }),
+        supabase.from("clients").select("id, agency_id", { count: "exact" }),
+        supabase.from("tasks").select("id, agency_id", { count: "exact" }),
+      ]);
+      result.projects_in_db = pr.count ?? pr.data?.length ?? "error";
+      result.clients_in_db = cl.count ?? cl.data?.length ?? "error";
+      result.tasks_in_db = ta.count ?? ta.data?.length ?? "error";
+      result.projects_error = pr.error?.message;
+      result.clients_error = cl.error?.message;
+
+      // Check profile directly
+      const { data: profile } = await supabase.from("profiles").select("agency_id").eq("id", currentUser?.id).single();
+      result.db_agency_id = profile?.agency_id ?? "NULL in database";
+      result.agency_match = profile?.agency_id === currentUser?.agency_id ? "✓ Match" : "✗ MISMATCH";
+    }
+    setInfo(result);
+    setChecking(false);
+  };
+
+  const row = (label, value, warn) => (
+    <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${t.border}` }}>
+      <span style={{ fontSize: 12, color: t.textMuted, fontWeight: 600 }}>{label}</span>
+      <span style={{ fontSize: 12, fontWeight: 700, color: warn ? "#ef4444" : t.text, fontFamily: "monospace" }}>{String(value)}</span>
+    </div>
+  );
+
+  return (
+    <div style={{ background: t.card, border: `1px solid ${t.border2}`, borderRadius: 14, padding: 20, marginTop: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: t.text }}>Diagnostics</h3>
+        <button onClick={check} disabled={checking} style={{ ...btnPrimary, padding: "6px 14px", fontSize: 12 }}>
+          {checking ? "Checking…" : "Run Check"}
+        </button>
+      </div>
+      {info && (
+        <div>
+          {row("Mode", info.mode, !info.agency_id || info.mode.includes("LOCAL"))}
+          {row("Frontend agency_id", info.agency_id, info.agency_id === "NOT SET")}
+          {info.db_agency_id !== undefined && row("Database agency_id", info.db_agency_id, !info.db_agency_id || info.db_agency_id === "NULL in database")}
+          {info.agency_match !== undefined && row("Frontend ↔ DB match", info.agency_match, info.agency_match.includes("✗"))}
+          {info.projects_in_db !== undefined && row("Projects visible in DB", info.projects_in_db)}
+          {info.clients_in_db !== undefined && row("Clients visible in DB", info.clients_in_db)}
+          {info.tasks_in_db !== undefined && row("Tasks visible in DB", info.tasks_in_db)}
+          {info.projects_error && row("Projects error", info.projects_error, true)}
+          {info.clients_error && row("Clients error", info.clients_error, true)}
+        </div>
+      )}
+      {!info && <div style={{ fontSize: 12, color: t.textMuted }}>Click "Run Check" to inspect your live connection state.</div>}
+    </div>
+  );
+}
+
 export function Profile() {
   const { currentUser, updateProfile, setupAgency, resetAllData } = useApp();
   const { theme: t } = useTheme();
@@ -178,6 +245,7 @@ export function Profile() {
             </div>
           </div>
           <AgencyPanel currentUser={currentUser} setupAgency={setupAgency} t={t} iS={iS} bs={bs} />
+          <DiagnosticsPanel t={t} />
 
           {/* Danger zone */}
           <div style={{ background: t.card, border: `1px solid #ef444466`, borderRadius: 14, padding: 20, marginTop: 16 }}>

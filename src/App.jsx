@@ -56,6 +56,13 @@ export default function AgencyFlow() {
   } = useAppData(auth.currentUser?.agency_id);
 
   const nav = useCallback((p, param = null) => { setPage(p); setPageParam(param); }, []);
+
+  // Show a toast whenever a Supabase sync write fails
+  useEffect(() => {
+    const handler = (e) => addToast({ message: `Save failed: ${e.detail}`, type: "error" });
+    window.addEventListener("af-sync-error", handler);
+    return () => window.removeEventListener("af-sync-error", handler);
+  }, [addToast]);
   const currentUser = auth.currentUser;
   const appUsers = useMemo(() => {
     if (!currentUser) return users;

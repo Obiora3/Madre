@@ -39,11 +39,17 @@ async function syncCollection(table, oldItems, newItems, agencyId) {
 
   if (toUpsert.length > 0) {
     const { error } = await supabase.from(table).upsert(toUpsert);
-    if (error) console.error(`[sync] upsert ${table}:`, error.message, error);
+    if (error) {
+      console.error(`[sync] upsert ${table}:`, error.message, error);
+      window.dispatchEvent(new CustomEvent("af-sync-error", { detail: error.message }));
+    }
   }
   if (toDelete.length > 0) {
     const { error } = await supabase.from(table).delete().in("id", toDelete);
-    if (error) console.error(`[sync] delete ${table}:`, error.message, error);
+    if (error) {
+      console.error(`[sync] delete ${table}:`, error.message, error);
+      window.dispatchEvent(new CustomEvent("af-sync-error", { detail: error.message }));
+    }
   }
 }
 
