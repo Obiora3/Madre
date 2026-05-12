@@ -1,25 +1,109 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useApp } from "../context/app-context.jsx";
 import { useTheme } from "../theme.js";
 import { useToast } from "../toast.jsx";
 import { Avatar, FormField } from "../components/common.jsx";
 import { btnPrimary, mkBtnSecondary, mkInputStyle } from "../styles/formStyles.js";
 
-export function Profile() {
-  const { currentUser, updateProfile } = useApp();
-  const { theme: t } = useTheme();
+function AgencyPanel({ currentUser, setupAgency, t, iS, bs }) {
   const toast = useToast();
-  const iS = mkInputStyle(t);
-  const bs = mkBtnSecondary(t);
-
+  const [agencyMode, setAgencyMode] = useState("create");
+  const [agencyName, setAgencyName] = useState("");
+  const [agencyCode, setAgencyCode] = useState("");
+  const [working, setWorking] = useState(false);
   const [copied, setCopied] = useState(false);
-  const copyCode = useCallback(() => {
-    if (!currentUser?.agency_code) return;
+
+  const copyCode = () => {
     navigator.clipboard.writeText(currentUser.agency_code).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
-  }, [currentUser?.agency_code]);
+  };
+
+  const submit = async () => {
+    setWorking(true);
+    try {
+      await setupAgency({ agencyMode, agencyName, agencyCode });
+      toast({ message: agencyMode === "create" ? "Agency created!" : "Joined agency!" });
+    } catch (err) {
+      toast({ message: err.message, type: "error" });
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  // Already linked — show code
+  if (currentUser?.agency_code) {
+    return (
+      <div style={{ background: t.card, border: `1px solid ${t.border2}`, borderRadius: 14, padding: 20, marginTop: 16 }}>
+        <h3 style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 700, color: t.text }}>Agency</h3>
+        <div style={{ fontSize: 13, color: t.textMuted, marginBottom: 14 }}>
+          {currentUser.agency_name || "Your Agency"}
+        </div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, letterSpacing: "0.06em", marginBottom: 8 }}>
+          INVITE CODE — share with teammates
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ flex: 1, background: t.statBg, border: `1px solid ${t.border2}`, borderRadius: 8, padding: "10px 14px", fontFamily: "monospace", fontSize: 20, fontWeight: 800, color: t.accent, letterSpacing: "0.2em" }}>
+            {currentUser.agency_code}
+          </div>
+          <button onClick={copyCode} style={{ background: copied ? "#059669" : t.accent, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", transition: "background 0.2s" }}>
+            {copied ? "Copied!" : "Copy"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Not linked — show setup form
+  return (
+    <div style={{ background: t.card, border: `1px solid ${t.border2}`, borderRadius: 14, padding: 20, marginTop: 16 }}>
+      <h3 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: t.text }}>Agency Setup</h3>
+      <div style={{ fontSize: 12, color: t.textMuted, marginBottom: 16 }}>
+        You are not linked to an agency yet.
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 }}>
+        {[["create", "Create Agency"], ["join", "Join Agency"]].map(([id, label]) => {
+          const active = agencyMode === id;
+          return (
+            <button key={id} type="button" onClick={() => setAgencyMode(id)} style={{
+              border: `1px solid ${active ? t.accent : t.border2}`,
+              background: active ? t.accent + "22" : "transparent",
+              color: active ? t.accent : t.textMuted,
+              borderRadius: 7, cursor: "pointer", fontSize: 12, fontWeight: 700, padding: "8px 10px",
+            }}>
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      {agencyMode === "create" ? (
+        <FormField label="Agency Name">
+          <input style={iS} value={agencyName} onChange={e => setAgencyName(e.target.value)} placeholder="e.g. Nova Creative" />
+        </FormField>
+      ) : (
+        <FormField label="Agency Code">
+          <input style={{ ...iS, textTransform: "uppercase", letterSpacing: "0.1em" }}
+            value={agencyCode} onChange={e => setAgencyCode(e.target.value.toUpperCase())}
+            placeholder="e.g. NOVA8K2X" maxLength={8} />
+        </FormField>
+      )}
+
+      <button onClick={submit} disabled={working} style={{ ...btnPrimary, opacity: working ? 0.75 : 1, marginTop: 4 }}>
+        {working ? "Please wait…" : agencyMode === "create" ? "Create Agency" : "Join Agency"}
+      </button>
+    </div>
+  );
+}
+
+export function Profile() {
+  const { currentUser, updateProfile, setupAgency } = useApp();
+  const { theme: t } = useTheme();
+  const toast = useToast();
+  const iS = mkInputStyle(t);
+  const bs = mkBtnSecondary(t);
 
   const [form, setForm] = useState({
     name: currentUser?.name || "",
@@ -93,26 +177,7 @@ export function Profile() {
               </button>
             </div>
           </div>
-          {/* Agency card */}
-          {currentUser?.agency_code && (
-            <div style={{ background: t.card, border: `1px solid ${t.border2}`, borderRadius: 14, padding: 20, marginTop: 16 }}>
-              <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 700, color: t.text }}>Agency</h3>
-              <div style={{ fontSize: 13, color: t.textMuted, marginBottom: 10 }}>
-                {currentUser.agency_name || "Your Agency"}
-              </div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: t.textFaint, marginBottom: 6 }}>
-                INVITE CODE — share this with teammates so they can join
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ flex: 1, background: t.statBg, border: `1px solid ${t.border2}`, borderRadius: 8, padding: "10px 14px", fontFamily: "monospace", fontSize: 18, fontWeight: 800, color: t.accent, letterSpacing: "0.15em" }}>
-                  {currentUser.agency_code}
-                </div>
-                <button onClick={copyCode} style={{ background: copied ? "#059669" : t.accent, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", transition: "background 0.2s" }}>
-                  {copied ? "Copied!" : "Copy"}
-                </button>
-              </div>
-            </div>
-          )}
+          <AgencyPanel currentUser={currentUser} setupAgency={setupAgency} t={t} iS={iS} bs={bs} />
         </div>
 
         {/* Right — account info */}

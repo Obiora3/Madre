@@ -228,6 +228,25 @@ export function useAuth() {
     setCurrentUser(null);
   }, [setCurrentUser]);
 
+  const setupAgency = useCallback(async ({ agencyMode, agencyName, agencyCode }) => {
+    if (!isSupabaseConfigured || !supabase) throw new Error("Supabase is not connected.");
+    if (agencyMode === "create") {
+      if (!agencyName?.trim()) throw new Error("Enter your agency name.");
+      const code = generateAgencyCode();
+      const { error } = await supabase.rpc("create_agency", { p_name: agencyName.trim(), p_code: code });
+      if (error) throw new Error(error.message);
+    } else {
+      if (!agencyCode?.trim()) throw new Error("Enter the agency code.");
+      const { error } = await supabase.rpc("join_agency", { p_code: agencyCode.trim().toUpperCase() });
+      if (error) throw new Error(error.message);
+    }
+    // Re-fetch so currentUser gets agency_code / agency_name
+    setCurrentUser(prev => {
+      if (prev?.id) loadUserAgency(prev.id);
+      return prev;
+    });
+  }, [setCurrentUser, loadUserAgency]);
+
   const updateProfile = useCallback(async ({ name, job_title, department, skills }) => {
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.auth.updateUser({
@@ -251,5 +270,6 @@ export function useAuth() {
     continueAsDemo,
     signOut,
     updateProfile,
+    setupAgency,
   };
 }

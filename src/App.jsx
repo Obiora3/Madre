@@ -72,11 +72,11 @@ export default function AgencyFlow() {
     projects, setProjects, tasks, setTasks, clients, setClients,
     kpis, setKpis, departments, setDepartments, pitches, setPitches,
     users: appUsers, currentUser, signOut: auth.signOut, updateProfile: auth.updateProfile,
-    nav, page, pageParam, resetAllData,
+    setupAgency: auth.setupAgency, nav, page, pageParam, resetAllData,
     whiteLabelSettings, setWhiteLabelSettings, resetWhiteLabelSettings,
   }), [
     projects, tasks, clients, kpis, departments, pitches, appUsers, currentUser,
-    auth.signOut, auth.updateProfile, nav, page, pageParam, resetAllData, whiteLabelSettings,
+    auth.signOut, auth.updateProfile, auth.setupAgency, nav, page, pageParam, resetAllData, whiteLabelSettings,
     setWhiteLabelSettings, resetWhiteLabelSettings
   ]);
 
