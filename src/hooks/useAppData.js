@@ -14,8 +14,12 @@ async function fetchTable(table) {
   return data ?? [];
 }
 
-// FK columns that must be null (not "") when no value is selected
-const FK_COLS = ["client_id", "project_id"];
+// Convert empty strings to null — required for date, FK, and other typed columns
+// that reject "" but accept null. Safe because all required fields are validated
+// non-empty in the UI before calling setXxx.
+const sanitize = obj => Object.fromEntries(
+  Object.entries(obj).map(([k, v]) => [k, v === "" ? null : v])
+);
 
 async function syncCollection(table, oldItems, newItems, agencyId) {
   if (!agencyId) return;
@@ -28,12 +32,7 @@ async function syncCollection(table, oldItems, newItems, agencyId) {
       const prev = oldMap.get(item.id);
       return !prev || JSON.stringify(prev) !== JSON.stringify(item);
     })
-    .map(item => {
-      const row = { ...item, agency_id: agencyId };
-      // Convert empty-string FK values to null to avoid FK constraint violations
-      FK_COLS.forEach(f => { if (row[f] === "") row[f] = null; });
-      return row;
-    });
+    .map(item => sanitize({ ...item, agency_id: agencyId }));
 
   const toDelete = oldItems.filter(i => !newMap.has(i.id)).map(i => i.id);
 
@@ -92,7 +91,7 @@ async function migrateLocalData(agencyId, dbSnapshot) {
     staged[table] = items.map(item => {
       const newId = isMockId(item.id) ? crypto.randomUUID() : item.id;
       idMap[item.id] = newId;
-      return { ...item, id: newId, agency_id: agencyId };
+      return sanitize({ ...item, id: newId, agency_id: agencyId });
     });
   }
 
