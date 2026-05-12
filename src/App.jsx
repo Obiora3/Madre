@@ -45,13 +45,15 @@ export default function AgencyFlow() {
   const [pageParam, setPageParam]     = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // ── App state (via data service — persists to localStorage) ─────────────
+  // ── Auth must come before data so agency_id is available ────────────────
+  const auth = useAuth();
+
+  // ── App state — uses Supabase when agency is active, localStorage otherwise
   const {
     projects, setProjects, tasks, setTasks, clients, setClients,
     kpis, setKpis, departments, setDepartments, pitches, setPitches,
-    users, resetAllData,
-  } = useAppData();
-  const auth = useAuth();
+    users, resetAllData, loading: dataLoading,
+  } = useAppData(auth.currentUser?.agency_id);
 
   const nav = useCallback((p, param = null) => { setPage(p); setPageParam(param); }, []);
   const currentUser = auth.currentUser;
@@ -185,7 +187,14 @@ export default function AgencyFlow() {
               </div>
               {/* Content */}
               <div style={{ flex:1, overflowY:"auto", padding:"28px 28px 40px", background:t.bg, borderTop:`1px solid ${t.border}`, borderLeft:sidebarOpen ? `1px solid ${t.border}` : "none", borderTopLeftRadius:sidebarOpen ? contentCurve : 0, transition:"background 0.3s ease, border-radius 0.25s ease, border-color 0.3s ease" }}>
-                <PageRouter />
+                {dataLoading ? (
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100%", gap:12, color:t.textMuted, fontSize:14 }}>
+                    <div style={{ width:20, height:20, border:`2px solid ${t.border2}`, borderTopColor:t.accent, borderRadius:"50%", animation:"spin 0.7s linear infinite" }} />
+                    Loading agency data…
+                  </div>
+                ) : (
+                  <PageRouter />
+                )}
               </div>
             </div>
 

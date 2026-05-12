@@ -9,6 +9,10 @@ body {
   overflow: hidden;
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .app-sidebar-scroll {
   scrollbar-width: none;
   -ms-overflow-style: none;
