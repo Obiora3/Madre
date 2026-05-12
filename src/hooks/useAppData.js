@@ -6,41 +6,134 @@ import {
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import { useLocalStorage } from "./useLocalStorage.js";
 
-const TABLES = ["projects", "tasks", "clients", "kpis", "departments", "pitches"];
-
 // ── Supabase helpers ──────────────────────────────────────────────────────────
 
 async function fetchTable(table) {
-  const { data, error } = await supabase.from(table).select("*");
-  if (error) { console.warn(`[useAppData] fetch ${table}:`, error.message); return []; }
+  const { data, error } = await supabase.from(table).select("*").order("created_at", { ascending: true });
+  if (error) { console.warn(`[data] fetch ${table}:`, error.message); return []; }
   return data ?? [];
 }
 
 async function syncCollection(table, oldItems, newItems, agencyId) {
+  if (!agencyId) return;
+
   const oldMap = new Map(oldItems.map(i => [i.id, i]));
   const newMap = new Map(newItems.map(i => [i.id, i]));
 
-  const toUpsert = newItems.filter(item => {
-    const old = oldMap.get(item.id);
-    return !old || JSON.stringify(old) !== JSON.stringify(item);
-  }).map(item => ({ ...item, agency_id: agencyId }));
+  const toUpsert = newItems
+    .filter(item => {
+      const prev = oldMap.get(item.id);
+      return !prev || JSON.stringify(prev) !== JSON.stringify(item);
+    })
+    .map(item => ({ ...item, agency_id: agencyId }));
 
   const toDelete = oldItems.filter(i => !newMap.has(i.id)).map(i => i.id);
 
   if (toUpsert.length > 0) {
     const { error } = await supabase.from(table).upsert(toUpsert);
-    if (error) console.warn(`[useAppData] upsert ${table}:`, error.message);
+    if (error) console.warn(`[data] upsert ${table}:`, error.message);
   }
   if (toDelete.length > 0) {
     const { error } = await supabase.from(table).delete().in("id", toDelete);
-    if (error) console.warn(`[useAppData] delete ${table}:`, error.message);
+    if (error) console.warn(`[data] delete ${table}:`, error.message);
   }
+}
+
+const TABLES = ["projects", "tasks", "clients", "kpis", "departments", "pitches"];
+const LS_DEFAULTS = {
+  projects: MOCK_PROJECTS, tasks: MOCK_TASKS, clients: MOCK_CLIENTS,
+  kpis: MOCK_KPIS, departments: MOCK_DEPARTMENTS, pitches: MOCK_PITCHES,
+};
+const LS_KEYS = {
+  projects: "af_projects", tasks: "af_tasks", clients: "af_clients",
+  kpis: "af_kpis", departments: "af_departments", pitches: "af_pitches",
+};
+// Insertion order respects FK constraints (clients/departments before projects, projects before tasks/kpis)
+const MIGRATION_ORDER = ["clients", "departments", "projects", "tasks", "kpis", "pitches"];
+
+const EMPTY = { projects: [], tasks: [], clients: [], kpis: [], departments: [], pitches: [] };
+
+// ── One-time localStorage → Supabase migration ────────────────────────────────
+// Runs once per agency per browser. Only migrates tables that are empty in Supabase.
+// Generates new UUIDs for mock-style IDs (p1, c2, t3 …) to avoid cross-agency collisions.
+// Uses name-matching to remap client FKs when Supabase clients have different IDs.
+
+async function migrateLocalData(agencyId, dbSnapshot) {
+  const migKey = `af_migrated_${agencyId}`;
+  if (localStorage.getItem(migKey)) return dbSnapshot;
+
+  const emptyTables = MIGRATION_ORDER.filter(t => !dbSnapshot[t]?.length);
+  if (!emptyTables.length) { localStorage.setItem(migKey, "1"); return dbSnapshot; }
+
+  const isMockId = id => /^[a-zA-Z]{1,3}\d{1,3}$/.test(String(id ?? ""));
+  const idMap = {};
+  const staged = {};
+
+  for (const table of emptyTables) {
+    let items;
+    try { items = JSON.parse(localStorage.getItem(LS_KEYS[table]) ?? "null") ?? LS_DEFAULTS[table]; }
+    catch { items = LS_DEFAULTS[table]; }
+    staged[table] = items.map(item => {
+      const newId = isMockId(item.id) ? crypto.randomUUID() : item.id;
+      idMap[item.id] = newId;
+      return { ...item, id: newId, agency_id: agencyId };
+    });
+  }
+
+  // Load localStorage clients for name-based FK resolution
+  let lsClients;
+  try { lsClients = JSON.parse(localStorage.getItem(LS_KEYS.clients) ?? "null") ?? LS_DEFAULTS.clients; }
+  catch { lsClients = LS_DEFAULTS.clients; }
+
+  const resolveClientId = localId => {
+    if (!localId) return null;
+    if (dbSnapshot.clients?.some(c => c.id === localId)) return localId;
+    if (idMap[localId]) return idMap[localId];
+    const lsClient = lsClients.find(c => c.id === localId);
+    if (lsClient) {
+      const sbClient = dbSnapshot.clients?.find(c => c.name === lsClient.name);
+      if (sbClient) return sbClient.id;
+    }
+    return null;
+  };
+
+  const resolveProjectId = localId => {
+    if (!localId) return null;
+    if (dbSnapshot.projects?.some(p => p.id === localId)) return localId;
+    return idMap[localId] ?? null;
+  };
+
+  if (staged.projects) {
+    staged.projects = staged.projects.map(p => ({ ...p, client_id: resolveClientId(p.client_id) }));
+  }
+  if (staged.tasks) {
+    staged.tasks = staged.tasks.map(t => ({
+      ...t,
+      project_id: resolveProjectId(t.project_id),
+      depends_on: t.depends_on ? (idMap[t.depends_on] ?? t.depends_on) : null,
+    }));
+  }
+  if (staged.kpis) {
+    staged.kpis = staged.kpis.map(k => ({ ...k, project_id: resolveProjectId(k.project_id) }));
+  }
+
+  for (const table of MIGRATION_ORDER) {
+    if (!staged[table]?.length) continue;
+    const { error } = await supabase.from(table).insert(staged[table]);
+    if (error) console.warn(`[data] migrate ${table}:`, error.message);
+  }
+
+  localStorage.setItem(migKey, "1");
+
+  const refreshed = { ...dbSnapshot };
+  await Promise.all(emptyTables.map(async t => { refreshed[t] = await fetchTable(t); }));
+  return refreshed;
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useAppData(agencyId) {
-  const useSupabase = isSupabaseConfigured && Boolean(agencyId);
+  const live = isSupabaseConfigured && Boolean(agencyId);
 
   // ── localStorage fallback ─────────────────────────────────────────────────
   const [lsProjects,    setLsProjects]    = useLocalStorage("af_projects",    MOCK_PROJECTS);
@@ -51,60 +144,126 @@ export function useAppData(agencyId) {
   const [lsPitches,     setLsPitches]     = useLocalStorage("af_pitches",     MOCK_PITCHES);
 
   // ── Supabase state ────────────────────────────────────────────────────────
-  const emptyDb = { projects: [], tasks: [], clients: [], kpis: [], departments: [], pitches: [] };
-  const [dbData, setDbData] = useState(emptyDb);
+  const [db, setDb]           = useState(EMPTY);
   const [dbUsers, setDbUsers] = useState(MOCK_USERS);
   const [loading, setLoading] = useState(false);
-  const loadedAgency = useRef(null);
+  const loadedRef             = useRef(null);
+  const dbRef                 = useRef(EMPTY);
 
-  // Ref always holds latest db state so setters can diff without stale closures
-  const dbRef = useRef(dbData);
-  useEffect(() => { dbRef.current = dbData; }, [dbData]);
+  useEffect(() => { dbRef.current = db; }, [db]);
 
+  // Initial load + one-time migration when agency changes
   useEffect(() => {
-    if (!useSupabase) return;
-    if (loadedAgency.current === agencyId) return;
+    if (!live) return;
+    if (loadedRef.current === agencyId) return;
 
+    let cancelled = false;
     setLoading(true);
-    Promise.all([
-      ...TABLES.map(fetchTable),
-      supabase.from("profiles").select("*").then(r => r.data ?? []),
-    ]).then(([projects, tasks, clients, kpis, departments, pitches, profiles]) => {
-      setDbData({ projects, tasks, clients, kpis, departments, pitches });
+
+    (async () => {
+      const [projects, tasks, clients, kpis, departments, pitches, profiles] = await Promise.all([
+        ...TABLES.map(fetchTable),
+        supabase.from("profiles").select("*").then(r => r.data ?? []),
+      ]);
+      if (cancelled) return;
+
+      let next = { projects, tasks, clients, kpis, departments, pitches };
+      next = await migrateLocalData(agencyId, next);
+      if (cancelled) return;
+
+      setDb(next);
+      dbRef.current = next;
       if (profiles.length) setDbUsers(profiles);
-      loadedAgency.current = agencyId;
+      loadedRef.current = agencyId;
       setLoading(false);
-    });
-  }, [useSupabase, agencyId]);
+    })();
 
-  // ── Generic setter factory ────────────────────────────────────────────────
-  const makeDbSetter = (table) => (newItems) => {
-    const oldItems = dbRef.current[table];
-    setDbData(prev => ({ ...prev, [table]: newItems }));
-    syncCollection(table, oldItems, newItems, agencyId);
-  };
+    return () => { cancelled = true; };
+  }, [live, agencyId]);
 
-  // ── Public setters ────────────────────────────────────────────────────────
-  const setProjects    = useCallback(useSupabase ? makeDbSetter("projects")    : setLsProjects,    [useSupabase, agencyId]); // eslint-disable-line
-  const setTasks       = useCallback(useSupabase ? makeDbSetter("tasks")       : setLsTasks,       [useSupabase, agencyId]); // eslint-disable-line
-  const setClients     = useCallback(useSupabase ? makeDbSetter("clients")     : setLsClients,     [useSupabase, agencyId]); // eslint-disable-line
-  const setKpis        = useCallback(useSupabase ? makeDbSetter("kpis")        : setLsKpis,        [useSupabase, agencyId]); // eslint-disable-line
-  const setDepartments = useCallback(useSupabase ? makeDbSetter("departments") : setLsDepartments, [useSupabase, agencyId]); // eslint-disable-line
-  const setPitches     = useCallback(useSupabase ? makeDbSetter("pitches")     : setLsPitches,     [useSupabase, agencyId]); // eslint-disable-line
+  // Realtime: subscribe to all table changes so every agency member sees updates instantly
+  useEffect(() => {
+    if (!live) return;
+
+    const channels = TABLES.map(table =>
+      supabase
+        .channel(`agency_${agencyId}_${table}`)
+        .on("postgres_changes", { event: "*", schema: "public", table }, () => {
+          fetchTable(table).then(rows => {
+            setDb(prev => {
+              const next = { ...prev, [table]: rows };
+              dbRef.current = next;
+              return next;
+            });
+          });
+        })
+        .subscribe()
+    );
+
+    return () => { channels.forEach(c => supabase.removeChannel(c)); };
+  }, [live, agencyId]);
+
+  // ── Setters — write to Supabase when live, localStorage otherwise ─────────
+  const setProjects = useCallback((v) => {
+    if (isSupabaseConfigured && agencyId) {
+      syncCollection("projects", dbRef.current.projects, v, agencyId);
+      setDb(p => { const n = { ...p, projects: v }; dbRef.current = n; return n; });
+    } else { setLsProjects(v); }
+  }, [agencyId, setLsProjects]);
+
+  const setTasks = useCallback((v) => {
+    if (isSupabaseConfigured && agencyId) {
+      syncCollection("tasks", dbRef.current.tasks, v, agencyId);
+      setDb(p => { const n = { ...p, tasks: v }; dbRef.current = n; return n; });
+    } else { setLsTasks(v); }
+  }, [agencyId, setLsTasks]);
+
+  const setClients = useCallback((v) => {
+    if (isSupabaseConfigured && agencyId) {
+      syncCollection("clients", dbRef.current.clients, v, agencyId);
+      setDb(p => { const n = { ...p, clients: v }; dbRef.current = n; return n; });
+    } else { setLsClients(v); }
+  }, [agencyId, setLsClients]);
+
+  const setKpis = useCallback((v) => {
+    if (isSupabaseConfigured && agencyId) {
+      syncCollection("kpis", dbRef.current.kpis, v, agencyId);
+      setDb(p => { const n = { ...p, kpis: v }; dbRef.current = n; return n; });
+    } else { setLsKpis(v); }
+  }, [agencyId, setLsKpis]);
+
+  const setDepartments = useCallback((v) => {
+    if (isSupabaseConfigured && agencyId) {
+      syncCollection("departments", dbRef.current.departments, v, agencyId);
+      setDb(p => { const n = { ...p, departments: v }; dbRef.current = n; return n; });
+    } else { setLsDepartments(v); }
+  }, [agencyId, setLsDepartments]);
+
+  const setPitches = useCallback((v) => {
+    if (isSupabaseConfigured && agencyId) {
+      syncCollection("pitches", dbRef.current.pitches, v, agencyId);
+      setDb(p => { const n = { ...p, pitches: v }; dbRef.current = n; return n; });
+    } else { setLsPitches(v); }
+  }, [agencyId, setLsPitches]);
 
   const resetAllData = useCallback(async () => {
-    if (useSupabase) {
-      await Promise.all(TABLES.map(t => supabase.from(t).delete().eq("agency_id", agencyId)));
-      setDbData(emptyDb);
-      loadedAgency.current = null;
+    if (isSupabaseConfigured && agencyId) {
+      await Promise.all(TABLES.map(t =>
+        supabase.from(t).delete().eq("agency_id", agencyId)
+      ));
+      // Clear migration flag so the next load re-migrates fresh
+      localStorage.removeItem(`af_migrated_${agencyId}`);
+      setDb(EMPTY);
+      dbRef.current = EMPTY;
+      loadedRef.current = null;
     } else {
       setLsProjects(MOCK_PROJECTS); setLsTasks(MOCK_TASKS);
       setLsClients(MOCK_CLIENTS);   setLsKpis(MOCK_KPIS);
       setLsDepartments(MOCK_DEPARTMENTS); setLsPitches(MOCK_PITCHES);
     }
-  }, [useSupabase, agencyId]); // eslint-disable-line
+  }, [agencyId, setLsProjects, setLsTasks, setLsClients, setLsKpis, setLsDepartments, setLsPitches]);
 
-  const active = useSupabase ? dbData : {
+  const active = live ? db : {
     projects: lsProjects, tasks: lsTasks, clients: lsClients,
     kpis: lsKpis, departments: lsDepartments, pitches: lsPitches,
   };
@@ -112,7 +271,7 @@ export function useAppData(agencyId) {
   return {
     ...active,
     setProjects, setTasks, setClients, setKpis, setDepartments, setPitches,
-    users: useSupabase ? dbUsers : MOCK_USERS,
+    users: live ? dbUsers : MOCK_USERS,
     resetAllData,
     loading,
   };
