@@ -58,8 +58,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
       stage: project.stage || "Brief",
       priority: project.priority || "Medium",
       status: project.status || "Active",
-      assigned_to_name: project.assigned_to?.name || "",
-      assigned_to_email: project.assigned_to?.email || "",
+      assigneeId: users.find(u => u.email === project.assigned_to?.email || u.name === project.assigned_to?.name)?.id || "",
       start_date: project.start_date || "",
       due_date: project.due_date || "",
       progress: project.progress ?? 0,
@@ -70,8 +69,9 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
 
   const handleEditSave = () => {
     if (!editForm?.title?.trim()) { toast({ message: "Title is required.", type: "error" }); return; }
-    const { assigned_to_name, assigned_to_email, ...rest } = editForm;
-    setProjects(projects.map(p => p.id === id ? { ...project, ...rest, assigned_to: { name: assigned_to_name, email: assigned_to_email } } : p));
+    const { assigneeId, ...rest } = editForm;
+    const assignee = assigneeId ? users.find(u => u.id === assigneeId) : null;
+    setProjects(projects.map(p => p.id === id ? { ...project, ...rest, assigned_to: assignee ? { name: assignee.name, email: assignee.email } : {} } : p));
     toast({ message: "Project updated." });
     setShowEditForm(false);
   };
@@ -233,10 +233,12 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
               <input type="number" min="0" max="100" style={iS} value={editForm.progress} onChange={e=>setEditForm({...editForm,progress:Math.min(100,Math.max(0,Number(e.target.value)))})} />
             </FormField>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-            <FormField label="Assigned To (name)"><input style={iS} value={editForm.assigned_to_name} onChange={e=>setEditForm({...editForm,assigned_to_name:e.target.value})} /></FormField>
-            <FormField label="Assigned To (email)"><input style={iS} value={editForm.assigned_to_email} onChange={e=>setEditForm({...editForm,assigned_to_email:e.target.value})} /></FormField>
-          </div>
+          <FormField label="Assign To">
+            <select style={sS} value={editForm.assigneeId} onChange={e=>setEditForm({...editForm,assigneeId:e.target.value})}>
+              <option value="">Unassigned</option>
+              {users.map(u=><option key={u.id} value={u.id}>{u.name}{u.department?` · ${u.department}`:""}</option>)}
+            </select>
+          </FormField>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
             <FormField label="Start Date"><input type="date" style={iS} value={editForm.start_date} onChange={e=>setEditForm({...editForm,start_date:e.target.value})} /></FormField>
             <FormField label="Due Date"><input type="date" style={iS} value={editForm.due_date} onChange={e=>setEditForm({...editForm,due_date:e.target.value})} /></FormField>
