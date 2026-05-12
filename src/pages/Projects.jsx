@@ -43,7 +43,8 @@ export const Projects = React.memo(function Projects() {
   const filtered = projects.filter(p => filter === "All" || p.priority === filter);
 
   const handleCreate = () => {
-    const np = { ...form, id: "p"+Date.now(), assigned_to: { name: form.assigned_to_name, email: form.assigned_to_email } };
+    const { assigned_to_name, assigned_to_email, ...rest } = form;
+    const np = { ...rest, id: "p"+Date.now(), assigned_to: { name: assigned_to_name, email: assigned_to_email } };
     setProjects([...projects, np]);
     toast({ message: `Project "${form.title}" created`, sub: `${form.stage} · ${form.priority} priority`, type: "success" });
     setShowForm(false);
