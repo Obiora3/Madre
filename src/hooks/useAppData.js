@@ -14,6 +14,9 @@ async function fetchTable(table) {
   return data ?? [];
 }
 
+// FK columns that must be null (not "") when no value is selected
+const FK_COLS = ["client_id", "project_id"];
+
 async function syncCollection(table, oldItems, newItems, agencyId) {
   if (!agencyId) return;
 
@@ -25,17 +28,22 @@ async function syncCollection(table, oldItems, newItems, agencyId) {
       const prev = oldMap.get(item.id);
       return !prev || JSON.stringify(prev) !== JSON.stringify(item);
     })
-    .map(item => ({ ...item, agency_id: agencyId }));
+    .map(item => {
+      const row = { ...item, agency_id: agencyId };
+      // Convert empty-string FK values to null to avoid FK constraint violations
+      FK_COLS.forEach(f => { if (row[f] === "") row[f] = null; });
+      return row;
+    });
 
   const toDelete = oldItems.filter(i => !newMap.has(i.id)).map(i => i.id);
 
   if (toUpsert.length > 0) {
     const { error } = await supabase.from(table).upsert(toUpsert);
-    if (error) console.warn(`[data] upsert ${table}:`, error.message);
+    if (error) console.error(`[sync] upsert ${table}:`, error.message, error);
   }
   if (toDelete.length > 0) {
     const { error } = await supabase.from(table).delete().in("id", toDelete);
-    if (error) console.warn(`[data] delete ${table}:`, error.message);
+    if (error) console.error(`[sync] delete ${table}:`, error.message, error);
   }
 }
 
