@@ -9,6 +9,7 @@ import {
   useTheme,
   useToast,
   callClaude,
+  calcProgress,
   fmtDate,
   priorityColor,
   stageColor,
@@ -33,7 +34,7 @@ const BLANK_FORM = { title:"", client_id:"", description:"", stage:"Brief", prio
 
 // ─── PROJECTS ─────────────────────────────────────────────────────────────────
 export const Projects = React.memo(function Projects() {
-  const { projects, setProjects, clients, users, nav } = useApp();
+  const { projects, setProjects, tasks, clients, users, nav } = useApp();
   const { theme: t } = useTheme();
   const toast = useToast();
   const iS = mkInputStyle(t); const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);
@@ -96,8 +97,8 @@ export const Projects = React.memo(function Projects() {
                       <Badge label={p.priority} color={priorityColor(p.priority)} />
                       <Badge label={p.status} color={statusColor(p.status)} />
                     </div>
-                    <ProgressBar value={p.progress} color={stageColor(stage)} />
-                    <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4 }}>{p.progress}% · {fmtDate(p.due_date)}</div>
+                    <ProgressBar value={calcProgress(p.id, tasks)} color={stageColor(stage)} />
+                    <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4 }}>{calcProgress(p.id, tasks)}% · {fmtDate(p.due_date)}</div>
                     {nextStage && (
                       <button onClick={e => advanceStage(e, p)} style={{ display:"block", width:"100%", marginTop:8, background:t.accent+"18", border:`1px solid ${t.accent}33`, color:t.accent, borderRadius:6, padding:"4px 0", fontSize:11, fontWeight:700, cursor:"pointer" }}>
                         → Move to {nextStage}

@@ -3,6 +3,7 @@ import {
   useMemo,
   useApp,
   useTheme,
+  calcProgress,
   fmtDate,
   priorityColor,
   stageColor,
@@ -135,8 +136,8 @@ export const Dashboard = React.memo(function Dashboard() {
                 <span style={{ fontSize: 13, fontWeight: 600, color: t.textSub }}>{p.title}</span>
                 <Badge label={p.priority} color={priorityColor(p.priority)} />
               </div>
-              <ProgressBar value={p.progress} color={priorityColor(p.priority)} />
-              <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4 }}>{p.progress}% complete · Due {fmtDate(p.due_date)}</div>
+              <ProgressBar value={calcProgress(p.id, tasks)} color={priorityColor(p.priority)} />
+              <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4 }}>{calcProgress(p.id, tasks)}% complete · Due {fmtDate(p.due_date)}</div>
             </div>
           ))}
         </div>

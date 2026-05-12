@@ -9,6 +9,7 @@ import {
   useTheme,
   useToast,
   callClaude,
+  calcProgress,
   fmtDate,
   priorityColor,
   stageColor,
@@ -85,7 +86,9 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
       const d = departments.find(x => x.id === taskAssigneeKey.slice(5));
       if (d) assignedTo = { name: d.name, email: "" };
     }
-    setTasks([...tasks, { ...taskForm, id: "t"+Date.now(), project_id: id, assigned_to: assignedTo }]);
+    const newTasks = [...tasks, { ...taskForm, id: "t"+Date.now(), project_id: id, assigned_to: assignedTo }];
+    setTasks(newTasks);
+    setProjects(projects.map(p => p.id === id ? { ...p, progress: calcProgress(id, newTasks) } : p));
     toast({ message: `Task "${taskForm.title}" added`, sub: `${taskForm.priority} priority · Due ${fmtDate(taskForm.due_date)}`, type: "success" });
     setShowTaskForm(false);
     setTaskForm({ title:"", description:"", status:"To Do", priority:"Medium", due_date:"", estimated_hours:0 });
@@ -93,7 +96,9 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   };
   const changeTaskStatus = (tid, newStatus) => {
     const task = tasks.find(t2 => t2.id === tid);
-    setTasks(tasks.map(t2 => t2.id === tid ? { ...t2, status: newStatus } : t2));
+    const newTasks = tasks.map(t2 => t2.id === tid ? { ...t2, status: newStatus } : t2);
+    setTasks(newTasks);
+    setProjects(projects.map(p => p.id === id ? { ...p, progress: calcProgress(id, newTasks) } : p));
     if (task) toast({ message: `"${task.title}" → ${newStatus}`, type: newStatus === "Done" ? "success" : "info" });
   };
   const simulateAI = async () => {
@@ -229,8 +234,11 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
                 {["Active","On Hold","Completed","Cancelled"].map(s=><option key={s}>{s}</option>)}
               </select>
             </FormField>
-            <FormField label="Progress (%)">
-              <input type="number" min="0" max="100" style={iS} value={editForm.progress} onChange={e=>setEditForm({...editForm,progress:Math.min(100,Math.max(0,Number(e.target.value)))})} />
+            <FormField label="Progress">
+              <div style={{ ...iS, display:"flex", alignItems:"center", gap:8, cursor:"default" }}>
+                <span style={{ fontWeight:700 }}>{calcProgress(id, tasks)}%</span>
+                <span style={{ fontSize:11, opacity:0.6 }}>auto · from tasks</span>
+              </div>
             </FormField>
           </div>
           <FormField label="Assign To">
