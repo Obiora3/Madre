@@ -105,7 +105,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     setAiLoading(true); setAiResult(""); setAiError(null);
     try {
       const result = await callClaude(
-        `Analyze this project and provide a critical path delay simulation:\n\nProject: ${project.title}\nStage: ${project.stage}\nProgress: ${project.progress}%\nDue: ${project.due_date}\nTasks: ${projectTasks.map(t2=>`${t2.title} (${t2.status}, due ${t2.due_date})`).join("; ")}\n\nGive a brief risk assessment and 2-3 recommendations.`,
+        `Analyze this project and provide a critical path delay simulation:\n\nProject: ${project.title}\nStage: ${project.stage}\nProgress: ${calcProgress(id, tasks)}%\nDue: ${project.due_date}\nTasks: ${projectTasks.map(t2=>`${t2.title} (${t2.status}, due ${t2.due_date})`).join("; ")}\n\nGive a brief risk assessment and 2-3 recommendations.`,
         "You are a project management AI. Be concise and specific."
       );
       setAiResult(result);
@@ -135,14 +135,14 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
           </div>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:16, marginBottom:16 }}>
-          {[["Assigned","👤",project.assigned_to?.name||"—"],["Start","📅",fmtDate(project.start_date)],["Due","🗓",fmtDate(project.due_date)],["Progress","📈",`${project.progress}%`]].map(([l,i,v])=>(
+          {[["Assigned","👤",project.assigned_to?.name||"—"],["Start","📅",fmtDate(project.start_date)],["Due","🗓",fmtDate(project.due_date)],["Progress","📈",`${calcProgress(id, tasks)}%`]].map(([l,i,v])=>(
             <div key={l} style={{ background:t.statBg, borderRadius:10, padding:"10px 14px" }}>
               <div style={{ fontSize:11, color:t.textFaint, marginBottom:4 }}>{i} {l}</div>
               <div style={{ fontSize:14, fontWeight:700, color:t.textSub }}>{v}</div>
             </div>
           ))}
         </div>
-        <ProgressBar value={project.progress} color="#7C3AED" height={8} />
+        <ProgressBar value={calcProgress(id, tasks)} color="#7C3AED" height={8} />
       </div>
       <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, marginBottom:20 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
