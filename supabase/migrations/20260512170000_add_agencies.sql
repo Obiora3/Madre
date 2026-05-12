@@ -13,14 +13,6 @@ create trigger set_agencies_updated_at
   before update on public.agencies
   for each row execute function public.set_updated_at();
 
--- ── helper: returns the calling user's agency_id ─────────────────────────────
-create or replace function public.my_agency_id()
-returns uuid
-language sql stable security definer set search_path = public
-as $$
-  select agency_id from public.profiles where id = auth.uid()
-$$;
-
 -- ── add agency_id to profiles and all data tables ────────────────────────────
 alter table public.profiles   add column if not exists agency_id uuid references public.agencies(id) on delete set null;
 alter table public.clients    add column if not exists agency_id uuid references public.agencies(id) on delete cascade;
@@ -30,6 +22,14 @@ alter table public.kpis       add column if not exists agency_id uuid references
 alter table public.departments add column if not exists agency_id uuid references public.agencies(id) on delete cascade;
 alter table public.pitches    add column if not exists agency_id uuid references public.agencies(id) on delete cascade;
 alter table public.activities add column if not exists agency_id uuid references public.agencies(id) on delete cascade;
+
+-- ── helper: returns the calling user's agency_id ─────────────────────────────
+create or replace function public.my_agency_id()
+returns uuid
+language sql stable security definer set search_path = public
+as $$
+  select agency_id from public.profiles where id = auth.uid()
+$$;
 
 -- ── RPC: create a new agency and link the calling user ───────────────────────
 create or replace function public.create_agency(p_name text, p_code text)
