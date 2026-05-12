@@ -8,6 +8,7 @@ import { DARK, LIGHT, ThemeContext } from "./theme.js";
 import { ToastContainer, ToastContext } from "./toast.jsx";
 import { Avatar, NotificationBell, ThemeToggle } from "./components/common.jsx";
 import { GlobalSearch, PageRouter } from "./pages/index.jsx";
+import "./app.css";
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function AgencyFlow() {
@@ -98,6 +99,9 @@ export default function AgencyFlow() {
   ];
 
   const activeId = page === "project-detail" ? "projects" : page;
+  const headerHeight = 72;
+  const contentCurve = 28;
+  const shellBg = t.surface;
 
   return (
     <ThemeContext.Provider value={{ theme, toggle: toggleTheme }}>
@@ -114,15 +118,15 @@ export default function AgencyFlow() {
           </>
         ) : (
         <AppContext.Provider value={appValue}>
-          <div style={{ display:"flex", height:"100vh", background:t.bg, fontFamily:"\'DM Sans\', \'Outfit\', system-ui, sans-serif", color:t.textSub, overflow:"hidden", transition:"background 0.3s ease, color 0.3s ease" }}>
+          <div style={{ display:"flex", height:"100vh", background:shellBg, fontFamily:"\'DM Sans\', \'Outfit\', system-ui, sans-serif", color:t.textSub, overflow:"hidden", transition:"background 0.3s ease, color 0.3s ease" }}>
 
             {/* Sidebar */}
-            <div style={{ width: sidebarOpen ? 220 : 0, minWidth: sidebarOpen ? 220 : 0, background:st.surface, borderRight:`1px solid ${st.border}`, display:"flex", flexDirection:"column", overflow:"hidden", transition:"width 0.25s ease, min-width 0.25s ease, background 0.3s ease", flexShrink:0 }}>
-              <div style={{ padding:"20px 16px 14px", borderBottom:`1px solid ${st.border}` }}>
+            <div style={{ width: sidebarOpen ? 220 : 0, minWidth: sidebarOpen ? 220 : 0, background:st.surface, display:"flex", flexDirection:"column", overflow:"hidden", transition:"width 0.25s ease, min-width 0.25s ease, background 0.3s ease", flexShrink:0 }}>
+              <div style={{ height:headerHeight, boxSizing:"border-box", padding:"0 16px", borderBottom:`1px solid ${st.border}`, display:"flex", flexDirection:"column", justifyContent:"center" }}>
                 <div style={{ fontSize:18, fontWeight:800, color:st.accent, letterSpacing:"-0.02em" }}>{whiteLabelSettings.agency_name}</div>
                 <div style={{ fontSize:11, color:st.textGhost, marginTop:2 }}>{whiteLabelSettings.tagline}</div>
               </div>
-              <div style={{ flex:1, overflowY:"auto", padding:"10px 8px" }}>
+              <div className="app-sidebar-scroll" style={{ flex:1, overflowY:"auto", padding:"14px 12px 10px" }}>
                 <div style={{ marginBottom:8 }}>
                   {navItems.map(item => (
                     <button key={item.id} onClick={() => nav(item.id)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"9px 10px", borderRadius:8, border:"none", cursor:"pointer", background:activeId===item.id?st.navActive:"transparent", color:activeId===item.id?st.navActiveText:st.navText, fontWeight:activeId===item.id?700:400, fontSize:13, textAlign:"left", marginBottom:1, transition:"background 0.15s, color 0.15s" }}>
@@ -156,10 +160,17 @@ export default function AgencyFlow() {
             </div>
 
             {/* Main */}
-            <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+            <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", background:shellBg }}>
               {/* Topbar */}
-              <div style={{ height:56, background:t.surface, borderBottom:`1px solid ${t.border}`, display:"flex", alignItems:"center", padding:"0 20px", gap:16, flexShrink:0, transition:"background 0.3s ease" }}>
-                <button onClick={() => setSidebarOpen(o => !o)} style={{ background:"none", border:"none", color:t.textMuted, cursor:"pointer", fontSize:18, padding:4 }}>\u2630</button>
+              <div style={{ height:headerHeight, background:shellBg, display:"flex", alignItems:"center", padding:"0 20px", gap:16, flexShrink:0, transition:"background 0.3s ease" }}>
+                <button
+                  aria-label={sidebarOpen ? "Collapse sidebar" : "Open sidebar"}
+                  title={sidebarOpen ? "Collapse sidebar" : "Open sidebar"}
+                  onClick={() => setSidebarOpen(o => !o)}
+                  style={{ width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center", background:"transparent", border:`1px solid ${t.border2}`, borderRadius:8, color:t.textMuted, cursor:"pointer", fontSize:18, padding:0, lineHeight:1 }}
+                >
+                  {"\u2630"}
+                </button>
                 <GlobalSearch />
                 <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:12 }}>
                   <ThemeToggle />
@@ -168,7 +179,7 @@ export default function AgencyFlow() {
                 </div>
               </div>
               {/* Content */}
-              <div style={{ flex:1, overflowY:"auto", padding:"28px 28px 40px", background:t.bg, transition:"background 0.3s ease" }}>
+              <div style={{ flex:1, overflowY:"auto", padding:"28px 28px 40px", background:t.bg, borderTop:`1px solid ${t.border}`, borderLeft:sidebarOpen ? `1px solid ${t.border}` : "none", borderTopLeftRadius:sidebarOpen ? contentCurve : 0, transition:"background 0.3s ease, border-radius 0.25s ease, border-color 0.3s ease" }}>
                 <PageRouter />
               </div>
             </div>
