@@ -30,7 +30,7 @@ import {
 
 // ─── DEPARTMENTS ──────────────────────────────────────────────────────────────
 export const Departments = React.memo(function Departments() {
-  const { departments, setDepartments, users } = useApp();
+  const { departments, setDepartments, users, currentUser } = useApp();
   const { theme: t } = useTheme();
   const toast = useToast();
   const iS = mkInputStyle(t); const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);
@@ -62,7 +62,10 @@ export const Departments = React.memo(function Departments() {
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16 }}>
         {departments.map(d=>{
-          const lead = users.find(u=>u.email===d.lead);
+          const leadFromUsers = users.find(u=>u.email===d.lead);
+          const lead = leadFromUsers
+            ? (currentUser && leadFromUsers.email === currentUser.email ? { ...leadFromUsers, ...currentUser } : leadFromUsers)
+            : (currentUser && currentUser.email === d.lead ? currentUser : null);
           const memberUsers = users.filter(u=>d.members.includes(u.email));
           return (
             <div key={d.id} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, overflow:"hidden" }}>
