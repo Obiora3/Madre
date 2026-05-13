@@ -215,7 +215,20 @@ export function useAppData(agencyId) {
         .subscribe()
     );
 
-    return () => { channels.forEach(c => supabase.removeChannel(c)); };
+    // Subscribe to profiles so team member profile edits are reflected immediately
+    const profilesChannel = supabase
+      .channel(`agency_${agencyId}_profiles`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
+        supabase.from("profiles").select("*").then(r => {
+          if (r.data?.length) setDbUsers(r.data);
+        });
+      })
+      .subscribe();
+
+    return () => {
+      channels.forEach(c => supabase.removeChannel(c));
+      supabase.removeChannel(profilesChannel);
+    };
   }, [live, agencyId]);
 
   // ── Setters — write to Supabase when live, localStorage otherwise ─────────

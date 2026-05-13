@@ -261,6 +261,11 @@ export function useAuth() {
       });
       if (error) throw new Error(error.message);
       if (data.user) {
+        // Keep profiles table in sync so team members see the updated info
+        await supabase
+          .from("profiles")
+          .update({ name, job_title, department, skills })
+          .eq("id", data.user.id);
         const updated = publicSupabaseUser(data.user);
         setCurrentUser(prev => prev ? { ...updated, agency_id: prev.agency_id, agency_code: prev.agency_code, agency_name: prev.agency_name } : null);
       }

@@ -66,7 +66,9 @@ export default function Madre() {
   const currentUser = auth.currentUser;
   const appUsers = useMemo(() => {
     if (!currentUser) return users;
-    return users.some((user) => user.email === currentUser.email) ? users : [currentUser, ...users];
+    const found = users.some(u => u.email === currentUser.email);
+    const merged = users.map(u => u.email === currentUser.email ? { ...u, ...currentUser } : u);
+    return found ? merged : [currentUser, ...users];
   }, [currentUser, users]);
   const t = theme;
   const st = whiteLabelSettings.dark_sidebar ? {
