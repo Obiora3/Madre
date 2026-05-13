@@ -64,6 +64,26 @@ export function useAuth() {
   const [accounts, setAccounts] = useLocalStorage("af_auth_accounts", []);
   const [currentUser, setCurrentUser] = useLocalStorage("af_current_user", null);
 
+  // One-time migration: strip placeholder values that were hardcoded at signup
+  // so users see a blank field and fill in their real info.
+  useEffect(() => {
+    if (!currentUser) return;
+    const needsMigration =
+      currentUser.job_title === "Account Owner" ||
+      currentUser.department === "Leadership" ||
+      (Array.isArray(currentUser.skills) && currentUser.skills.length === 1 && currentUser.skills[0] === "Client Services");
+    if (needsMigration) {
+      setCurrentUser(prev => prev ? {
+        ...prev,
+        job_title:   prev.job_title   === "Account Owner" ? "" : prev.job_title,
+        department:  prev.department  === "Leadership"    ? "" : prev.department,
+        department_id: prev.department_id === "d1"        ? "" : prev.department_id,
+        skills: (Array.isArray(prev.skills) && prev.skills.length === 1 && prev.skills[0] === "Client Services") ? [] : prev.skills,
+      } : null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Fetches agency info and merges it into currentUser.
   // Uses two queries so agency_id is always set even if the agencies join fails.
   const loadUserAgency = useCallback(async (userId) => {
