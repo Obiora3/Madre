@@ -20,6 +20,31 @@ Email: adaeze@agency.io
 Password: agencyflow
 ```
 
+When `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` are present, sign in and sign up use Supabase Auth instead.
+
+## Supabase
+
+The project includes:
+
+- `src/lib/supabaseClient.js` for the Vite Supabase client.
+- `supabase/config.toml` for local Supabase CLI settings.
+- `supabase/migrations/20260512140000_create_agencyflow_schema.sql` for the app tables and RLS policies.
+
+Required Vite environment variables:
+
+```bash
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+```
+
+Useful commands:
+
+```bash
+npm run supabase:start
+npm run supabase:db:push
+npm run supabase:stop
+```
+
 ## Local Development
 
 1. Install dependencies:
