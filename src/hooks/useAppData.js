@@ -160,7 +160,7 @@ export function useAppData(agencyId) {
 
   // ── Supabase state ────────────────────────────────────────────────────────
   const [db, setDb]           = useState(EMPTY);
-  const [dbUsers, setDbUsers] = useState(MOCK_USERS);
+  const [dbUsers, setDbUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const loadedRef             = useRef(null);
   const dbRef                 = useRef(EMPTY);
@@ -305,7 +305,7 @@ export function useAppData(agencyId) {
   return {
     ...active,
     setProjects, setTasks, setClients, setKpis, setDepartments, setPitches,
-    users: live ? dbUsers : MOCK_USERS,
+    users: dbUsers,
     resetAllData,
     loading,
   };
