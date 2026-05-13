@@ -7,15 +7,25 @@ const DEMO_PASSWORD = "madre";
 
 const normalizeEmail = (email) => email.trim().toLowerCase();
 
+// Strip old hardcoded signup placeholders so they appear as blank in the UI.
+const STALE_JOB_TITLES  = ["Account Owner"];
+const STALE_DEPARTMENTS = ["Leadership"];
+const clean = (value, staleList) =>
+  value && !staleList.includes(value) ? value : "";
+const cleanSkills = (skills) => {
+  if (!Array.isArray(skills)) return [];
+  return skills.length === 1 && skills[0] === "Client Services" ? [] : skills;
+};
+
 const publicUser = (user) => ({
   id: user.id,
   name: user.name,
   email: user.email,
   role: user.role || "admin",
-  department: user.department || "Leadership",
-  department_id: user.department_id || "d1",
-  job_title: user.job_title || "",
-  skills: user.skills || [],
+  department:    clean(user.department,    STALE_DEPARTMENTS),
+  department_id: user.department_id === "d1" ? "" : (user.department_id || ""),
+  job_title:     clean(user.job_title,     STALE_JOB_TITLES),
+  skills:        cleanSkills(user.skills),
   avatar_url: user.avatar_url || null,
   agency_id: user.agency_id || null,
   agency_code: user.agency_code || null,
@@ -30,11 +40,11 @@ const publicSupabaseUser = (user) => {
     name,
     email: user.email,
     role: meta.role || "admin",
-    department: meta.department || "",
+    department:    meta.department    || "",
     department_id: meta.department_id || "",
-    job_title: meta.job_title || "",
-    skills: meta.skills || [],
-    avatar_url: meta.avatar_url || null,
+    job_title:     meta.job_title     || "",
+    skills:        meta.skills        || [],
+    avatar_url:    meta.avatar_url    || null,
   });
 };
 
@@ -63,26 +73,6 @@ const generateAgencyCode = () => {
 export function useAuth() {
   const [accounts, setAccounts] = useLocalStorage("af_auth_accounts", []);
   const [currentUser, setCurrentUser] = useLocalStorage("af_current_user", null);
-
-  // One-time migration: strip placeholder values that were hardcoded at signup
-  // so users see a blank field and fill in their real info.
-  useEffect(() => {
-    if (!currentUser) return;
-    const needsMigration =
-      currentUser.job_title === "Account Owner" ||
-      currentUser.department === "Leadership" ||
-      (Array.isArray(currentUser.skills) && currentUser.skills.length === 1 && currentUser.skills[0] === "Client Services");
-    if (needsMigration) {
-      setCurrentUser(prev => prev ? {
-        ...prev,
-        job_title:   prev.job_title   === "Account Owner" ? "" : prev.job_title,
-        department:  prev.department  === "Leadership"    ? "" : prev.department,
-        department_id: prev.department_id === "d1"        ? "" : prev.department_id,
-        skills: (Array.isArray(prev.skills) && prev.skills.length === 1 && prev.skills[0] === "Client Services") ? [] : prev.skills,
-      } : null);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Fetches agency info and merges it into currentUser.
   // Uses two queries so agency_id is always set even if the agencies join fails.
