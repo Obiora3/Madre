@@ -8,6 +8,17 @@ import { useLocalStorage } from "./useLocalStorage.js";
 
 // ── Supabase helpers ──────────────────────────────────────────────────────────
 
+// Strip old signup placeholders from profiles so they never appear in the UI.
+const STALE_JOB_TITLES  = ["Account Owner"];
+const STALE_DEPARTMENTS = ["Leadership"];
+const cleanProfile = p => ({
+  ...p,
+  job_title:  STALE_JOB_TITLES.includes(p.job_title)   ? "" : (p.job_title  || ""),
+  department: STALE_DEPARTMENTS.includes(p.department)  ? "" : (p.department || ""),
+  skills: Array.isArray(p.skills) && p.skills.length === 1 && p.skills[0] === "Client Services" ? [] : (p.skills || []),
+});
+const cleanProfiles = profiles => profiles.map(cleanProfile);
+
 async function fetchTable(table) {
   const { data, error } = await supabase.from(table).select("*").order("created_at", { ascending: true });
   if (error) { console.warn(`[data] fetch ${table}:`, error.message); return []; }
@@ -188,7 +199,7 @@ export function useAppData(agencyId) {
 
       setDb(next);
       dbRef.current = next;
-      if (profiles.length) setDbUsers(profiles);
+      if (profiles.length) setDbUsers(cleanProfiles(profiles));
       loadedRef.current = agencyId;
       setLoading(false);
     })();
@@ -220,7 +231,7 @@ export function useAppData(agencyId) {
       .channel(`agency_${agencyId}_profiles`)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
         supabase.from("profiles").select("*").then(r => {
-          if (r.data?.length) setDbUsers(r.data);
+          if (r.data?.length) setDbUsers(cleanProfiles(r.data));
         });
       })
       .subscribe();
