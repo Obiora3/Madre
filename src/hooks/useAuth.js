@@ -14,8 +14,8 @@ const publicUser = (user) => ({
   role: user.role || "admin",
   department: user.department || "Leadership",
   department_id: user.department_id || "d1",
-  job_title: user.job_title || "Account Owner",
-  skills: user.skills || ["Client Services"],
+  job_title: user.job_title || "",
+  skills: user.skills || [],
   avatar_url: user.avatar_url || null,
   agency_id: user.agency_id || null,
   agency_code: user.agency_code || null,
@@ -30,10 +30,10 @@ const publicSupabaseUser = (user) => {
     name,
     email: user.email,
     role: meta.role || "admin",
-    department: meta.department || "Leadership",
-    department_id: meta.department_id || "d1",
-    job_title: meta.job_title || "Account Owner",
-    skills: meta.skills || ["Client Services"],
+    department: meta.department || "",
+    department_id: meta.department_id || "",
+    job_title: meta.job_title || "",
+    skills: meta.skills || [],
     avatar_url: meta.avatar_url || null,
   });
 };
@@ -134,10 +134,10 @@ export function useAuth() {
           data: {
             name: cleanName,
             role: agencyMode === "create" ? "admin" : "user",
-            department: "Leadership",
-            department_id: "d1",
-            job_title: "Account Owner",
-            skills: ["Client Services"],
+            department: "",
+            department_id: "",
+            job_title: "",
+            skills: [],
           },
         },
       });
@@ -178,10 +178,10 @@ export function useAuth() {
       name: cleanName,
       email: cleanEmail,
       role: agencyMode === "create" ? "admin" : "user",
-      department: "Leadership",
-      department_id: "d1",
-      job_title: "Account Owner",
-      skills: ["Client Services"],
+      department: "",
+      department_id: "",
+      job_title: "",
+      skills: [],
       avatar_url: null,
       agency_code: localAgencyCode,
       agency_name: agencyMode === "create" ? agencyName?.trim() : null,
@@ -266,8 +266,9 @@ export function useAuth() {
           .from("profiles")
           .update({ name, job_title, department, skills })
           .eq("id", data.user.id);
-        const updated = publicSupabaseUser(data.user);
-        setCurrentUser(prev => prev ? { ...updated, agency_id: prev.agency_id, agency_code: prev.agency_code, agency_name: prev.agency_name } : null);
+        // Apply values directly — Supabase sometimes returns stale user_metadata
+        // in the updateUser response, so we never re-derive from data.user here.
+        setCurrentUser(prev => prev ? { ...prev, name, job_title, department, skills } : null);
       }
       return;
     }
