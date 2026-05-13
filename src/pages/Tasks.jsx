@@ -16,6 +16,7 @@ import {
   AIBlock,
   Avatar,
   Badge,
+  CommentsPanel,
   ConfirmModal,
   FormField,
   Modal,
@@ -30,11 +31,12 @@ import {
 
 // ─── TASKS ────────────────────────────────────────────────────────────────────
 export const Tasks = React.memo(function Tasks() {
-  const { tasks, setTasks, departments } = useApp();
+  const { tasks, setTasks, departments, comments, setComments, currentUser } = useApp();
   const { theme: t } = useTheme();
   const toast = useToast();
   const bs = mkBtnSecondary(t);
   const PAGE_SIZE = 25;
+  const [commentTask, setCommentTask] = useState(null);
   const [viewMode, setViewMode]       = useState("Global");
   const [statusFilter, setStatusFilter] = useState("All");
   const [deptFilter, setDeptFilter]   = useState("All");
@@ -93,24 +95,30 @@ export const Tasks = React.memo(function Tasks() {
         </div>
       )}
       <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, overflow:"hidden" }}>
-        <div style={{ display:"grid", gridTemplateColumns:"40px 1fr 120px 100px 100px 90px", gap:0, padding:"10px 16px", borderBottom:`1px solid ${t.border2}` }}>
-          {["","Task","Assigned To","Status","Priority","Due"].map((h,i)=>(
+        <div style={{ display:"grid", gridTemplateColumns:"40px 1fr 120px 100px 100px 90px 50px", gap:0, padding:"10px 16px", borderBottom:`1px solid ${t.border2}` }}>
+          {["","Task","Assigned To","Status","Priority","Due",""].map((h,i)=>(
             <div key={i} style={{ fontSize:11, fontWeight:700, color:t.textFaint, letterSpacing:"0.06em", textTransform:"uppercase" }}>{h}</div>
           ))}
         </div>
-        {pageSlice.map(t2=>(
-          <div key={t2.id} style={{ display:"grid", gridTemplateColumns:"40px 1fr 120px 100px 100px 90px", gap:0, padding:"12px 16px", borderBottom:`1px solid ${t.divider}`, alignItems:"center" }}>
-            <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
-            <div>
-              <div style={{ fontSize:13, fontWeight:600, color:t2.status==="Done"?t.textFaint:t.textSub, textDecoration:t2.status==="Done"?"line-through":"none" }}>{t2.title}</div>
-              <div style={{ fontSize:11, color:t.textGhost }}>{t2.estimated_hours}h est. · {t2.actual_hours}h actual</div>
+        {pageSlice.map(t2=>{
+          const cnt = (comments||[]).filter(c=>c.entity_type==="task"&&c.entity_id===t2.id).length;
+          return (
+            <div key={t2.id} style={{ display:"grid", gridTemplateColumns:"40px 1fr 120px 100px 100px 90px 50px", gap:0, padding:"12px 16px", borderBottom:`1px solid ${t.divider}`, alignItems:"center" }}>
+              <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
+              <div>
+                <div style={{ fontSize:13, fontWeight:600, color:t2.status==="Done"?t.textFaint:t.textSub, textDecoration:t2.status==="Done"?"line-through":"none" }}>{t2.title}</div>
+                <div style={{ fontSize:11, color:t.textGhost }}>{t2.estimated_hours}h est. · {t2.actual_hours}h actual</div>
+              </div>
+              <div style={{ fontSize:12, color:t.textMuted, display:"flex", alignItems:"center", gap:6 }}><Avatar name={t2.assigned_to?.name||"?"} size={22} />{(t2.assigned_to?.name||"").split(" ")[0]}</div>
+              <Badge label={t2.status} color={statusColor(t2.status)} />
+              <Badge label={t2.priority} color={priorityColor(t2.priority)} />
+              <div style={{ fontSize:11, color:t.textMuted }}>{fmtDate(t2.due_date)}</div>
+              <button onClick={()=>setCommentTask(t2)} style={{ display:"flex", alignItems:"center", gap:3, background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 8px", fontSize:11, color:cnt>0?t.accent:t.textMuted, cursor:"pointer", fontWeight:cnt>0?700:400 }}>
+                💬{cnt>0?` ${cnt}`:""}
+              </button>
             </div>
-            <div style={{ fontSize:12, color:t.textMuted, display:"flex", alignItems:"center", gap:6 }}><Avatar name={t2.assigned_to?.name||"?"} size={22} />{(t2.assigned_to?.name||"").split(" ")[0]}</div>
-            <Badge label={t2.status} color={statusColor(t2.status)} />
-            <Badge label={t2.priority} color={priorityColor(t2.priority)} />
-            <div style={{ fontSize:11, color:t.textMuted }}>{fmtDate(t2.due_date)}</div>
-          </div>
-        ))}
+          );
+        })}
         {filtered.length === 0 && (
           <div style={{ padding:32, textAlign:"center", color:t.textFaint, fontSize:13 }}>No tasks match these filters.</div>
         )}
@@ -163,6 +171,10 @@ export const Tasks = React.memo(function Tasks() {
           </div>
         </div>
       )}
+
+      <Modal open={!!commentTask} onClose={()=>setCommentTask(null)} title={`Comments · ${commentTask?.title || ""}`}>
+        {commentTask && <CommentsPanel entityType="task" entityId={commentTask.id} comments={comments||[]} setComments={setComments} currentUser={currentUser} />}
+      </Modal>
     </div>
   );
 })

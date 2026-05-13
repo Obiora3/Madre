@@ -16,6 +16,7 @@ export {
   AIBlock,
   Avatar,
   Badge,
+  CommentsPanel,
   ConfirmModal,
   FormField,
   Modal,

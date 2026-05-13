@@ -63,18 +63,18 @@ async function syncCollection(table, oldItems, newItems, agencyId) {
   }
 }
 
-const TABLES = ["projects", "tasks", "clients", "kpis", "departments", "pitches"];
+const TABLES = ["projects", "tasks", "clients", "kpis", "departments", "pitches", "comments"];
 const LS_DEFAULTS = {
-  projects: [], tasks: [], clients: [], kpis: [], departments: [], pitches: [],
+  projects: [], tasks: [], clients: [], kpis: [], departments: [], pitches: [], comments: [],
 };
 const LS_KEYS = {
   projects: "af_projects", tasks: "af_tasks", clients: "af_clients",
-  kpis: "af_kpis", departments: "af_departments", pitches: "af_pitches",
+  kpis: "af_kpis", departments: "af_departments", pitches: "af_pitches", comments: "af_comments",
 };
 // Insertion order respects FK constraints (clients/departments before projects, projects before tasks/kpis)
-const MIGRATION_ORDER = ["clients", "departments", "projects", "tasks", "kpis", "pitches"];
+const MIGRATION_ORDER = ["clients", "departments", "projects", "tasks", "kpis", "pitches", "comments"];
 
-const EMPTY = { projects: [], tasks: [], clients: [], kpis: [], departments: [], pitches: [] };
+const EMPTY = { projects: [], tasks: [], clients: [], kpis: [], departments: [], pitches: [], comments: [] };
 
 // ── One-time localStorage → Supabase migration ────────────────────────────────
 // Runs once per agency per browser. Only migrates tables that are empty in Supabase.
@@ -168,6 +168,7 @@ export function useAppData(agencyId) {
   const [lsKpis,        setLsKpis]        = useLocalStorage("af_kpis",        []);
   const [lsDepartments, setLsDepartments] = useLocalStorage("af_departments", []);
   const [lsPitches,     setLsPitches]     = useLocalStorage("af_pitches",     []);
+  const [lsComments,    setLsComments]    = useLocalStorage("af_comments",    []);
 
   // ── Supabase state ────────────────────────────────────────────────────────
   const [db, setDb]           = useState(EMPTY);
@@ -187,13 +188,13 @@ export function useAppData(agencyId) {
     setLoading(true);
 
     (async () => {
-      const [projects, tasks, clients, kpis, departments, pitches, profiles] = await Promise.all([
+      const [projects, tasks, clients, kpis, departments, pitches, comments, profiles] = await Promise.all([
         ...TABLES.map(fetchTable),
         supabase.from("profiles").select("*").then(r => r.data ?? []),
       ]);
       if (cancelled) return;
 
-      let next = { projects, tasks, clients, kpis, departments, pitches };
+      let next = { projects, tasks, clients, kpis, departments, pitches, comments };
       next = await migrateLocalData(agencyId, next);
       if (cancelled) return;
 
@@ -285,6 +286,13 @@ export function useAppData(agencyId) {
     } else { setLsPitches(v); }
   }, [agencyId, setLsPitches]);
 
+  const setComments = useCallback((v) => {
+    if (isSupabaseConfigured && agencyId) {
+      syncCollection("comments", dbRef.current.comments, v, agencyId);
+      setDb(p => { const n = { ...p, comments: v }; dbRef.current = n; return n; });
+    } else { setLsComments(v); }
+  }, [agencyId, setLsComments]);
+
   const resetAllData = useCallback(async () => {
     if (isSupabaseConfigured && agencyId) {
       await Promise.all(TABLES.map(t =>
@@ -297,6 +305,7 @@ export function useAppData(agencyId) {
       setLsProjects([]); setLsTasks([]);
       setLsClients([]);  setLsKpis([]);
       setLsDepartments([]); setLsPitches([]);
+      setLsComments([]);
       setDb(EMPTY);
       dbRef.current = EMPTY;
       loadedRef.current = null;
@@ -305,17 +314,18 @@ export function useAppData(agencyId) {
       setLsProjects([]); setLsTasks([]);
       setLsClients([]);  setLsKpis([]);
       setLsDepartments([]); setLsPitches([]);
+      setLsComments([]);
     }
-  }, [agencyId, setLsProjects, setLsTasks, setLsClients, setLsKpis, setLsDepartments, setLsPitches]);
+  }, [agencyId, setLsProjects, setLsTasks, setLsClients, setLsKpis, setLsDepartments, setLsPitches, setLsComments]);
 
   const active = live ? db : {
     projects: lsProjects, tasks: lsTasks, clients: lsClients,
-    kpis: lsKpis, departments: lsDepartments, pitches: lsPitches,
+    kpis: lsKpis, departments: lsDepartments, pitches: lsPitches, comments: lsComments,
   };
 
   return {
     ...active,
-    setProjects, setTasks, setClients, setKpis, setDepartments, setPitches,
+    setProjects, setTasks, setClients, setKpis, setDepartments, setPitches, setComments,
     users: dbUsers,
     resetAllData,
     loading,

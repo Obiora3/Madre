@@ -17,6 +17,7 @@ import {
   AIBlock,
   Avatar,
   Badge,
+  CommentsPanel,
   ConfirmModal,
   FormField,
   Modal,
@@ -31,7 +32,7 @@ import {
 
 // ─── PROJECT DETAIL ───────────────────────────────────────────────────────────
 export const ProjectDetail = React.memo(function ProjectDetail() {
-  const { projects, setProjects, tasks, setTasks, kpis, clients, users, departments, nav, pageParam: id } = useApp();
+  const { projects, setProjects, tasks, setTasks, kpis, clients, users, departments, comments, setComments, currentUser, nav, pageParam: id } = useApp();
   const onBack = () => nav("projects");
   const { theme: t } = useTheme();
   const toast = useToast();
@@ -45,6 +46,8 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState("");
   const [aiError, setAiError] = useState(null);
+  const [commentTask, setCommentTask] = useState(null);
+  const taskCommentCount = (tid) => (comments || []).filter(c => c.entity_type === "task" && c.entity_id === tid).length;
 
   if (!project) return <div style={{color:t.textMuted,padding:40}}>Project not found.</div>;
   const client = clients.find(c => c.id === project.client_id);
@@ -149,17 +152,23 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
           <h3 style={{ margin:0, color:t.text, fontSize:15, fontWeight:700 }}>Tasks ({projectTasks.length})</h3>
           <button onClick={()=>setShowTaskForm(true)} style={{...btnPrimary, padding:"7px 14px", fontSize:12}}>+ Add Task</button>
         </div>
-        {projectTasks.map(t2=>(
-          <div key={t2.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:`1px solid ${t.divider}` }}>
-            <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
-            <div style={{ flex:1 }}>
-              <div style={{ fontSize:13, fontWeight:600, color: t2.status==="Done"?t.textFaint:t.textSub, textDecoration:t2.status==="Done"?"line-through":"none" }}>{t2.title}</div>
-              <div style={{ fontSize:11, color:t.textFaint }}>Due {fmtDate(t2.due_date)} · {t2.estimated_hours}h est.</div>
+        {projectTasks.map(t2=>{
+          const cnt = taskCommentCount(t2.id);
+          return (
+            <div key={t2.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:`1px solid ${t.divider}` }}>
+              <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:13, fontWeight:600, color: t2.status==="Done"?t.textFaint:t.textSub, textDecoration:t2.status==="Done"?"line-through":"none" }}>{t2.title}</div>
+                <div style={{ fontSize:11, color:t.textFaint }}>Due {fmtDate(t2.due_date)} · {t2.estimated_hours}h est.</div>
+              </div>
+              <Badge label={t2.status} color={statusColor(t2.status)} />
+              <Badge label={t2.priority} color={priorityColor(t2.priority)} />
+              <button onClick={()=>setCommentTask(t2)} style={{ display:"flex", alignItems:"center", gap:4, background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 9px", fontSize:11, color:t.textMuted, cursor:"pointer" }}>
+                💬 {cnt > 0 ? cnt : ""}
+              </button>
             </div>
-            <Badge label={t2.status} color={statusColor(t2.status)} />
-            <Badge label={t2.priority} color={priorityColor(t2.priority)} />
-          </div>
-        ))}
+          );
+        })}
       </div>
       {projectKPIs.length > 0 && (
         <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, marginBottom:20 }}>
@@ -183,6 +192,15 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
         </div>
         <AIBlock loading={aiLoading} error={aiError} result={aiResult} placeholder='Click "Run Analysis" to simulate delay impact and get AI recommendations.' onRetry={simulateAI} />
       </div>
+      <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, marginTop:20 }}>
+        <h3 style={{ margin:"0 0 14px", color:t.text, fontSize:15, fontWeight:700 }}>💬 Project Discussion</h3>
+        <CommentsPanel entityType="project" entityId={id} comments={comments||[]} setComments={setComments} currentUser={currentUser} />
+      </div>
+
+      <Modal open={!!commentTask} onClose={()=>setCommentTask(null)} title={`Comments · ${commentTask?.title || ""}`}>
+        {commentTask && <CommentsPanel entityType="task" entityId={commentTask.id} comments={comments||[]} setComments={setComments} currentUser={currentUser} />}
+      </Modal>
+
       <Modal open={showTaskForm} onClose={()=>setShowTaskForm(false)} title="Add Task">
         <FormField label="Title"><input style={iS} value={taskForm.title} onChange={e=>setTaskForm({...taskForm,title:e.target.value})} /></FormField>
         <FormField label="Assign To">

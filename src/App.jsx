@@ -52,6 +52,7 @@ export default function Madre() {
   const {
     projects, setProjects, tasks, setTasks, clients, setClients,
     kpis, setKpis, departments, setDepartments, pitches, setPitches,
+    comments, setComments,
     users, resetAllData, loading: dataLoading,
   } = useAppData(auth.currentUser?.agency_id);
 
@@ -82,13 +83,14 @@ export default function Madre() {
   const appValue = useMemo(() => ({
     projects, setProjects, tasks, setTasks, clients, setClients,
     kpis, setKpis, departments, setDepartments, pitches, setPitches,
+    comments, setComments,
     users: appUsers, currentUser, signOut: auth.signOut, updateProfile: auth.updateProfile,
     setupAgency: auth.setupAgency, nav, page, pageParam, resetAllData,
     whiteLabelSettings, setWhiteLabelSettings, resetWhiteLabelSettings,
   }), [
-    projects, tasks, clients, kpis, departments, pitches, appUsers, currentUser,
+    projects, tasks, clients, kpis, departments, pitches, comments, appUsers, currentUser,
     auth.signOut, auth.updateProfile, auth.setupAgency, nav, page, pageParam, resetAllData, whiteLabelSettings,
-    setWhiteLabelSettings, resetWhiteLabelSettings
+    setWhiteLabelSettings, resetWhiteLabelSettings, setComments
   ]);
 
   const navItems = [

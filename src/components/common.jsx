@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../context/app-context.jsx";
 import { useTheme } from "../theme.js";
 import { fmtDate, initials, avatarBg } from "../lib/helpers.js";
@@ -250,6 +250,97 @@ export function ConfirmModal({ open, onClose, onConfirm, title, message, confirm
             {confirmLabel}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── COMMENTS PANEL ──────────────────────────────────────────────────────────
+const timeAgo = (iso) => {
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 60000) return "just now";
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  return new Date(iso).toLocaleDateString();
+};
+
+export function CommentsPanel({ entityType, entityId, comments, setComments, currentUser }) {
+  const { theme: t } = useTheme();
+  const [body, setBody] = useState("");
+  const bottomRef = useRef(null);
+
+  const entityComments = useMemo(() =>
+    [...comments]
+      .filter(c => c.entity_type === entityType && c.entity_id === entityId)
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),
+    [comments, entityType, entityId]
+  );
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [entityComments.length]);
+
+  const submit = () => {
+    const text = body.trim();
+    if (!text || !currentUser) return;
+    setComments([...comments, {
+      id: (crypto.randomUUID?.() ?? `c${Date.now()}`),
+      entity_type: entityType,
+      entity_id: entityId,
+      user_id: currentUser.id,
+      user_name: currentUser.name,
+      user_email: currentUser.email,
+      body: text,
+      created_at: new Date().toISOString(),
+    }]);
+    setBody("");
+  };
+
+  return (
+    <div>
+      <div style={{ maxHeight: 320, overflowY: "auto", marginBottom: 12 }}>
+        {entityComments.length === 0 ? (
+          <div style={{ padding: "24px 0", textAlign: "center", color: t.textFaint, fontSize: 13 }}>
+            No comments yet. Be the first to add one.
+          </div>
+        ) : entityComments.map(c => (
+          <div key={c.id} style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "flex-start" }}>
+            <Avatar name={c.user_name || "?"} size={28} />
+            <div style={{ flex: 1, background: t.statBg, borderRadius: 10, padding: "8px 12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>{c.user_name}</span>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <span style={{ fontSize: 11, color: t.textFaint }}>{timeAgo(c.created_at)}</span>
+                  {currentUser && c.user_id === currentUser.id && (
+                    <button
+                      onClick={() => setComments(comments.filter(x => x.id !== c.id))}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: t.textGhost, fontSize: 15, lineHeight: 1, padding: 0 }}
+                      title="Delete"
+                    >×</button>
+                  )}
+                </div>
+              </div>
+              <div style={{ fontSize: 13, color: t.textSub, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{c.body}</div>
+            </div>
+          </div>
+        ))}
+        <div ref={bottomRef} />
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+        <textarea
+          value={body}
+          onChange={e => setBody(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit(); }}
+          placeholder={currentUser ? "Write a comment… (Ctrl+Enter to send)" : "Sign in to comment"}
+          disabled={!currentUser}
+          rows={2}
+          style={{ flex: 1, background: t.input, border: `1px solid ${t.border2}`, borderRadius: 8, color: t.text, fontSize: 13, padding: "8px 12px", resize: "none", fontFamily: "inherit", outline: "none" }}
+        />
+        <button
+          onClick={submit}
+          disabled={!body.trim() || !currentUser}
+          style={{ background: "#7C3AED", color: "#fff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: !body.trim() || !currentUser ? 0.5 : 1 }}
+        >Post</button>
       </div>
     </div>
   );
