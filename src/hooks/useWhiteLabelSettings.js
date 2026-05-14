@@ -6,7 +6,7 @@ export const DEFAULT_WHITE_LABEL_SETTINGS = {
   tagline: "Your Agency, Delivered.",
   primary_colour: "#7C3AED",
   accent_colour: "#A78BFA",
-  dark_sidebar: true,
+  dark_sidebar: false,
   hide_attribution: false
 };
 

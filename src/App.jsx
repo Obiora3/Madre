@@ -13,7 +13,7 @@ import "./app.css";
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function Madre() {
-  const [darkMode, setDarkMode] = useLocalStorage("af_dark_mode", true);
+  const [darkMode, setDarkMode] = useLocalStorage("af_dark_mode", false);
   const toggleTheme = () => setDarkMode(d => !d);
   const {
     settings: whiteLabelSettings,
