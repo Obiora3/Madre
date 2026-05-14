@@ -47,6 +47,9 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   const [aiResult, setAiResult] = useState("");
   const [aiError, setAiError] = useState(null);
   const [commentTask, setCommentTask] = useState(null);
+  const [editTask, setEditTask] = useState(null);
+  const [editTaskForm, setEditTaskForm] = useState(null);
+  const [editTaskAssigneeKey, setEditTaskAssigneeKey] = useState("");
   const taskCommentCount = (tid) => (comments || []).filter(c => c.entity_type === "task" && c.entity_id === tid).length;
 
   if (!project) return <div style={{color:t.textMuted,padding:40}}>Project not found.</div>;
@@ -97,6 +100,40 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     setTaskForm({ title:"", description:"", status:"To Do", priority:"Medium", due_date:"", estimated_hours:0 });
     setTaskAssigneeKey("");
   };
+  const openEditTask = (task) => {
+    const assignee = task.assigned_to;
+    let key = "";
+    if (assignee?.email) {
+      const u = users.find(x => x.email === assignee.email);
+      if (u) key = `user:${u.id}`;
+    } else if (assignee?.name) {
+      const d = departments.find(x => x.name === assignee.name);
+      if (d) key = `dept:${d.id}`;
+    }
+    setEditTaskAssigneeKey(key);
+    setEditTaskForm({ title: task.title||"", description: task.description||"", status: task.status||"To Do", priority: task.priority||"Medium", due_date: task.due_date||"", estimated_hours: task.estimated_hours||0 });
+    setEditTask(task);
+  };
+
+  const handleEditTaskSave = () => {
+    if (!editTaskForm?.title?.trim()) { toast({ message: "Title is required.", type: "error" }); return; }
+    let assignedTo = editTask.assigned_to || {};
+    if (editTaskAssigneeKey.startsWith("user:")) {
+      const u = users.find(x => x.id === editTaskAssigneeKey.slice(5));
+      if (u) assignedTo = { name: u.name, email: u.email, department: u.department || "" };
+    } else if (editTaskAssigneeKey.startsWith("dept:")) {
+      const d = departments.find(x => x.id === editTaskAssigneeKey.slice(5));
+      if (d) assignedTo = { name: d.name, email: "" };
+    } else {
+      assignedTo = {};
+    }
+    const newTasks = tasks.map(t2 => t2.id === editTask.id ? { ...t2, ...editTaskForm, assigned_to: assignedTo } : t2);
+    setTasks(newTasks);
+    setProjects(projects.map(p => p.id === id ? { ...p, progress: calcProgress(id, newTasks) } : p));
+    toast({ message: `Task "${editTaskForm.title}" updated.` });
+    setEditTask(null); setEditTaskForm(null);
+  };
+
   const changeTaskStatus = (tid, newStatus) => {
     const task = tasks.find(t2 => t2.id === tid);
     const newTasks = tasks.map(t2 => t2.id === tid ? { ...t2, status: newStatus } : t2);
@@ -163,9 +200,10 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
               </div>
               <Badge label={t2.status} color={statusColor(t2.status)} />
               <Badge label={t2.priority} color={priorityColor(t2.priority)} />
-              <button onClick={()=>setCommentTask(t2)} style={{ display:"flex", alignItems:"center", gap:4, background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 9px", fontSize:11, color:t.textMuted, cursor:"pointer" }}>
+              <button onClick={()=>setCommentTask(t2)} style={{ display:"flex", alignItems:"center", gap:4, background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 9px", fontSize:11, color:cnt>0?t.accent:t.textMuted, cursor:"pointer", fontWeight:cnt>0?700:400 }}>
                 💬 {cnt > 0 ? cnt : ""}
               </button>
+              <button onClick={()=>openEditTask(t2)} style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 9px", fontSize:11, color:t.textMuted, cursor:"pointer" }}>✏</button>
             </div>
           );
         })}
@@ -200,6 +238,32 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
       <Modal open={!!commentTask} onClose={()=>setCommentTask(null)} title={`Comments · ${commentTask?.title || ""}`}>
         {commentTask && <CommentsPanel entityType="task" entityId={commentTask.id} comments={comments||[]} setComments={setComments} currentUser={currentUser} />}
       </Modal>
+
+      {editTaskForm && (
+        <Modal open={!!editTask} onClose={()=>{setEditTask(null);setEditTaskForm(null);}} title="Edit Task">
+          <FormField label="Title"><input style={iS} value={editTaskForm.title} onChange={e=>setEditTaskForm({...editTaskForm,title:e.target.value})} /></FormField>
+          <FormField label="Assign To">
+            <select style={sS} value={editTaskAssigneeKey} onChange={e=>setEditTaskAssigneeKey(e.target.value)}>
+              <option value="">Unassigned</option>
+              {users.length > 0 && <optgroup label="Team Members">{users.map(u=><option key={u.id} value={`user:${u.id}`}>{u.name}{u.department?` (${u.department})`:""}</option>)}</optgroup>}
+              {departments.length > 0 && <optgroup label="Departments">{departments.map(d=><option key={d.id} value={`dept:${d.id}`}>{d.name}</option>)}</optgroup>}
+            </select>
+          </FormField>
+          <FormField label="Description"><input style={iS} value={editTaskForm.description} onChange={e=>setEditTaskForm({...editTaskForm,description:e.target.value})} /></FormField>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <FormField label="Status"><select style={sS} value={editTaskForm.status} onChange={e=>setEditTaskForm({...editTaskForm,status:e.target.value})}>{["To Do","In Progress","In Review","Done"].map(s=><option key={s}>{s}</option>)}</select></FormField>
+            <FormField label="Priority"><select style={sS} value={editTaskForm.priority} onChange={e=>setEditTaskForm({...editTaskForm,priority:e.target.value})}>{["Critical","High","Medium","Low"].map(s=><option key={s}>{s}</option>)}</select></FormField>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <FormField label="Due Date"><input type="date" style={iS} value={editTaskForm.due_date} onChange={e=>setEditTaskForm({...editTaskForm,due_date:e.target.value})} /></FormField>
+            <FormField label="Est. Hours"><input type="number" style={iS} value={editTaskForm.estimated_hours} onChange={e=>setEditTaskForm({...editTaskForm,estimated_hours:Number(e.target.value)})} /></FormField>
+          </div>
+          <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+            <button style={bs} onClick={()=>{setEditTask(null);setEditTaskForm(null);}}>Cancel</button>
+            <button style={btnPrimary} onClick={handleEditTaskSave} disabled={!editTaskForm.title}>Save Changes</button>
+          </div>
+        </Modal>
+      )}
 
       <Modal open={showTaskForm} onClose={()=>setShowTaskForm(false)} title="Add Task">
         <FormField label="Title"><input style={iS} value={taskForm.title} onChange={e=>setTaskForm({...taskForm,title:e.target.value})} /></FormField>
