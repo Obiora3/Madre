@@ -204,60 +204,28 @@ export const Profitability = React.memo(function Profitability() {
         <StatCard icon="🏅" label="Best Project" value={best?.title?.split(" ")[0]||"—"} sub={`${best?.margin||0}% margin`} />
       </div>
 
-      {/* ── Financial / Media Plan Upload ───────────────────────────────────── */}
-      <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, marginBottom:20, overflow:"hidden" }}>
-        <div style={{ padding:"14px 20px", borderBottom:`1px solid ${t.border2}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <div>
-            <h3 style={{ margin:0, fontSize:14, fontWeight:700, color:t.text }}>Financial / Media Plan Upload</h3>
-            <div style={{ fontSize:11, color:t.textFaint, marginTop:2 }}>Upload a plan to compare budgets against estimated project costs</div>
-          </div>
-          {plan && (
+      {/* Parsing indicator */}
+      {parsing && (
+        <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:"20px 24px", marginBottom:20, display:"flex", alignItems:"center", gap:12, color:t.textMuted, fontSize:13 }}>
+          <div style={{ width:16, height:16, border:`2px solid ${t.border2}`, borderTopColor:t.accent, borderRadius:"50%", animation:"spin 0.7s linear infinite", flexShrink:0 }} />
+          Parsing file…
+        </div>
+      )}
+
+      {/* ── Plan loaded — comparison table ──────────────────────────────────── */}
+      {plan && planComparison && (
+        <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, marginBottom:20, overflow:"hidden" }}>
+          <div style={{ padding:"14px 20px", borderBottom:`1px solid ${t.border2}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div>
+              <h3 style={{ margin:0, fontSize:14, fontWeight:700, color:t.text }}>Media Plan · {plan.fileName}</h3>
+              <div style={{ fontSize:11, color:t.textFaint, marginTop:2 }}>{plan.items.length} line items · Total ${plan.totalBudget.toLocaleString()}</div>
+            </div>
             <button
               onClick={() => { setPlan(null); setPlanAnalysis(""); }}
               style={{ background:"transparent", border:`1px solid ${t.border2}`, color:t.textMuted, borderRadius:7, padding:"5px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}
-            >
-              Remove
-            </button>
-          )}
-        </div>
-
-        <div style={{ padding:20 }}>
-          {/* Drop zone — shown when no plan loaded */}
-          {!plan && (
-            <div
-              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
-              onClick={() => fileRef.current?.click()}
-              style={{
-                border:`2px dashed ${dragOver ? t.accent : t.border2}`,
-                borderRadius:10, padding:"36px 24px", textAlign:"center", cursor:"pointer",
-                background:dragOver ? `${t.accent}11` : t.statBg, transition:"all 0.15s",
-              }}
-            >
-              <div style={{ fontSize:30, marginBottom:10 }}>📂</div>
-              {parsing ? (
-                <div style={{ color:t.textMuted, fontSize:13, fontWeight:600 }}>Parsing file…</div>
-              ) : (
-                <>
-                  <div style={{ fontSize:13, fontWeight:700, color:t.textSub, marginBottom:4 }}>Drop a file here, or click to browse</div>
-                  <div style={{ fontSize:11, color:t.textFaint, lineHeight:1.5 }}>
-                    Supports CSV (best), TXT, PDF · Non-CSV files are extracted via AI<br />
-                    CSV tip: include a <em>Name</em> column and a <em>Budget</em> column
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Plan loaded — comparison table */}
-          {plan && planComparison && (
-            <>
-              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
-                <span style={{ fontSize:12, color:t.textFaint }}>📄</span>
-                <span style={{ fontSize:13, fontWeight:700, color:t.textSub }}>{plan.fileName}</span>
-                <span style={{ fontSize:11, color:t.textFaint }}>· {plan.items.length} line items · Total ${plan.totalBudget.toLocaleString()}</span>
-              </div>
+            >Remove</button>
+          </div>
+          <div style={{ padding:20 }}>
 
               {/* Summary mini-stats (visible once ≥1 item linked) */}
               {planComparison.linkedCount > 0 && (
@@ -333,10 +301,9 @@ export const Profitability = React.memo(function Profitability() {
                   </button>
                 </div>
               )}
-            </>
-          )}
         </div>
       </div>
+      )}
 
       {/* ── Project-Level Breakdown ──────────────────────────────────────────── */}
       <div style={{ background:t.card,border:`1px solid ${t.border2}`,borderRadius:14,overflow:"hidden",marginBottom:20 }}>
