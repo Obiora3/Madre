@@ -36,6 +36,7 @@ export const PageRouter = React.memo(function PageRouter() {
     case "benchmarking":    return <Benchmarking />;
     case "departments":     return <Departments />;
     case "delivery-scores": return <DeliveryScores />;
+    case "settings":        return <WhiteLabel />;
     case "white-label":     return <WhiteLabel />;
     case "profile":         return <Profile />;
     default:                return <Dashboard />;

@@ -157,6 +157,7 @@ export const GlobalSearch = React.memo(function GlobalSearch() {
     { id:"qa-team",    icon:"👥", title:"Team",         sub:"Capacity & members",         action:()=>nav("team") },
     { id:"qa-clients", icon:"🤝", title:"Clients",      sub:"Client management",          action:()=>nav("clients") },
     { id:"qa-ai",      icon:"✨", title:"AI Brief",     sub:"AI-powered brief generator", action:()=>nav("ai-brief") },
+    { id:"qa-settings",icon:"⚙️", title:"Settings",    sub:"Branding, preferences, data", action:()=>nav("settings") },
   ];
 
   // running index across groups for keyboard cursor tracking

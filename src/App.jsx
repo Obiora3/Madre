@@ -17,7 +17,7 @@ const PAGE_LABELS = {
   clients:"Clients", kpis:"KPIs", timeline:"Timeline", reports:"Reports",
   "ai-brief":"AI Brief", profitability:"Profitability", pitches:"Pitch Pipeline",
   benchmarking:"Benchmarking", departments:"Departments",
-  "delivery-scores":"Delivery Scores", "white-label":"White-Label", profile:"Profile",
+  "delivery-scores":"Delivery Scores", "settings":"Settings", profile:"Profile",
 };
 
 function Breadcrumbs({ page, pageParam, projects, nav, theme: t }) {
@@ -144,7 +144,7 @@ export default function Madre() {
     { id:"benchmarking",     label:"Benchmarking",    icon:"\ud83d\udd2c" },
     { id:"departments",      label:"Departments",     icon:"\ud83c\udfe2", badge:"NEW" },
     { id:"delivery-scores",  label:"Delivery Scores", icon:"\u2b50", badge:"NEW" },
-    { id:"white-label",      label:"White-Label",     icon:"\ud83c\udfa8" },
+    { id:"settings",         label:"Settings",        icon:"\u2699\ufe0f" },
   ];
 
   const activeId = page === "project-detail" ? "projects" : page;

@@ -80,8 +80,10 @@ function HBarChart({ items, t }) {
 
 // ─── REPORTS PAGE ─────────────────────────────────────────────────────────────
 export const Reports = React.memo(function Reports() {
-  const { projects, tasks, kpis, clients, users } = useApp();
+  const { projects, tasks, kpis, clients, users, whiteLabelSettings } = useApp();
   const { theme: t } = useTheme();
+  const RATE = whiteLabelSettings?.billing_rate || 150;
+  const CURRENCY_SYMBOL = { USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" }[whiteLabelSettings?.currency] || "$";
   const iS = mkInputStyle(t); const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);
 
   // ── Date range filter ────────────────────────────────────────────────────
@@ -148,7 +150,6 @@ export const Reports = React.memo(function Reports() {
   }, [users, filteredTasks]);
 
   // ── Budget tracking ──────────────────────────────────────────────────────
-  const RATE = 150;
   const budgetData = useMemo(() => {
     return filteredProjects.map(p => {
       const pt      = tasks.filter(t2 => t2.project_id === p.id);
@@ -302,7 +303,7 @@ export const Reports = React.memo(function Reports() {
         <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, overflow:"hidden", marginBottom:20 }}>
           <div style={{ padding:"14px 20px", borderBottom:`1px solid ${t.border2}` }}>
             <h3 style={{ margin:0, fontSize:14, fontWeight:700, color:t.text }}>Budget Tracking · Planned vs Actual</h3>
-            <div style={{ fontSize:11, color:t.textFaint, marginTop:2 }}>Based on estimated & actual hours at ${RATE}/h default rate</div>
+            <div style={{ fontSize:11, color:t.textFaint, marginTop:2 }}>Based on estimated & actual hours at {CURRENCY_SYMBOL}{RATE}/h · adjust in Settings → Preferences</div>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 90px 90px 100px 90px", padding:"8px 20px", borderBottom:`1px solid ${t.border2}`, background:t.statBg }}>
             {["Project","Planned","Actual","Variance","Used %"].map((h,i) => (
@@ -315,10 +316,10 @@ export const Reports = React.memo(function Reports() {
                 <div style={{ fontSize:13, fontWeight:600, color:t.textSub }}>{p.title}</div>
                 <div style={{ fontSize:11, color:t.textFaint }}>{p.client}</div>
               </div>
-              <div style={{ fontSize:13, color:t.textMuted }}>${Math.round(p.planned/1000)}k</div>
-              <div style={{ fontSize:13, fontWeight:600, color:t.textSub }}>${Math.round(p.actual/1000)}k</div>
+              <div style={{ fontSize:13, color:t.textMuted }}>{CURRENCY_SYMBOL}{Math.round(p.planned/1000)}k</div>
+              <div style={{ fontSize:13, fontWeight:600, color:t.textSub }}>{CURRENCY_SYMBOL}{Math.round(p.actual/1000)}k</div>
               <div style={{ fontSize:13, fontWeight:700, color: p.variance >= 0 ? "#059669" : "#EF4444" }}>
-                {p.variance >= 0 ? "+" : "−"}${Math.round(Math.abs(p.variance)/1000)}k
+                {p.variance >= 0 ? "+" : "−"}{CURRENCY_SYMBOL}{Math.round(Math.abs(p.variance)/1000)}k
               </div>
               <div>
                 <div style={{ fontSize:11, fontWeight:700, color: p.used > 100 ? "#EF4444" : t.textFaint }}>{p.used}%</div>
