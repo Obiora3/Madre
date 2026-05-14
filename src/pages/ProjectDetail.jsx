@@ -30,6 +30,41 @@ import {
   mkSelectStyle
 } from "./_shared.js";
 
+// ─── TASK TEMPLATES ───────────────────────────────────────────────────────────
+const TASK_TEMPLATES = [
+  { name:"Social Media Campaign", icon:"📱", tasks:[
+    { title:"Brief & Strategy",       priority:"High",   description:"Define campaign goals and target audience" },
+    { title:"Content Calendar",        priority:"High",   description:"Plan post schedule and themes" },
+    { title:"Creative Assets",         priority:"Medium", description:"Design graphics and write copy" },
+    { title:"Scheduling & Publishing", priority:"Medium", description:"Schedule posts across platforms" },
+    { title:"Performance Review",      priority:"Low",    description:"Analyse engagement and results" },
+  ]},
+  { name:"Brand Identity", icon:"🎨", tasks:[
+    { title:"Discovery & Research",  priority:"High",   description:"Competitive analysis and brand audit" },
+    { title:"Concept Development",   priority:"High",   description:"Create brand concepts and moodboards" },
+    { title:"Logo Design",           priority:"High",   description:"Design primary and secondary logo variants" },
+    { title:"Brand Guidelines",      priority:"Medium", description:"Document colors, fonts and usage rules" },
+    { title:"Asset Delivery",        priority:"Low",    description:"Export final files in all required formats" },
+  ]},
+  { name:"Website Launch", icon:"🌐", tasks:[
+    { title:"Sitemap & Wireframes", priority:"High",   description:"Plan site structure and page layouts" },
+    { title:"Design Mockups",       priority:"High",   description:"Design key pages in high fidelity" },
+    { title:"Development",          priority:"High",   description:"Build and code the website" },
+    { title:"Content Population",   priority:"Medium", description:"Add all copy, images and media" },
+    { title:"QA & Testing",         priority:"Medium", description:"Test across devices and browsers" },
+    { title:"Launch & Handover",    priority:"Low",    description:"Deploy and hand over to client" },
+  ]},
+  { name:"Content Strategy", icon:"📝", tasks:[
+    { title:"Audience Research",  priority:"High",   description:"Define audience personas and pain points" },
+    { title:"Content Audit",      priority:"Medium", description:"Review existing content performance" },
+    { title:"Editorial Plan",     priority:"High",   description:"Define topics, formats and cadence" },
+    { title:"Content Production", priority:"Medium", description:"Write and design content pieces" },
+    { title:"Distribution Plan",  priority:"Low",    description:"Define channels and promotion strategy" },
+  ]},
+];
+
+const KANBAN_COLS = ["To Do","In Progress","In Review","Done"];
+
 // ─── PROJECT DETAIL ───────────────────────────────────────────────────────────
 export const ProjectDetail = React.memo(function ProjectDetail() {
   const { projects, setProjects, tasks, setTasks, kpis, clients, users, departments, comments, setComments, currentUser, nav, pageParam: id } = useApp();
@@ -38,25 +73,83 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   const toast = useToast();
   const iS = mkInputStyle(t); const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);
   const project = projects.find(p => p.id === id);
+
+  // ── Task form state ─────────────────────────────────────────────────────────
   const [showTaskForm, setShowTaskForm] = useState(false);
-  const [taskForm, setTaskForm] = useState({ title:"", description:"", status:"To Do", priority:"Medium", due_date:"", estimated_hours:0 });
+  const BLANK_TASK = { title:"", description:"", status:"To Do", priority:"Medium", due_date:"", estimated_hours:0, actual_hours:0, subtasks:[], recurrence:"none", blocked_by:[] };
+  const [taskForm, setTaskForm] = useState(BLANK_TASK);
   const [taskAssigneeKey, setTaskAssigneeKey] = useState("");
+
+  // ── Project edit state ──────────────────────────────────────────────────────
   const [showEditForm, setShowEditForm] = useState(false);
   const [editForm, setEditForm] = useState(null);
+
+  // ── AI state ────────────────────────────────────────────────────────────────
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState("");
   const [aiError, setAiError] = useState(null);
+
+  // ── Task comment / edit state ───────────────────────────────────────────────
   const [commentTask, setCommentTask] = useState(null);
   const [editTask, setEditTask] = useState(null);
   const [editTaskForm, setEditTaskForm] = useState(null);
   const [editTaskAssigneeKey, setEditTaskAssigneeKey] = useState("");
+
+  // ── Subtask / time / template state ────────────────────────────────────────
+  const [expanded, setExpanded]       = useState(new Set());
+  const [subtaskInput, setSubtaskInput] = useState({});
+  const [logTimeTask, setLogTimeTask] = useState(null);
+  const [logHours, setLogHours]       = useState("");
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  // ── View mode (list vs kanban) ──────────────────────────────────────────────
+  const [taskView, setTaskView] = useState("list");
+
+  // ── Milestones ──────────────────────────────────────────────────────────────
+  const [milestones, setMilestones] = useState(() => project?.milestones || []);
+  const [newMsTitle, setNewMsTitle] = useState("");
+  const [newMsDate, setNewMsDate]   = useState("");
+
+  // Sync milestones if project changes (e.g. after save)
+  useEffect(() => {
+    setMilestones(project?.milestones || []);
+  }, [project?.id]);
+
+  const saveMilestones = (ms) => {
+    setMilestones(ms);
+    setProjects(projects.map(p => p.id === id ? { ...p, milestones: ms } : p));
+  };
+  const addMilestone = () => {
+    if (!newMsTitle.trim()) return;
+    saveMilestones([...milestones, { id:`ms${Date.now()}`, title:newMsTitle.trim(), date:newMsDate, done:false }]);
+    setNewMsTitle(""); setNewMsDate("");
+  };
+  const toggleMs   = (msId) => saveMilestones(milestones.map(m => m.id===msId ? {...m, done:!m.done} : m));
+  const deleteMs   = (msId) => saveMilestones(milestones.filter(m => m.id!==msId));
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
   const taskCommentCount = (tid) => (comments || []).filter(c => c.entity_type === "task" && c.entity_id === tid).length;
+  const toggleExpand = (tid) => setExpanded(prev => { const n = new Set(prev); n.has(tid) ? n.delete(tid) : n.add(tid); return n; });
+  const isBlocked    = (task) => (task.blocked_by||[]).some(depId => { const dep = tasks.find(t2 => t2.id === depId); return dep && dep.status !== "Done"; });
+  const addSubtask   = (taskId, title) => setTasks(tasks.map(t2 => t2.id === taskId ? { ...t2, subtasks:[...(t2.subtasks||[]),{id:`st${Date.now()}`,title,done:false}] } : t2));
+  const toggleSubtask = (taskId, stId) => setTasks(tasks.map(t2 => t2.id === taskId ? { ...t2, subtasks:(t2.subtasks||[]).map(s=>s.id===stId?{...s,done:!s.done}:s) } : t2));
+  const deleteSubtask = (taskId, stId) => setTasks(tasks.map(t2 => t2.id === taskId ? { ...t2, subtasks:(t2.subtasks||[]).filter(s=>s.id!==stId) } : t2));
+
+  const applyTemplate = (tmpl) => {
+    const now = Date.now();
+    const newTasks = tmpl.tasks.map((tpl, i) => ({ id:`t${now+i}`, ...tpl, status:"To Do", project_id:id, assigned_to:{}, due_date:"", estimated_hours:0, actual_hours:0, subtasks:[], recurrence:"none", blocked_by:[], created_at:new Date().toISOString() }));
+    const all = [...tasks, ...newTasks];
+    setTasks(all);
+    setProjects(projects.map(p => p.id === id ? { ...p, progress: calcProgress(id, all) } : p));
+    toast({ message:`${newTasks.length} tasks added from "${tmpl.name}"`, type:"success" });
+  };
 
   if (!project) return <div style={{color:t.textMuted,padding:40}}>Project not found.</div>;
-  const client = clients.find(c => c.id === project.client_id);
+  const client      = clients.find(c => c.id === project.client_id);
   const projectTasks = tasks.filter(t2 => t2.project_id === id);
-  const projectKPIs = kpis.filter(k => k.project_id === id);
+  const projectKPIs  = kpis.filter(k => k.project_id === id);
 
+  // ── Project edit ─────────────────────────────────────────────────────────────
   const openEdit = () => {
     setEditForm({
       title: project.title || "",
@@ -75,72 +168,77 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   };
 
   const handleEditSave = () => {
-    if (!editForm?.title?.trim()) { toast({ message: "Title is required.", type: "error" }); return; }
+    if (!editForm?.title?.trim()) { toast({ message:"Title is required.", type:"error" }); return; }
     const { assigneeId, ...rest } = editForm;
     const assignee = assigneeId ? users.find(u => u.id === assigneeId) : null;
-    setProjects(projects.map(p => p.id === id ? { ...project, ...rest, assigned_to: assignee ? { name: assignee.name, email: assignee.email } : {} } : p));
-    toast({ message: "Project updated." });
+    setProjects(projects.map(p => p.id === id ? { ...project, ...rest, milestones, assigned_to: assignee ? { name:assignee.name, email:assignee.email } : {} } : p));
+    toast({ message:"Project updated." });
     setShowEditForm(false);
   };
 
+  // ── Task CRUD ─────────────────────────────────────────────────────────────────
   const handleAddTask = () => {
     let assignedTo = {};
     if (taskAssigneeKey.startsWith("user:")) {
       const u = users.find(x => x.id === taskAssigneeKey.slice(5));
-      if (u) assignedTo = { name: u.name, email: u.email, department: u.department || "" };
+      if (u) assignedTo = { name:u.name, email:u.email, department:u.department||"" };
     } else if (taskAssigneeKey.startsWith("dept:")) {
       const d = departments.find(x => x.id === taskAssigneeKey.slice(5));
-      if (d) assignedTo = { name: d.name, email: "" };
+      if (d) assignedTo = { name:d.name, email:"" };
     }
-    const newTasks = [...tasks, { ...taskForm, id: "t"+Date.now(), project_id: id, assigned_to: assignedTo }];
+    const newTasks = [...tasks, { ...taskForm, id:"t"+Date.now(), project_id:id, assigned_to:assignedTo, created_at:new Date().toISOString() }];
     setTasks(newTasks);
-    setProjects(projects.map(p => p.id === id ? { ...p, progress: calcProgress(id, newTasks) } : p));
-    toast({ message: `Task "${taskForm.title}" added`, sub: `${taskForm.priority} priority · Due ${fmtDate(taskForm.due_date)}`, type: "success" });
-    setShowTaskForm(false);
-    setTaskForm({ title:"", description:"", status:"To Do", priority:"Medium", due_date:"", estimated_hours:0 });
-    setTaskAssigneeKey("");
+    setProjects(projects.map(p => p.id === id ? { ...p, progress:calcProgress(id, newTasks) } : p));
+    toast({ message:`Task "${taskForm.title}" added`, sub:`${taskForm.priority} priority · Due ${fmtDate(taskForm.due_date)}`, type:"success" });
+    setShowTaskForm(false); setTaskForm(BLANK_TASK); setTaskAssigneeKey("");
   };
+
   const openEditTask = (task) => {
     const assignee = task.assigned_to;
     let key = "";
-    if (assignee?.email) {
-      const u = users.find(x => x.email === assignee.email);
-      if (u) key = `user:${u.id}`;
-    } else if (assignee?.name) {
-      const d = departments.find(x => x.name === assignee.name);
-      if (d) key = `dept:${d.id}`;
-    }
+    if (assignee?.email) { const u = users.find(x => x.email === assignee.email); if (u) key = `user:${u.id}`; }
+    else if (assignee?.name) { const d = departments.find(x => x.name === assignee.name); if (d) key = `dept:${d.id}`; }
     setEditTaskAssigneeKey(key);
-    setEditTaskForm({ title: task.title||"", description: task.description||"", status: task.status||"To Do", priority: task.priority||"Medium", due_date: task.due_date||"", estimated_hours: task.estimated_hours||0 });
+    setEditTaskForm({ title:task.title||"", description:task.description||"", status:task.status||"To Do", priority:task.priority||"Medium", due_date:task.due_date||"", estimated_hours:task.estimated_hours||0, actual_hours:task.actual_hours||0, recurrence:task.recurrence||"none", blocked_by:task.blocked_by||[] });
     setEditTask(task);
   };
 
   const handleEditTaskSave = () => {
-    if (!editTaskForm?.title?.trim()) { toast({ message: "Title is required.", type: "error" }); return; }
+    if (!editTaskForm?.title?.trim()) { toast({ message:"Title is required.", type:"error" }); return; }
     let assignedTo = editTask.assigned_to || {};
-    if (editTaskAssigneeKey.startsWith("user:")) {
-      const u = users.find(x => x.id === editTaskAssigneeKey.slice(5));
-      if (u) assignedTo = { name: u.name, email: u.email, department: u.department || "" };
-    } else if (editTaskAssigneeKey.startsWith("dept:")) {
-      const d = departments.find(x => x.id === editTaskAssigneeKey.slice(5));
-      if (d) assignedTo = { name: d.name, email: "" };
-    } else {
-      assignedTo = {};
-    }
-    const newTasks = tasks.map(t2 => t2.id === editTask.id ? { ...t2, ...editTaskForm, assigned_to: assignedTo } : t2);
+    if (editTaskAssigneeKey.startsWith("user:")) { const u = users.find(x => x.id === editTaskAssigneeKey.slice(5)); if (u) assignedTo = { name:u.name, email:u.email, department:u.department||"" }; }
+    else if (editTaskAssigneeKey.startsWith("dept:")) { const d = departments.find(x => x.id === editTaskAssigneeKey.slice(5)); if (d) assignedTo = { name:d.name, email:"" }; }
+    else assignedTo = {};
+    const newTasks = tasks.map(t2 => t2.id === editTask.id ? { ...t2, ...editTaskForm, assigned_to:assignedTo } : t2);
     setTasks(newTasks);
-    setProjects(projects.map(p => p.id === id ? { ...p, progress: calcProgress(id, newTasks) } : p));
-    toast({ message: `Task "${editTaskForm.title}" updated.` });
+    setProjects(projects.map(p => p.id === id ? { ...p, progress:calcProgress(id, newTasks) } : p));
+    toast({ message:`Task "${editTaskForm.title}" updated.` });
     setEditTask(null); setEditTaskForm(null);
   };
 
   const changeTaskStatus = (tid, newStatus) => {
     const task = tasks.find(t2 => t2.id === tid);
-    const newTasks = tasks.map(t2 => t2.id === tid ? { ...t2, status: newStatus } : t2);
+    if (!task) return;
+    if (newStatus === "Done" && isBlocked(task)) {
+      toast({ message:`"${task.title}" is blocked`, sub:"Complete all blocking tasks first", type:"error" });
+      return;
+    }
+    let newTasks = tasks.map(t2 => t2.id === tid ? { ...t2, status:newStatus } : t2);
+    if (newStatus === "Done" && task.recurrence && task.recurrence !== "none") {
+      const nextDue = new Date(task.due_date || Date.now());
+      if (task.recurrence === "daily")   nextDue.setDate(nextDue.getDate() + 1);
+      if (task.recurrence === "weekly")  nextDue.setDate(nextDue.getDate() + 7);
+      if (task.recurrence === "monthly") nextDue.setMonth(nextDue.getMonth() + 1);
+      const hrs = Math.max(0, Math.round((nextDue - Date.now()) / 3600000));
+      newTasks = [...newTasks, { ...task, id:`t${Date.now()}`, status:"To Do", actual_hours:0, subtasks:(task.subtasks||[]).map(s=>({...s,done:false})), due_date:nextDue.toISOString().split("T")[0], estimated_hours:hrs, created_at:new Date().toISOString() }];
+      toast({ message:`🔄 "${task.title}" recurred`, sub:`Next due ${fmtDate(nextDue.toISOString().split("T")[0])}`, type:"info" });
+    } else {
+      toast({ message:`"${task.title}" → ${newStatus}`, type:newStatus==="Done"?"success":"info" });
+    }
     setTasks(newTasks);
-    setProjects(projects.map(p => p.id === id ? { ...p, progress: calcProgress(id, newTasks) } : p));
-    if (task) toast({ message: `"${task.title}" → ${newStatus}`, type: newStatus === "Done" ? "success" : "info" });
+    setProjects(projects.map(p => p.id === id ? { ...p, progress:calcProgress(id, newTasks) } : p));
   };
+
   const simulateAI = async () => {
     setAiLoading(true); setAiResult(""); setAiError(null);
     try {
@@ -149,24 +247,139 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
         "You are a project management AI. Be concise and specific."
       );
       setAiResult(result);
-    } catch (err) {
-      setAiError(err.message);
-    } finally {
-      setAiLoading(false);
-    }
+    } catch (err) { setAiError(err.message); }
+    finally { setAiLoading(false); }
   };
+
+  // ── Kanban view ───────────────────────────────────────────────────────────────
+  const KanbanView = () => (
+    <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, alignItems:"start" }}>
+      {KANBAN_COLS.map(col => {
+        const colTasks = projectTasks.filter(t2 => t2.status === col);
+        const colColor = statusColor(col);
+        return (
+          <div key={col}>
+            <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:10, padding:"0 2px" }}>
+              <span style={{ width:8, height:8, borderRadius:"50%", background:colColor, flexShrink:0 }} />
+              <span style={{ fontSize:12, fontWeight:700, color:t.textSub }}>{col}</span>
+              <span style={{ fontSize:11, color:t.textGhost, marginLeft:"auto", background:t.statBg, borderRadius:99, padding:"1px 7px", fontWeight:600 }}>{colTasks.length}</span>
+            </div>
+            {colTasks.map(t2 => {
+              const cnt = taskCommentCount(t2.id);
+              const blocked = isBlocked(t2);
+              const subs = t2.subtasks || [];
+              const subsDone = subs.filter(s=>s.done).length;
+              return (
+                <div key={t2.id}
+                  style={{ background:t.statBg, border:`1px solid ${t.border2}`, borderRadius:10, padding:"11px 13px", marginBottom:8, cursor:"pointer", transition:"border-color 0.15s, box-shadow 0.15s" }}
+                  onClick={() => openEditTask(t2)}
+                >
+                  <div style={{ display:"flex", alignItems:"flex-start", gap:7, marginBottom:7 }}>
+                    <div onClick={e=>e.stopPropagation()} style={{ flexShrink:0, marginTop:1 }}>
+                      <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
+                    </div>
+                    <span style={{ fontSize:13, fontWeight:600, color:t2.status==="Done"?t.textFaint:t.textSub, textDecoration:t2.status==="Done"?"line-through":"none", lineHeight:1.4, flex:1 }}>{t2.title}</span>
+                  </div>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:4, alignItems:"center" }}>
+                    <Badge label={t2.priority} color={priorityColor(t2.priority)} />
+                    {t2.recurrence && t2.recurrence!=="none" && <span title={`Repeats ${t2.recurrence}`} style={{fontSize:10}}>🔄</span>}
+                    {blocked && <Badge label="🔒" color="#EF4444" />}
+                    {subs.length>0 && <span style={{fontSize:10,color:t.textFaint,background:t.card,borderRadius:99,padding:"1px 6px"}}>{subsDone}/{subs.length}✓</span>}
+                    {t2.assigned_to?.name && (
+                      <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:4 }}>
+                        <Avatar name={t2.assigned_to.name} size={16} />
+                      </div>
+                    )}
+                  </div>
+                  {t2.due_date && (
+                    <div style={{ fontSize:10, color:t.textFaint, marginTop:6 }}>📅 {fmtDate(t2.due_date)}</div>
+                  )}
+                  {cnt>0 && <div style={{ fontSize:10, color:t.accent, marginTop:4 }}>💬 {cnt}</div>}
+                </div>
+              );
+            })}
+            {colTasks.length===0 && (
+              <div style={{ border:`1px dashed ${t.border2}`, borderRadius:10, padding:"18px 12px", textAlign:"center", color:t.textGhost, fontSize:12 }}>No tasks</div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  // ── List view task rows ────────────────────────────────────────────────────────
+  const ListView = () => (
+    <>
+      {projectTasks.map(t2 => {
+        const cnt = taskCommentCount(t2.id);
+        const blocked = isBlocked(t2);
+        const subs = t2.subtasks || [];
+        const subsDone = subs.filter(s=>s.done).length;
+        const isExpanded = expanded.has(t2.id);
+        return (
+          <div key={t2.id} style={{ borderBottom:`1px solid ${t.divider}` }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0" }}>
+              <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
+              {subs.length > 0 && (
+                <button onClick={()=>toggleExpand(t2.id)} style={{ background:"none", border:"none", cursor:"pointer", color:t.textFaint, fontSize:11, padding:0, lineHeight:1 }}>{isExpanded?"▼":"▶"}</button>
+              )}
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+                  <span style={{ fontSize:13, fontWeight:600, color:t2.status==="Done"?t.textFaint:t.textSub, textDecoration:t2.status==="Done"?"line-through":"none" }}>{t2.title}</span>
+                  {t2.recurrence && t2.recurrence!=="none" && <span title={`Repeats ${t2.recurrence}`} style={{fontSize:11}}>🔄</span>}
+                  {blocked && <Badge label="🔒 Blocked" color="#EF4444" />}
+                  {subs.length>0 && <span style={{fontSize:10,color:t.textFaint,background:t.statBg,borderRadius:99,padding:"1px 7px"}}>{subsDone}/{subs.length} ✓</span>}
+                </div>
+                <div style={{ fontSize:11, color:t.textFaint, marginTop:2 }}>
+                  Due {fmtDate(t2.due_date)} · {t2.estimated_hours}h est{t2.actual_hours>0?` · ${t2.actual_hours}h logged`:""}
+                </div>
+              </div>
+              <Badge label={t2.priority} color={priorityColor(t2.priority)} />
+              <button onClick={()=>{ setLogTimeTask(t2); setLogHours(""); }} title="Log time" style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 9px", fontSize:11, color:t2.actual_hours>0?t.accent:t.textMuted, cursor:"pointer" }}>⏱{t2.actual_hours>0?` ${t2.actual_hours}h`:""}</button>
+              <button onClick={()=>setCommentTask(t2)} style={{ display:"flex", alignItems:"center", gap:4, background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 9px", fontSize:11, color:cnt>0?t.accent:t.textMuted, cursor:"pointer", fontWeight:cnt>0?700:400 }}>💬{cnt>0?` ${cnt}`:""}</button>
+              <button onClick={()=>openEditTask(t2)} style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 9px", fontSize:11, color:t.textMuted, cursor:"pointer" }}>✏</button>
+            </div>
+            {isExpanded && (
+              <div style={{ paddingLeft:32, paddingBottom:10 }}>
+                {subs.map(st=>(
+                  <div key={st.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"3px 0" }}>
+                    <input type="checkbox" checked={st.done} onChange={()=>toggleSubtask(t2.id,st.id)} style={{ width:14, height:14, cursor:"pointer", accentColor:t.accent }} />
+                    <span style={{ fontSize:12, flex:1, color:st.done?t.textFaint:t.textSub, textDecoration:st.done?"line-through":"none" }}>{st.title}</span>
+                    <button onClick={()=>deleteSubtask(t2.id,st.id)} style={{ background:"none", border:"none", cursor:"pointer", color:t.textGhost, fontSize:14, lineHeight:1 }}>×</button>
+                  </div>
+                ))}
+                <div style={{ display:"flex", gap:6, marginTop:6 }}>
+                  <input
+                    type="text" placeholder="Add subtask…"
+                    value={subtaskInput[t2.id]||""}
+                    onChange={e=>setSubtaskInput(p=>({...p,[t2.id]:e.target.value}))}
+                    onKeyDown={e=>{ if(e.key==="Enter"&&subtaskInput[t2.id]?.trim()){ addSubtask(t2.id,subtaskInput[t2.id]); setSubtaskInput(p=>({...p,[t2.id]:""})); }}}
+                    style={{ flex:1, background:t.input, border:`1px solid ${t.inputBorder||t.border2}`, borderRadius:6, color:t.text, fontSize:12, padding:"4px 8px", fontFamily:"inherit", outline:"none" }}
+                  />
+                  <button onClick={()=>{ if(subtaskInput[t2.id]?.trim()){ addSubtask(t2.id,subtaskInput[t2.id]); setSubtaskInput(p=>({...p,[t2.id]:""})); }}} style={{...btnPrimary,padding:"4px 10px",fontSize:11}}>+ Add</button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
 
   return (
     <div>
+      {/* Back / Edit row */}
       <div style={{ display:"flex", gap:8, marginBottom:20 }}>
         <button onClick={onBack} style={{...bs, fontSize:12}}>← Back to Projects</button>
         <button onClick={openEdit} style={{...bs, fontSize:12}}>✏ Edit Project</button>
       </div>
+
+      {/* Project overview card */}
       <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:24, marginBottom:20 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16 }}>
           <div>
             <h1 style={{ margin:"0 0 6px", fontSize:22, fontWeight:800, color:t.text }}>{project.title}</h1>
-            <div style={{ color:t.textMuted, fontSize:13 }}>{client?.name}{project.description ? ` · ${project.description}` : ""}</div>
+            <div style={{ color:t.textMuted, fontSize:13 }}>{client?.name}{project.description?` · ${project.description}`:""}</div>
           </div>
           <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
             <Badge label={project.stage} color={stageColor(project.stage)} />
@@ -175,39 +388,82 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
           </div>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:16, marginBottom:16 }}>
-          {[["Assigned","👤",project.assigned_to?.name||"—"],["Start","📅",fmtDate(project.start_date)],["Due","🗓",fmtDate(project.due_date)],["Progress","📈",`${calcProgress(id, tasks)}%`]].map(([l,i,v])=>(
+          {[["Assigned","👤",project.assigned_to?.name||"—"],["Start","📅",fmtDate(project.start_date)],["Due","🗓",fmtDate(project.due_date)],["Progress","📈",`${calcProgress(id,tasks)}%`]].map(([l,i,v])=>(
             <div key={l} style={{ background:t.statBg, borderRadius:10, padding:"10px 14px" }}>
               <div style={{ fontSize:11, color:t.textFaint, marginBottom:4 }}>{i} {l}</div>
               <div style={{ fontSize:14, fontWeight:700, color:t.textSub }}>{v}</div>
             </div>
           ))}
         </div>
-        <ProgressBar value={calcProgress(id, tasks)} color="#7C3AED" height={8} />
+        <ProgressBar value={calcProgress(id,tasks)} color="#7C3AED" height={8} />
       </div>
+
+      {/* ── Milestones ─────────────────────────────────────────────────────────── */}
+      <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, marginBottom:20 }}>
+        <h3 style={{ margin:"0 0 14px", color:t.text, fontSize:15, fontWeight:700 }}>
+          🏁 Milestones
+          <span style={{ marginLeft:8, fontSize:12, fontWeight:500, color:t.textFaint }}>({milestones.length})</span>
+        </h3>
+
+        {milestones.length === 0 && (
+          <div style={{ fontSize:13, color:t.textFaint, marginBottom:12, padding:"8px 0" }}>No milestones yet. Add key checkpoints below.</div>
+        )}
+
+        {milestones.map(m => (
+          <div key={m.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom:`1px solid ${t.divider}` }}>
+            <input type="checkbox" checked={m.done} onChange={()=>toggleMs(m.id)} style={{ width:15, height:15, cursor:"pointer", accentColor:t.accent, flexShrink:0 }} />
+            <span style={{ flex:1, fontSize:13, fontWeight:600, color:m.done?t.textFaint:t.textSub, textDecoration:m.done?"line-through":"none" }}>{m.title}</span>
+            {m.date && <span style={{ fontSize:11, color:t.textFaint, flexShrink:0 }}>📅 {fmtDate(m.date)}</span>}
+            {m.done && <Badge label="Done" color="#059669" />}
+            <button onClick={()=>deleteMs(m.id)} style={{ background:"none", border:"none", cursor:"pointer", color:t.textGhost, fontSize:17, lineHeight:1, flexShrink:0 }}>×</button>
+          </div>
+        ))}
+
+        <div style={{ display:"flex", gap:8, marginTop:14 }}>
+          <input
+            placeholder="New milestone title…"
+            value={newMsTitle}
+            onChange={e => setNewMsTitle(e.target.value)}
+            onKeyDown={e => e.key==="Enter" && addMilestone()}
+            style={{ flex:1, ...iS, fontSize:12 }}
+          />
+          <input type="date" value={newMsDate} onChange={e=>setNewMsDate(e.target.value)} style={{ ...iS, width:148, fontSize:12, flexShrink:0 }} />
+          <button onClick={addMilestone} disabled={!newMsTitle.trim()} style={{ ...btnPrimary, padding:"7px 14px", fontSize:12, opacity:!newMsTitle.trim()?0.5:1 }}>+ Add</button>
+        </div>
+      </div>
+
+      {/* ── Tasks ─────────────────────────────────────────────────────────────── */}
       <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, marginBottom:20 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-          <h3 style={{ margin:0, color:t.text, fontSize:15, fontWeight:700 }}>Tasks ({projectTasks.length})</h3>
-          <button onClick={()=>setShowTaskForm(true)} style={{...btnPrimary, padding:"7px 14px", fontSize:12}}>+ Add Task</button>
-        </div>
-        {projectTasks.map(t2=>{
-          const cnt = taskCommentCount(t2.id);
-          return (
-            <div key={t2.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:`1px solid ${t.divider}` }}>
-              <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:13, fontWeight:600, color: t2.status==="Done"?t.textFaint:t.textSub, textDecoration:t2.status==="Done"?"line-through":"none" }}>{t2.title}</div>
-                <div style={{ fontSize:11, color:t.textFaint }}>Due {fmtDate(t2.due_date)} · {t2.estimated_hours}h est.</div>
-              </div>
-              <Badge label={t2.status} color={statusColor(t2.status)} />
-              <Badge label={t2.priority} color={priorityColor(t2.priority)} />
-              <button onClick={()=>setCommentTask(t2)} style={{ display:"flex", alignItems:"center", gap:4, background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 9px", fontSize:11, color:cnt>0?t.accent:t.textMuted, cursor:"pointer", fontWeight:cnt>0?700:400 }}>
-                💬 {cnt > 0 ? cnt : ""}
-              </button>
-              <button onClick={()=>openEditTask(t2)} style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 9px", fontSize:11, color:t.textMuted, cursor:"pointer" }}>✏</button>
+          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+            <h3 style={{ margin:0, color:t.text, fontSize:15, fontWeight:700 }}>Tasks ({projectTasks.length})</h3>
+            {/* List / Kanban toggle */}
+            <div style={{ display:"flex", gap:4, background:t.statBg, borderRadius:8, padding:3 }}>
+              {[["list","☰ List"],["kanban","⊞ Kanban"]].map(([mode, label]) => (
+                <button key={mode} onClick={()=>setTaskView(mode)} style={{ ...bs, padding:"4px 12px", fontSize:11, fontWeight:700, background:taskView===mode?t.card:"transparent", color:taskView===mode?t.text:t.textMuted, border:`1px solid ${taskView===mode?t.border2:"transparent"}`, borderRadius:6, boxShadow:taskView===mode?"0 1px 4px rgba(0,0,0,0.08)":"none" }}>
+                  {label}
+                </button>
+              ))}
             </div>
-          );
-        })}
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={()=>setShowTemplates(true)} style={{...bs, padding:"7px 14px", fontSize:12}}>📋 Templates</button>
+            <button onClick={()=>setShowTaskForm(true)} style={{...btnPrimary, padding:"7px 14px", fontSize:12}}>+ Add Task</button>
+          </div>
+        </div>
+
+        {projectTasks.length === 0 && (
+          <div style={{ padding:"32px 0", textAlign:"center", color:t.textFaint, fontSize:13 }}>
+            No tasks yet.{" "}
+            <button onClick={()=>setShowTemplates(true)} style={{ background:"none", border:"none", color:t.accent, cursor:"pointer", fontSize:13, fontWeight:700, textDecoration:"underline" }}>Use a template</button>{" "}
+            or add tasks manually.
+          </div>
+        )}
+
+        {taskView === "kanban" ? <KanbanView /> : <ListView />}
       </div>
+
+      {/* ── KPI Performance ──────────────────────────────────────────────────── */}
       {projectKPIs.length > 0 && (
         <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, marginBottom:20 }}>
           <h3 style={{ margin:"0 0 14px", color:t.text, fontSize:15, fontWeight:700 }}>KPI Performance</h3>
@@ -223,19 +479,25 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
           ))}
         </div>
       )}
+
+      {/* ── AI Analysis ──────────────────────────────────────────────────────── */}
       <div style={{ background:t.card, border:`1px solid ${t.accent}44`, borderRadius:14, padding:20 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
           <h3 style={{ margin:0, color:t.text, fontSize:15, fontWeight:700 }}>🤖 AI Critical Path Analysis</h3>
-          <button onClick={simulateAI} style={btnPrimary} disabled={aiLoading}>{aiLoading ? "Analysing…" : "Run Analysis"}</button>
+          <button onClick={simulateAI} style={btnPrimary} disabled={aiLoading}>{aiLoading?"Analysing…":"Run Analysis"}</button>
         </div>
         <AIBlock loading={aiLoading} error={aiError} result={aiResult} placeholder='Click "Run Analysis" to simulate delay impact and get AI recommendations.' onRetry={simulateAI} />
       </div>
+
+      {/* ── Project Discussion ────────────────────────────────────────────────── */}
       <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, marginTop:20 }}>
         <h3 style={{ margin:"0 0 14px", color:t.text, fontSize:15, fontWeight:700 }}>💬 Project Discussion</h3>
         <CommentsPanel entityType="project" entityId={id} comments={comments||[]} setComments={setComments} currentUser={currentUser} users={users} />
       </div>
 
-      <Modal open={!!commentTask} onClose={()=>setCommentTask(null)} title={`Comments · ${commentTask?.title || ""}`}>
+      {/* ── Modals ────────────────────────────────────────────────────────────── */}
+
+      <Modal open={!!commentTask} onClose={()=>setCommentTask(null)} title={`Comments · ${commentTask?.title||""}`}>
         {commentTask && <CommentsPanel entityType="task" entityId={commentTask.id} comments={comments||[]} setComments={setComments} currentUser={currentUser} users={users} />}
       </Modal>
 
@@ -245,8 +507,8 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
           <FormField label="Assign To">
             <select style={sS} value={editTaskAssigneeKey} onChange={e=>setEditTaskAssigneeKey(e.target.value)}>
               <option value="">Unassigned</option>
-              {users.length > 0 && <optgroup label="Team Members">{users.map(u=><option key={u.id} value={`user:${u.id}`}>{u.name}{u.department?` (${u.department})`:""}</option>)}</optgroup>}
-              {departments.length > 0 && <optgroup label="Departments">{departments.map(d=><option key={d.id} value={`dept:${d.id}`}>{d.name}</option>)}</optgroup>}
+              {users.length>0 && <optgroup label="Team Members">{users.map(u=><option key={u.id} value={`user:${u.id}`}>{u.name}{u.department?` (${u.department})`:""}</option>)}</optgroup>}
+              {departments.length>0 && <optgroup label="Departments">{departments.map(d=><option key={d.id} value={`dept:${d.id}`}>{d.name}</option>)}</optgroup>}
             </select>
           </FormField>
           <FormField label="Description"><input style={iS} value={editTaskForm.description} onChange={e=>setEditTaskForm({...editTaskForm,description:e.target.value})} /></FormField>
@@ -258,6 +520,28 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
             <FormField label="Due Date"><input type="date" style={iS} value={editTaskForm.due_date} onChange={e=>{ const due=e.target.value; const hrs=due?Math.max(0,Math.round((new Date(due)-Date.now())/3600000)):0; setEditTaskForm({...editTaskForm,due_date:due,estimated_hours:hrs}); }} /></FormField>
             <FormField label="Est. Hours (auto)"><input type="number" style={{...iS,opacity:0.7,cursor:"default"}} value={editTaskForm.estimated_hours} readOnly /></FormField>
           </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <FormField label="Recurrence">
+              <select style={sS} value={editTaskForm.recurrence||"none"} onChange={e=>setEditTaskForm({...editTaskForm,recurrence:e.target.value})}>
+                {["none","daily","weekly","monthly"].map(r=><option key={r} value={r}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>)}
+              </select>
+            </FormField>
+            <FormField label="Actual Hours">
+              <input type="number" min="0" step="0.5" style={iS} value={editTaskForm.actual_hours||0} onChange={e=>setEditTaskForm({...editTaskForm,actual_hours:Number(e.target.value)})} />
+            </FormField>
+          </div>
+          {projectTasks.filter(t2=>t2.id!==editTask?.id).length>0 && (
+            <FormField label="Blocked by">
+              <div style={{ maxHeight:100, overflowY:"auto", border:`1px solid ${t.border2}`, borderRadius:8, padding:"6px 10px", background:t.input }}>
+                {projectTasks.filter(t2=>t2.id!==editTask?.id).map(t2=>(
+                  <label key={t2.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"2px 0", cursor:"pointer" }}>
+                    <input type="checkbox" style={{ accentColor:t.accent }} checked={(editTaskForm.blocked_by||[]).includes(t2.id)} onChange={e=>{ const prev=editTaskForm.blocked_by||[]; setEditTaskForm({...editTaskForm,blocked_by:e.target.checked?[...prev,t2.id]:prev.filter(x=>x!==t2.id)}); }} />
+                    <span style={{ fontSize:12, color:t.textSub }}>{t2.title}</span>
+                  </label>
+                ))}
+              </div>
+            </FormField>
+          )}
           <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
             <button style={bs} onClick={()=>{setEditTask(null);setEditTaskForm(null);}}>Cancel</button>
             <button style={btnPrimary} onClick={handleEditTaskSave} disabled={!editTaskForm.title}>Save Changes</button>
@@ -270,8 +554,8 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
         <FormField label="Assign To">
           <select style={sS} value={taskAssigneeKey} onChange={e=>setTaskAssigneeKey(e.target.value)}>
             <option value="">Unassigned</option>
-            {users.length > 0 && <optgroup label="Team Members">{users.map(u=><option key={u.id} value={`user:${u.id}`}>{u.name}{u.department?` (${u.department})`:""}</option>)}</optgroup>}
-            {departments.length > 0 && <optgroup label="Departments">{departments.map(d=><option key={d.id} value={`dept:${d.id}`}>{d.name}</option>)}</optgroup>}
+            {users.length>0 && <optgroup label="Team Members">{users.map(u=><option key={u.id} value={`user:${u.id}`}>{u.name}{u.department?` (${u.department})`:""}</option>)}</optgroup>}
+            {departments.length>0 && <optgroup label="Departments">{departments.map(d=><option key={d.id} value={`dept:${d.id}`}>{d.name}</option>)}</optgroup>}
           </select>
         </FormField>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
@@ -282,6 +566,23 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
           <FormField label="Due Date"><input type="date" style={iS} value={taskForm.due_date} onChange={e=>{ const due=e.target.value; const hrs=due?Math.max(0,Math.round((new Date(due)-Date.now())/3600000)):0; setTaskForm({...taskForm,due_date:due,estimated_hours:hrs}); }} /></FormField>
           <FormField label="Est. Hours (auto)"><input type="number" style={{...iS,opacity:0.7,cursor:"default"}} value={taskForm.estimated_hours} readOnly /></FormField>
         </div>
+        <FormField label="Recurrence">
+          <select style={sS} value={taskForm.recurrence} onChange={e=>setTaskForm({...taskForm,recurrence:e.target.value})}>
+            {["none","daily","weekly","monthly"].map(r=><option key={r} value={r}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>)}
+          </select>
+        </FormField>
+        {projectTasks.length>0 && (
+          <FormField label="Blocked by">
+            <div style={{ maxHeight:100, overflowY:"auto", border:`1px solid ${t.border2}`, borderRadius:8, padding:"6px 10px", background:t.input }}>
+              {projectTasks.map(t2=>(
+                <label key={t2.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"2px 0", cursor:"pointer" }}>
+                  <input type="checkbox" style={{ accentColor:t.accent }} checked={(taskForm.blocked_by||[]).includes(t2.id)} onChange={e=>{ const prev=taskForm.blocked_by||[]; setTaskForm({...taskForm,blocked_by:e.target.checked?[...prev,t2.id]:prev.filter(x=>x!==t2.id)}); }} />
+                  <span style={{ fontSize:12, color:t.textSub }}>{t2.title}</span>
+                </label>
+              ))}
+            </div>
+          </FormField>
+        )}
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
           <button style={bs} onClick={()=>setShowTaskForm(false)}>Cancel</button>
           <button style={btnPrimary} onClick={handleAddTask} disabled={!taskForm.title}>Add Task</button>
@@ -318,7 +619,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
             </FormField>
             <FormField label="Progress">
               <div style={{ ...iS, display:"flex", alignItems:"center", gap:8, cursor:"default" }}>
-                <span style={{ fontWeight:700 }}>{calcProgress(id, tasks)}%</span>
+                <span style={{ fontWeight:700 }}>{calcProgress(id,tasks)}%</span>
                 <span style={{ fontSize:11, opacity:0.6 }}>auto · from tasks</span>
               </div>
             </FormField>
@@ -340,6 +641,39 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
           </div>
         </Modal>
       )}
+
+      {/* Templates picker */}
+      <Modal open={showTemplates} onClose={()=>setShowTemplates(false)} title="📋 Task Templates" width={600}>
+        <div style={{ fontSize:13, color:t.textMuted, marginBottom:16 }}>Pick a template to bulk-add tasks to this project. You can edit them after.</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          {TASK_TEMPLATES.map(tmpl=>(
+            <button key={tmpl.name} onClick={()=>{ applyTemplate(tmpl); setShowTemplates(false); }} style={{ textAlign:"left", background:t.statBg, border:`1px solid ${t.border2}`, borderRadius:12, padding:"16px", cursor:"pointer" }}>
+              <div style={{ fontSize:22, marginBottom:8 }}>{tmpl.icon}</div>
+              <div style={{ fontSize:13, fontWeight:700, color:t.text, marginBottom:4 }}>{tmpl.name}</div>
+              <div style={{ fontSize:11, color:t.textFaint }}>{tmpl.tasks.length} tasks</div>
+            </button>
+          ))}
+        </div>
+      </Modal>
+
+      {/* Log Time modal */}
+      <Modal open={!!logTimeTask} onClose={()=>{ setLogTimeTask(null); setLogHours(""); }} title={`⏱ Log Time · ${logTimeTask?.title||""}`} width={400}>
+        <FormField label="Hours worked">
+          <input type="number" min="0" step="0.5" style={iS} value={logHours} onChange={e=>setLogHours(e.target.value)} placeholder="e.g. 2.5" autoFocus />
+        </FormField>
+        {logTimeTask?.actual_hours>0 && (
+          <div style={{ fontSize:12, color:t.textFaint, marginBottom:8 }}>Already logged: {logTimeTask.actual_hours}h · Est: {logTimeTask.estimated_hours}h</div>
+        )}
+        <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+          <button style={bs} onClick={()=>{ setLogTimeTask(null); setLogHours(""); }}>Cancel</button>
+          <button style={btnPrimary} disabled={!logHours||Number(logHours)<=0} onClick={()=>{
+            const hrs = Number(logHours);
+            setTasks(tasks.map(t2 => t2.id===logTimeTask.id ? { ...t2, actual_hours:(t2.actual_hours||0)+hrs } : t2));
+            toast({ message:`${hrs}h logged for "${logTimeTask.title}"`, type:"success" });
+            setLogTimeTask(null); setLogHours("");
+          }}>Log Time</button>
+        </div>
+      </Modal>
     </div>
   );
 })

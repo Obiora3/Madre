@@ -11,6 +11,40 @@ import { Avatar, NotificationBell, ThemeToggle } from "./components/common.jsx";
 import { GlobalSearch, PageRouter } from "./pages/index.jsx";
 import "./app.css";
 
+// ─── BREADCRUMBS ──────────────────────────────────────────────────────────────
+const PAGE_LABELS = {
+  dashboard:"Dashboard", projects:"Projects", tasks:"Tasks", team:"Team",
+  clients:"Clients", kpis:"KPIs", timeline:"Timeline", reports:"Reports",
+  "ai-brief":"AI Brief", profitability:"Profitability", pitches:"Pitch Pipeline",
+  benchmarking:"Benchmarking", departments:"Departments",
+  "delivery-scores":"Delivery Scores", "white-label":"White-Label", profile:"Profile",
+};
+
+function Breadcrumbs({ page, pageParam, projects, nav, theme: t }) {
+  if (page === "project-detail" && pageParam) {
+    const proj = projects.find(p => p.id === pageParam);
+    return (
+      <nav style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, marginLeft:12 }}>
+        <button
+          onClick={() => nav("projects")}
+          style={{ background:"none", border:"none", cursor:"pointer", color:t.textMuted, fontSize:13, padding:0, fontWeight:500, lineHeight:1 }}
+        >
+          Projects
+        </button>
+        <span style={{ color:t.textGhost, fontSize:14, lineHeight:1 }}>›</span>
+        <span style={{ color:t.textSub, fontWeight:700, maxWidth:200, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+          {proj?.title || "Project"}
+        </span>
+      </nav>
+    );
+  }
+  const label = PAGE_LABELS[page];
+  if (!label) return null;
+  return (
+    <span style={{ fontSize:13, fontWeight:600, color:t.textSub, marginLeft:12 }}>{label}</span>
+  );
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function Madre() {
   const [darkMode, setDarkMode] = useLocalStorage("af_dark_mode", false);
@@ -187,6 +221,7 @@ export default function Madre() {
                   >
                     {"\u2630"}
                   </button>
+                  <Breadcrumbs page={page} pageParam={pageParam} projects={projects} nav={nav} theme={t} />
                 </div>
                 <GlobalSearch />
                 <div style={{ display:"flex", alignItems:"center", gap:12, justifyContent:"flex-end" }}>

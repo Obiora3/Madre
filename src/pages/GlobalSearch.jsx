@@ -144,7 +144,21 @@ export const GlobalSearch = React.memo(function GlobalSearch() {
   const handleSelect = (action) => { action(); setOpen(false); setQuery(""); };
 
   const iS = mkInputStyle(t);
-  const showDropdown = open && query.trim().length > 0;
+  const showSearch  = open && query.trim().length > 0;
+  const showQuickNav = open && query.trim().length === 0;
+
+  // Quick-nav actions shown when palette is open but no query typed
+  const quickActions = [
+    { id:"qa-dash",    icon:"⊞", title:"Dashboard",    sub:"Overview & stats",           action:()=>nav("dashboard") },
+    { id:"qa-proj",    icon:"🗂", title:"Projects",     sub:"All projects",               action:()=>nav("projects") },
+    { id:"qa-tasks",   icon:"✓", title:"Tasks",         sub:"Global task list",           action:()=>nav("tasks") },
+    { id:"qa-tl",      icon:"📅", title:"Timeline",     sub:"Gantt chart view",           action:()=>nav("timeline") },
+    { id:"qa-rep",     icon:"📈", title:"Reports",      sub:"Insights & analytics",       action:()=>nav("reports") },
+    { id:"qa-team",    icon:"👥", title:"Team",         sub:"Capacity & members",         action:()=>nav("team") },
+    { id:"qa-clients", icon:"🤝", title:"Clients",      sub:"Client management",          action:()=>nav("clients") },
+    { id:"qa-ai",      icon:"✨", title:"AI Brief",     sub:"AI-powered brief generator", action:()=>nav("ai-brief") },
+  ];
+
   // running index across groups for keyboard cursor tracking
   let itemIndex = 0;
 
@@ -158,7 +172,7 @@ export const GlobalSearch = React.memo(function GlobalSearch() {
           onChange={e => { setQuery(e.target.value); setOpen(true); setCursor(0); }}
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Search projects, tasks, clients, KPIs…"
+          placeholder="Search projects, tasks, clients… (⌘K)"
           style={{ ...iS, paddingLeft: 38, paddingRight: 64, fontSize: 13, borderRadius: 99 }}
         />
         <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:t.textGhost, fontSize:14, pointerEvents:"none" }}>🔍</span>
@@ -167,8 +181,34 @@ export const GlobalSearch = React.memo(function GlobalSearch() {
         </kbd>
       </div>
 
-      {/* Dropdown */}
-      {showDropdown && (
+      {/* Quick-nav dropdown (no query) */}
+      {showQuickNav && (
+        <div style={{ position:"absolute", top:"calc(100% + 6px)", left:0, right:0, background:t.card, border:`1px solid ${t.border2}`, borderRadius:12, boxShadow:t.shadow, zIndex:2000, overflow:"hidden" }}>
+          <div style={{ padding:"10px 14px 6px", fontSize:11, fontWeight:700, color:t.textGhost, letterSpacing:"0.06em", textTransform:"uppercase" }}>Quick Navigation</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:0 }}>
+            {quickActions.map((item, i) => (
+              <div
+                key={item.id}
+                onClick={() => { item.action(); setOpen(false); }}
+                style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 14px", cursor:"pointer", background:cursor===i?t.navActive:"transparent", transition:"background 0.1s", borderBottom:`1px solid ${t.divider}44` }}
+                onMouseEnter={() => setCursor(i)}
+              >
+                <span style={{ fontSize:16, flexShrink:0 }}>{item.icon}</span>
+                <div style={{ minWidth:0 }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:cursor===i?t.navActiveText:t.textSub }}>{item.title}</div>
+                  <div style={{ fontSize:11, color:t.textFaint }}>{item.sub}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ padding:"8px 14px", borderTop:`1px solid ${t.divider}` }}>
+            <span style={{ fontSize:11, color:t.textGhost }}>Type to search · Esc to close</span>
+          </div>
+        </div>
+      )}
+
+      {/* Search results dropdown */}
+      {showSearch && (
         <div style={{
           position:"absolute", top:"calc(100% + 6px)", left:0, right:0,
           background:t.card, border:`1px solid ${t.border2}`,
@@ -182,12 +222,10 @@ export const GlobalSearch = React.memo(function GlobalSearch() {
           ) : (
             groups.map(group => (
               <div key={group.label}>
-                {/* Group header */}
                 <div style={{ padding:"8px 14px 4px", display:"flex", alignItems:"center", gap:6 }}>
                   <span style={{ fontSize:12 }}>{group.icon}</span>
                   <span style={{ fontSize:11, fontWeight:700, color:t.textFaint, letterSpacing:"0.06em", textTransform:"uppercase" }}>{group.label}</span>
                 </div>
-                {/* Items */}
                 {group.items.map(item => {
                   const isActive = itemIndex === cursor;
                   const thisIndex = itemIndex++;
@@ -196,15 +234,10 @@ export const GlobalSearch = React.memo(function GlobalSearch() {
                       key={item.id}
                       onMouseEnter={() => setCursor(thisIndex)}
                       onClick={() => handleSelect(item.action)}
-                      style={{
-                        display:"flex", alignItems:"center", gap:10,
-                        padding:"9px 14px", cursor:"pointer",
-                        background: isActive ? t.navActive : "transparent",
-                        transition:"background 0.1s",
-                      }}
+                      style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 14px", cursor:"pointer", background:isActive?t.navActive:"transparent", transition:"background 0.1s" }}
                     >
                       <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:13, fontWeight:600, color: isActive ? t.navActiveText : t.textSub, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                        <div style={{ fontSize:13, fontWeight:600, color:isActive?t.navActiveText:t.textSub, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
                           {highlight(item.title, query)}
                         </div>
                         <div style={{ fontSize:11, color:t.textFaint, marginTop:1 }}>{item.sub}</div>

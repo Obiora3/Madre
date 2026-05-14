@@ -59,6 +59,10 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), localApiPlugin()],
+    server: {
+      port: 5174,
+      host: "0.0.0.0"
+    },
     build: {
       sourcemap: false
     }

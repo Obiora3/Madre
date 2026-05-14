@@ -142,12 +142,21 @@ export const Tasks = React.memo(function Tasks() {
               {/* Task rows */}
               {groupTasks.map(t2 => {
                 const cnt = (comments||[]).filter(c=>c.entity_type==="task"&&c.entity_id===t2.id).length;
+                const subs = t2.subtasks||[];
+                const blocked = (t2.blocked_by||[]).some(depId => { const dep = tasks.find(x=>x.id===depId); return dep && dep.status!=="Done"; });
                 return (
                   <div key={t2.id} style={{ display:"grid", gridTemplateColumns:COLS, gap:0, padding:"11px 16px", borderBottom:`1px solid ${t.divider}`, alignItems:"center" }}>
                     <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
                     <div>
-                      <div style={{ fontSize:13, fontWeight:600, color:t2.status==="Done"?t.textFaint:t.textSub, textDecoration:t2.status==="Done"?"line-through":"none" }}>{t2.title}</div>
-                      <div style={{ fontSize:11, color:t.textGhost }}>{t2.estimated_hours}h est.{t2.actual_hours ? ` · ${t2.actual_hours}h actual` : ""}</div>
+                      <div style={{ display:"flex", alignItems:"center", gap:5, flexWrap:"wrap" }}>
+                        <span style={{ fontSize:13, fontWeight:600, color:t2.status==="Done"?t.textFaint:t.textSub, textDecoration:t2.status==="Done"?"line-through":"none" }}>{t2.title}</span>
+                        {t2.recurrence && t2.recurrence !== "none" && <span title={`Repeats ${t2.recurrence}`} style={{ fontSize:11 }}>🔄</span>}
+                        {blocked && <Badge label="🔒" color="#EF4444" />}
+                      </div>
+                      <div style={{ fontSize:11, color:t.textGhost }}>
+                        {t2.estimated_hours}h est.{t2.actual_hours ? ` · ${t2.actual_hours}h logged` : ""}
+                        {subs.length > 0 ? ` · ${subs.filter(s=>s.done).length}/${subs.length} subtasks` : ""}
+                      </div>
                     </div>
                     <div style={{ fontSize:12, color:t.textMuted, display:"flex", alignItems:"center", gap:6 }}>
                       <Avatar name={t2.assigned_to?.name||"?"} size={20} />
