@@ -187,8 +187,15 @@ export const Timeline = React.memo(function Timeline() {
                     return (
                       <div key={t2.id} style={{ display:"flex", alignItems:"center", borderBottom:`1px solid ${t.divider}44`, height:TASK_H }}>
                         <div style={{ width:LABEL_W, flexShrink:0, padding:"0 12px 0 36px", borderRight:`1px solid ${t.border2}44`, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:6 }}>
-                          <span style={{ width:5, height:5, borderRadius:"50%", background:tc, flexShrink:0 }} />
-                          <span style={{ fontSize:11, color:t.textMuted, flex:1, overflow:"hidden", textOverflow:"ellipsis" }}>{t2.title}</span>
+                          {t2.status === "Done" ? (
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink:0 }}>
+                              <circle cx="5" cy="5" r="4.5" stroke={tc} strokeWidth="1" fill={tc+"22"} />
+                              <path d="M3 5.2l1.4 1.4L7 3.5" stroke={tc} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          ) : (
+                            <span style={{ width:5, height:5, borderRadius:"50%", background:tc, flexShrink:0 }} />
+                          )}
+                          <span style={{ fontSize:11, color:t.status==="Done"?t.textFaint:t.textMuted, flex:1, overflow:"hidden", textOverflow:"ellipsis", textDecoration:t2.status==="Done"?"line-through":"none", opacity:t2.status==="Done"?0.7:1 }}>{t2.title}</span>
                         </div>
                         <div style={{ flex:1, position:"relative", height:"100%" }}>
                           <div style={{ position:"absolute", left: tL + 8, top:"50%", transform:"translateY(-50%)", width:tW, height:18, background: tc+"25", border:`1px solid ${tc}77`, borderRadius:4, display:"flex", alignItems:"center", paddingLeft:5, overflow:"hidden" }}>
