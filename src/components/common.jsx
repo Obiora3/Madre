@@ -94,7 +94,7 @@ export function AIBlock({ loading, error, result, placeholder, onRetry, prose = 
 
 
 export const NotificationBell = React.memo(function NotificationBell() {
-  const { tasks } = useApp();
+  const { tasks, comments, projects, currentUser, nav } = useApp();
   const { theme: t } = useTheme();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -115,6 +115,11 @@ export const NotificationBell = React.memo(function NotificationBell() {
     };
   }, [open]);
 
+  const projectById = useMemo(() =>
+    Object.fromEntries((projects || []).map(p => [p.id, p])),
+    [projects]
+  );
+
   const now = new Date();
   const urgent = tasks.filter(t2 => t2.status !== "Done" && !dismissed.has(t2.id)).map(t2 => {
     const due = new Date(t2.due_date);
@@ -126,13 +131,27 @@ export const NotificationBell = React.memo(function NotificationBell() {
     return null;
   }).filter(Boolean);
 
+  const commentNotifs = useMemo(() =>
+    (comments || [])
+      .filter(c =>
+        c.entity_type === "project" &&
+        !dismissed.has(c.id) &&
+        (!currentUser || c.user_id !== currentUser.id)
+      )
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, 8),
+    [comments, dismissed, currentUser]
+  );
+
+  const totalCount = urgent.length + commentNotifs.length;
+
   const dismiss = (id) => {
     const next = new Set([...dismissed, id]);
     setDismissed(next);
     localStorage.setItem("af_dismissed", JSON.stringify([...next]));
   };
   const dismissAll = () => {
-    const next = new Set([...dismissed, ...urgent.map(x => x.id)]);
+    const next = new Set([...dismissed, ...urgent.map(x => x.id), ...commentNotifs.map(c => c.id)]);
     setDismissed(next);
     localStorage.setItem("af_dismissed", JSON.stringify([...next]));
   };
@@ -141,34 +160,67 @@ export const NotificationBell = React.memo(function NotificationBell() {
     <div ref={ref} style={{ position: "relative" }}>
       <button onClick={() => setOpen(v => !v)} style={{ background: "none", border: "none", cursor: "pointer", position: "relative", padding: 4 }}>
         <span style={{ fontSize: 20 }}>🔔</span>
-        {urgent.length > 0 && (
+        {totalCount > 0 && (
           <span style={{ position: "absolute", top: -2, right: -2, background: "#EF4444", color: "#fff", fontSize: 10, fontWeight: 800, borderRadius: 99, padding: "1px 5px", minWidth: 16, textAlign: "center" }}>
-            {urgent.length > 9 ? "9+" : urgent.length}
+            {totalCount > 9 ? "9+" : totalCount}
           </span>
         )}
       </button>
       {open && (
-        <div style={{ position: "absolute", right: 0, top: 40, width: 340, background: t.card, border: `1px solid ${t.border2}`, borderRadius: 14, boxShadow: t.shadow, zIndex: 1000 }}>
+        <div style={{ position: "absolute", right: 0, top: 40, width: 360, background: t.card, border: `1px solid ${t.border2}`, borderRadius: 14, boxShadow: t.shadow, zIndex: 1000 }}>
           <div style={{ padding: "14px 16px 10px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${t.border2}` }}>
-            <span style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>Deadline Reminders</span>
-            {urgent.length > 0 && <button onClick={dismissAll} style={{ background: "none", border: "none", color: t.textMuted, fontSize: 12, cursor: "pointer" }}>Clear all</button>}
+            <span style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>Notifications</span>
+            {totalCount > 0 && <button onClick={dismissAll} style={{ background: "none", border: "none", color: t.textMuted, fontSize: 12, cursor: "pointer" }}>Clear all</button>}
           </div>
-          <div style={{ maxHeight: 320, overflowY: "auto" }}>
-            {urgent.length === 0 ? (
-              <div style={{ padding: 24, textAlign: "center", color: t.textFaint, fontSize: 13 }}>No upcoming deadlines 🎉</div>
-            ) : urgent.map(x => (
-              <div key={x.id} style={{ padding: "10px 16px", borderBottom: `1px solid ${t.divider}`, display: "flex", gap: 10, alignItems: "flex-start" }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: t.textSub, marginBottom: 2 }}>{x.title}</div>
-                  <div style={{ fontSize: 11, color: t.textFaint }}>{fmtDate(x.due_date)} · {x.assigned_to?.name}</div>
-                  <Badge label={x.urgency} color={x.urgencyColor} />
-                </div>
-                <button onClick={() => dismiss(x.id)} style={{ background: "none", border: "none", color: t.textFaint, cursor: "pointer", fontSize: 16 }}>×</button>
-              </div>
-            ))}
-          </div>
-          <div style={{ padding: "10px 16px", borderTop: `1px solid ${t.border2}` }}>
-            <span style={{ fontSize: 12, color: t.accent, cursor: "pointer", fontWeight: 600 }}>View all tasks →</span>
+          <div style={{ maxHeight: 400, overflowY: "auto" }}>
+
+            {/* Project comments from teammates */}
+            {commentNotifs.length > 0 && (
+              <>
+                <div style={{ padding: "8px 16px 4px", fontSize: 10, fontWeight: 700, color: t.textGhost, letterSpacing: "0.07em", textTransform: "uppercase" }}>💬 Project Comments</div>
+                {commentNotifs.map(c => {
+                  const proj = projectById[c.entity_id];
+                  return (
+                    <div key={c.id} style={{ padding: "10px 16px", borderBottom: `1px solid ${t.divider}`, display: "flex", gap: 10, alignItems: "flex-start" }}>
+                      <Avatar name={c.user_name || "?"} size={28} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>{c.user_name}</div>
+                        {proj && (
+                          <div
+                            onClick={() => { nav("project-detail", proj.id); setOpen(false); dismiss(c.id); }}
+                            style={{ fontSize: 11, color: t.accent, fontWeight: 600, cursor: "pointer", marginBottom: 2 }}
+                          >↗ {proj.title}</div>
+                        )}
+                        <div style={{ fontSize: 12, color: t.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.body}</div>
+                        <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>{timeAgo(c.created_at)}</div>
+                      </div>
+                      <button onClick={() => dismiss(c.id)} style={{ background: "none", border: "none", color: t.textFaint, cursor: "pointer", fontSize: 16, flexShrink: 0 }}>×</button>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+
+            {/* Task deadline reminders */}
+            {urgent.length > 0 && (
+              <>
+                <div style={{ padding: "8px 16px 4px", fontSize: 10, fontWeight: 700, color: t.textGhost, letterSpacing: "0.07em", textTransform: "uppercase" }}>⏰ Deadlines</div>
+                {urgent.map(x => (
+                  <div key={x.id} style={{ padding: "10px 16px", borderBottom: `1px solid ${t.divider}`, display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: t.textSub, marginBottom: 2 }}>{x.title}</div>
+                      <div style={{ fontSize: 11, color: t.textFaint }}>{fmtDate(x.due_date)} · {x.assigned_to?.name}</div>
+                      <Badge label={x.urgency} color={x.urgencyColor} />
+                    </div>
+                    <button onClick={() => dismiss(x.id)} style={{ background: "none", border: "none", color: t.textFaint, cursor: "pointer", fontSize: 16 }}>×</button>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {totalCount === 0 && (
+              <div style={{ padding: 28, textAlign: "center", color: t.textFaint, fontSize: 13 }}>All caught up 🎉</div>
+            )}
           </div>
         </div>
       )}
