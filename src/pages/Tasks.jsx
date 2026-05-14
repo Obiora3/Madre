@@ -31,7 +31,8 @@ import {
 
 // ─── TASKS ────────────────────────────────────────────────────────────────────
 export const Tasks = React.memo(function Tasks() {
-  const { tasks, setTasks, departments, comments, setComments, currentUser } = useApp();
+  const { tasks, setTasks, projects, departments, comments, setComments, currentUser } = useApp();
+  const projectById = useMemo(() => Object.fromEntries((projects||[]).map(p => [p.id, p])), [projects]);
   const { theme: t } = useTheme();
   const toast = useToast();
   const bs = mkBtnSecondary(t);
@@ -102,12 +103,16 @@ export const Tasks = React.memo(function Tasks() {
         </div>
         {pageSlice.map(t2=>{
           const cnt = (comments||[]).filter(c=>c.entity_type==="task"&&c.entity_id===t2.id).length;
+          const proj = projectById[t2.project_id];
           return (
             <div key={t2.id} style={{ display:"grid", gridTemplateColumns:"40px 1fr 120px 100px 100px 90px 50px", gap:0, padding:"12px 16px", borderBottom:`1px solid ${t.divider}`, alignItems:"center" }}>
               <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
               <div>
                 <div style={{ fontSize:13, fontWeight:600, color:t2.status==="Done"?t.textFaint:t.textSub, textDecoration:t2.status==="Done"?"line-through":"none" }}>{t2.title}</div>
-                <div style={{ fontSize:11, color:t.textGhost }}>{t2.estimated_hours}h est. · {t2.actual_hours}h actual</div>
+                <div style={{ fontSize:11, color:t.textGhost }}>
+                  {proj && <span style={{ color:t.accent, fontWeight:600, marginRight:6 }}>↗ {proj.title}</span>}
+                  {t2.estimated_hours}h est. · {t2.actual_hours}h actual
+                </div>
               </div>
               <div style={{ fontSize:12, color:t.textMuted, display:"flex", alignItems:"center", gap:6 }}><Avatar name={t2.assigned_to?.name||"?"} size={22} />{(t2.assigned_to?.name||"").split(" ")[0]}</div>
               <Badge label={t2.status} color={statusColor(t2.status)} />
