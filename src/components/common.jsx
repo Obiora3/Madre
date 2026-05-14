@@ -316,10 +316,14 @@ const timeAgo = (iso) => {
   return new Date(iso).toLocaleDateString();
 };
 
-export function CommentsPanel({ entityType, entityId, comments, setComments, currentUser }) {
+export function CommentsPanel({ entityType, entityId, comments, setComments, currentUser, users }) {
   const { theme: t } = useTheme();
   const [body, setBody] = useState("");
+  const [mentionQuery, setMentionQuery] = useState(null);
+  const [mentionAnchorPos, setMentionAnchorPos] = useState(0);
+  const [mentionIdx, setMentionIdx] = useState(0);
   const bottomRef = useRef(null);
+  const textareaRef = useRef(null);
 
   const entityComments = useMemo(() =>
     [...comments]
@@ -331,6 +335,60 @@ export function CommentsPanel({ entityType, entityId, comments, setComments, cur
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [entityComments.length]);
+
+  const mentionSuggestions = useMemo(() => {
+    if (mentionQuery === null || !users?.length) return [];
+    const q = mentionQuery.toLowerCase();
+    return users.filter(u => u.name.toLowerCase().includes(q)).slice(0, 6);
+  }, [mentionQuery, users]);
+
+  const handleChange = (e) => {
+    const val = e.target.value;
+    setBody(val);
+    const cursor = e.target.selectionStart;
+    const textBefore = val.slice(0, cursor);
+    const match = textBefore.match(/(^|[\s\n])@(\w*)$/);
+    if (match) {
+      setMentionQuery(match[2]);
+      setMentionAnchorPos(textBefore.lastIndexOf("@"));
+      setMentionIdx(0);
+    } else {
+      setMentionQuery(null);
+    }
+  };
+
+  const insertMention = (user) => {
+    const before = body.slice(0, mentionAnchorPos);
+    const after = body.slice(mentionAnchorPos + 1 + (mentionQuery?.length || 0));
+    const newBody = `${before}@[${user.name}] ${after}`;
+    setBody(newBody);
+    setMentionQuery(null);
+    setTimeout(() => {
+      const pos = (before + `@[${user.name}] `).length;
+      textareaRef.current?.focus();
+      textareaRef.current?.setSelectionRange(pos, pos);
+    }, 0);
+  };
+
+  const handleKeyDown = (e) => {
+    if (mentionSuggestions.length > 0) {
+      if (e.key === "ArrowDown") { e.preventDefault(); setMentionIdx(i => (i + 1) % mentionSuggestions.length); return; }
+      if (e.key === "ArrowUp") { e.preventDefault(); setMentionIdx(i => (i - 1 + mentionSuggestions.length) % mentionSuggestions.length); return; }
+      if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); insertMention(mentionSuggestions[mentionIdx]); return; }
+      if (e.key === "Escape") { setMentionQuery(null); return; }
+    }
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
+  };
+
+  const renderBody = (text) => {
+    const parts = text.split(/(@\[[^\]]+\])/g);
+    return parts.map((part, i) => {
+      if (part.startsWith("@[") && part.endsWith("]")) {
+        return <span key={i} style={{ color: t.accent, fontWeight: 700 }}>@{part.slice(2, -1)}</span>;
+      }
+      return part;
+    });
+  };
 
   const submit = () => {
     const text = body.trim();
@@ -372,27 +430,45 @@ export function CommentsPanel({ entityType, entityId, comments, setComments, cur
                   )}
                 </div>
               </div>
-              <div style={{ fontSize: 13, color: t.textSub, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{c.body}</div>
+              <div style={{ fontSize: 13, color: t.textSub, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{renderBody(c.body)}</div>
             </div>
           </div>
         ))}
         <div ref={bottomRef} />
       </div>
-      <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-        <textarea
-          value={body}
-          onChange={e => setBody(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit(); }}
-          placeholder={currentUser ? "Write a comment… (Ctrl+Enter to send)" : "Sign in to comment"}
-          disabled={!currentUser}
-          rows={2}
-          style={{ flex: 1, background: t.input, border: `1px solid ${t.border2}`, borderRadius: 8, color: t.text, fontSize: 13, padding: "8px 12px", resize: "none", fontFamily: "inherit", outline: "none" }}
-        />
-        <button
-          onClick={submit}
-          disabled={!body.trim() || !currentUser}
-          style={{ background: "#7C3AED", color: "#fff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: !body.trim() || !currentUser ? 0.5 : 1 }}
-        >Post</button>
+      <div style={{ position: "relative" }}>
+        {mentionSuggestions.length > 0 && (
+          <div style={{ position: "absolute", bottom: "100%", left: 0, right: 44, marginBottom: 4, background: t.card, border: `1px solid ${t.border2}`, borderRadius: 10, overflow: "hidden", zIndex: 50, boxShadow: "0 4px 16px rgba(0,0,0,0.12)" }}>
+            {mentionSuggestions.map((u, i) => (
+              <button
+                key={u.id}
+                onMouseDown={e => { e.preventDefault(); insertMention(u); }}
+                style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 12px", background: i === mentionIdx ? t.navActive : "transparent", border: "none", cursor: "pointer", textAlign: "left" }}
+              >
+                <Avatar name={u.name} size={22} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: i === mentionIdx ? t.navActiveText : t.textSub }}>{u.name}</span>
+                {u.job_title && <span style={{ fontSize: 11, color: t.textFaint, marginLeft: "auto" }}>{u.job_title}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+          <textarea
+            ref={textareaRef}
+            value={body}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            placeholder={currentUser ? "Write a comment… (@ to mention, Ctrl+Enter to send)" : "Sign in to comment"}
+            disabled={!currentUser}
+            rows={2}
+            style={{ flex: 1, background: t.input, border: `1px solid ${t.border2}`, borderRadius: 8, color: t.text, fontSize: 13, padding: "8px 12px", resize: "none", fontFamily: "inherit", outline: "none" }}
+          />
+          <button
+            onClick={submit}
+            disabled={!body.trim() || !currentUser}
+            style={{ background: "#7C3AED", color: "#fff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: !body.trim() || !currentUser ? 0.5 : 1 }}
+          >Post</button>
+        </div>
       </div>
     </div>
   );

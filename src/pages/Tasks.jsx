@@ -31,7 +31,7 @@ import {
 
 // ─── TASKS ────────────────────────────────────────────────────────────────────
 export const Tasks = React.memo(function Tasks() {
-  const { tasks, setTasks, projects, departments, comments, setComments, currentUser } = useApp();
+  const { tasks, setTasks, projects, departments, comments, setComments, currentUser, users } = useApp();
   const projectById = useMemo(() => Object.fromEntries((projects||[]).map(p => [p.id, p])), [projects]);
   const { theme: t } = useTheme();
   const toast = useToast();
@@ -168,7 +168,7 @@ export const Tasks = React.memo(function Tasks() {
       </div>
 
       <Modal open={!!commentTask} onClose={()=>setCommentTask(null)} title={`Comments · ${commentTask?.title || ""}`}>
-        {commentTask && <CommentsPanel entityType="task" entityId={commentTask.id} comments={comments||[]} setComments={setComments} currentUser={currentUser} />}
+        {commentTask && <CommentsPanel entityType="task" entityId={commentTask.id} comments={comments||[]} setComments={setComments} currentUser={currentUser} users={users} />}
       </Modal>
     </div>
   );
