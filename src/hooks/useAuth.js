@@ -64,6 +64,19 @@ async function hashPassword(password, salt) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+// Poll until the Supabase profile trigger has created the row for this user.
+// The trigger fires after auth.signUp() returns, so there is a brief window
+// where the profile does not exist yet. Without this wait, join_agency / create_agency
+// RPCs that UPDATE profiles find 0 rows and silently no-op.
+const waitForProfile = async (userId, maxAttempts = 12, delayMs = 500) => {
+  for (let i = 0; i < maxAttempts; i++) {
+    const { data } = await supabase.from("profiles").select("id").eq("id", userId).maybeSingle();
+    if (data?.id) return true;
+    await new Promise(r => setTimeout(r, delayMs));
+  }
+  return false;
+};
+
 // Generates a random 8-char uppercase agency code, e.g. "NOVA8K2X"
 const generateAgencyCode = () => {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -79,11 +92,18 @@ export function useAuth() {
   const loadUserAgency = useCallback(async (userId) => {
     if (!isSupabaseConfigured || !supabase) return;
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("agency_id")
-      .eq("id", userId)
-      .single();
+    // Retry a few times — the agency_id may not be set yet if called immediately
+    // after signUp while the join_agency RPC is still committing.
+    let profile = null;
+    for (let i = 0; i < 6; i++) {
+      const { data } = await supabase
+        .from("profiles")
+        .select("agency_id")
+        .eq("id", userId)
+        .maybeSingle();
+      if (data?.agency_id) { profile = data; break; }
+      await new Promise(r => setTimeout(r, 600));
+    }
 
     if (!profile?.agency_id) return;
 
@@ -154,6 +174,11 @@ export function useAuth() {
 
       if (error) throw new Error(error.message);
       if (!data.user) throw new Error("Sign up failed. Please try again.");
+
+      // Wait for the DB trigger to create the profile row before calling agency RPCs.
+      // Without this, the RPC UPDATE finds no row and the user is left unlinked.
+      const profileReady = await waitForProfile(data.user.id);
+      if (!profileReady) throw new Error("Account setup timed out. Please try signing in.");
 
       // Link or create agency
       if (agencyMode === "create") {
