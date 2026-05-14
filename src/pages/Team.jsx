@@ -36,12 +36,19 @@ export const Team = React.memo(function Team() {
   const STATUS_ORDER = { "In Progress": 0, "In Review": 1, "To Do": 2 };
 
   // Pre-compute workload + current tasks for every user in one pass
-  // Hours = sum of estimated_hours (auto-derived from due date) for active tasks
+  // Hours = estimated_hours if set, else derived from due_date - created_at
+  const taskHours = (t2) => {
+    if (t2.estimated_hours > 0) return t2.estimated_hours;
+    if (!t2.due_date) return 0;
+    const start = new Date(t2.created_at || Date.now());
+    const end = new Date(t2.due_date);
+    return Math.max(0, Math.round((end - start) / 3600000));
+  };
   const workloadMap = useMemo(() => {
     const map = {};
     users.forEach(u => {
       const userTasks = tasks.filter(t2 => t2.assigned_to?.email === u.email && t2.status !== "Done");
-      const hours = userTasks.reduce((s, t2) => s + (t2.estimated_hours || 0), 0);
+      const hours = userTasks.reduce((s, t2) => s + taskHours(t2), 0);
       const pct = Math.min(100, Math.round((hours / 40) * 100));
       const sorted = [...userTasks].sort((a, b) =>
         (STATUS_ORDER[a.status] ?? 3) - (STATUS_ORDER[b.status] ?? 3)
