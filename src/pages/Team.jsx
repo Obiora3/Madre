@@ -36,12 +36,18 @@ export const Team = React.memo(function Team() {
   const STATUS_ORDER = { "In Progress": 0, "In Review": 1, "To Do": 2 };
 
   // Pre-compute workload + current tasks for every user in one pass
+  // Hours = sum of (due_date - created_at) in hours for each active task
   const workloadMap = useMemo(() => {
     const map = {};
     users.forEach(u => {
       const userTasks = tasks.filter(t2 => t2.assigned_to?.email === u.email && t2.status !== "Done");
-      const hours = userTasks.reduce((s, t2) => s + (t2.estimated_hours || 0), 0);
-      const pct   = Math.min(100, Math.round((hours / 40) * 100));
+      const hours = Math.round(userTasks.reduce((s, t2) => {
+        if (!t2.due_date) return s;
+        const start = new Date(t2.created_at || Date.now());
+        const end   = new Date(t2.due_date);
+        return s + Math.max(0, (end - start) / 3600000);
+      }, 0));
+      const pct = Math.min(100, Math.round((hours / 40) * 100));
       const sorted = [...userTasks].sort((a, b) =>
         (STATUS_ORDER[a.status] ?? 3) - (STATUS_ORDER[b.status] ?? 3)
       );
@@ -89,7 +95,7 @@ export const Team = React.memo(function Team() {
               </div>
               <div style={{ marginBottom:8 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                  <span style={{ fontSize:11, color:t.textMuted }}>Capacity ({wl.hours}h remaining)</span>
+                  <span style={{ fontSize:11, color:t.textMuted }}>Capacity ({wl.hours}h committed)</span>
                   <span style={{ fontSize:11, color:wl.color, fontWeight:700 }}>{wl.pct}%</span>
                 </div>
                 <ProgressBar value={wl.pct} color={wl.color} height={6} />
