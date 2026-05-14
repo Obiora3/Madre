@@ -255,8 +255,8 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
             <FormField label="Priority"><select style={sS} value={editTaskForm.priority} onChange={e=>setEditTaskForm({...editTaskForm,priority:e.target.value})}>{["Critical","High","Medium","Low"].map(s=><option key={s}>{s}</option>)}</select></FormField>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-            <FormField label="Due Date"><input type="date" style={iS} value={editTaskForm.due_date} onChange={e=>setEditTaskForm({...editTaskForm,due_date:e.target.value})} /></FormField>
-            <FormField label="Est. Hours"><input type="number" style={iS} value={editTaskForm.estimated_hours} onChange={e=>setEditTaskForm({...editTaskForm,estimated_hours:Number(e.target.value)})} /></FormField>
+            <FormField label="Due Date"><input type="date" style={iS} value={editTaskForm.due_date} onChange={e=>{ const due=e.target.value; const hrs=due?Math.max(0,Math.round((new Date(due)-Date.now())/3600000)):0; setEditTaskForm({...editTaskForm,due_date:due,estimated_hours:hrs}); }} /></FormField>
+            <FormField label="Est. Hours (auto)"><input type="number" style={{...iS,opacity:0.7,cursor:"default"}} value={editTaskForm.estimated_hours} readOnly /></FormField>
           </div>
           <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
             <button style={bs} onClick={()=>{setEditTask(null);setEditTaskForm(null);}}>Cancel</button>
@@ -279,8 +279,8 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
           <FormField label="Priority"><select style={sS} value={taskForm.priority} onChange={e=>setTaskForm({...taskForm,priority:e.target.value})}>{["Critical","High","Medium","Low"].map(s=><option key={s}>{s}</option>)}</select></FormField>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-          <FormField label="Due Date"><input type="date" style={iS} value={taskForm.due_date} onChange={e=>setTaskForm({...taskForm,due_date:e.target.value})} /></FormField>
-          <FormField label="Est. Hours"><input type="number" style={iS} value={taskForm.estimated_hours} onChange={e=>setTaskForm({...taskForm,estimated_hours:Number(e.target.value)})} /></FormField>
+          <FormField label="Due Date"><input type="date" style={iS} value={taskForm.due_date} onChange={e=>{ const due=e.target.value; const hrs=due?Math.max(0,Math.round((new Date(due)-Date.now())/3600000)):0; setTaskForm({...taskForm,due_date:due,estimated_hours:hrs}); }} /></FormField>
+          <FormField label="Est. Hours (auto)"><input type="number" style={{...iS,opacity:0.7,cursor:"default"}} value={taskForm.estimated_hours} readOnly /></FormField>
         </div>
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
           <button style={bs} onClick={()=>setShowTaskForm(false)}>Cancel</button>
