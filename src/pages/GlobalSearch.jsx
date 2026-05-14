@@ -149,7 +149,7 @@ export const GlobalSearch = React.memo(function GlobalSearch() {
   let itemIndex = 0;
 
   return (
-    <div ref={wrapRef} style={{ flex: 1, maxWidth: 420, position: "relative" }}>
+    <div ref={wrapRef} style={{ width: 440, position: "relative" }}>
       {/* Input */}
       <div style={{ position: "relative" }}>
         <input
@@ -159,7 +159,7 @@ export const GlobalSearch = React.memo(function GlobalSearch() {
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder="Search projects, tasks, clients, KPIs…"
-          style={{ ...iS, paddingLeft: 36, paddingRight: 60, fontSize: 13 }}
+          style={{ ...iS, paddingLeft: 38, paddingRight: 64, fontSize: 13, borderRadius: 99 }}
         />
         <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:t.textGhost, fontSize:14, pointerEvents:"none" }}>🔍</span>
         <kbd style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", fontSize:10, color:t.textGhost, background:t.toggleBg, border:`1px solid ${t.border2}`, borderRadius:4, padding:"1px 5px", fontFamily:"inherit", pointerEvents:"none" }}>

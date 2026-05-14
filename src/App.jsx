@@ -177,17 +177,19 @@ export default function Madre() {
             {/* Main */}
             <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", background:shellBg }}>
               {/* Topbar */}
-              <div style={{ height:headerHeight, background:shellBg, display:"flex", alignItems:"center", padding:"0 20px", gap:16, flexShrink:0, transition:"background 0.3s ease" }}>
-                <button
-                  aria-label={sidebarOpen ? "Collapse sidebar" : "Open sidebar"}
-                  title={sidebarOpen ? "Collapse sidebar" : "Open sidebar"}
-                  onClick={() => setSidebarOpen(o => !o)}
-                  style={{ width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center", background:"transparent", border:`1px solid ${t.border2}`, borderRadius:8, color:t.textMuted, cursor:"pointer", fontSize:18, padding:0, lineHeight:1 }}
-                >
-                  {"\u2630"}
-                </button>
+              <div style={{ height:headerHeight, background:shellBg, display:"grid", gridTemplateColumns:"1fr auto 1fr", alignItems:"center", padding:"0 20px", flexShrink:0, transition:"background 0.3s ease" }}>
+                <div style={{ display:"flex", alignItems:"center" }}>
+                  <button
+                    aria-label={sidebarOpen ? "Collapse sidebar" : "Open sidebar"}
+                    title={sidebarOpen ? "Collapse sidebar" : "Open sidebar"}
+                    onClick={() => setSidebarOpen(o => !o)}
+                    style={{ width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center", background:"transparent", border:`1px solid ${t.border2}`, borderRadius:8, color:t.textMuted, cursor:"pointer", fontSize:18, padding:0, lineHeight:1 }}
+                  >
+                    {"\u2630"}
+                  </button>
+                </div>
                 <GlobalSearch />
-                <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:12 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:12, justifyContent:"flex-end" }}>
                   <ThemeToggle />
                   <NotificationBell />
                   <button onClick={() => nav("profile")} title="Edit profile" style={{ background:"none", border:"none", cursor:"pointer", padding:0, borderRadius:"50%" }}>
