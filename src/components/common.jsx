@@ -119,6 +119,10 @@ export const NotificationBell = React.memo(function NotificationBell() {
     Object.fromEntries((projects || []).map(p => [p.id, p])),
     [projects]
   );
+  const taskById = useMemo(() =>
+    Object.fromEntries((tasks || []).map(t2 => [t2.id, t2])),
+    [tasks]
+  );
 
   const now = new Date();
   const urgent = tasks.filter(t2 => t2.status !== "Done" && !dismissed.has(t2.id)).map(t2 => {
@@ -131,19 +135,30 @@ export const NotificationBell = React.memo(function NotificationBell() {
     return null;
   }).filter(Boolean);
 
+  const mentionTag = currentUser ? `@[${currentUser.name}]` : null;
+
+  const mentionNotifs = useMemo(() => {
+    if (!mentionTag) return [];
+    return (comments || [])
+      .filter(c => c.body?.includes(mentionTag) && c.user_id !== currentUser.id && !dismissed.has(c.id))
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, 8);
+  }, [comments, mentionTag, currentUser, dismissed]);
+
   const commentNotifs = useMemo(() =>
     (comments || [])
       .filter(c =>
         c.entity_type === "project" &&
         !dismissed.has(c.id) &&
-        (!currentUser || c.user_id !== currentUser.id)
+        (!currentUser || c.user_id !== currentUser.id) &&
+        !c.body?.includes(mentionTag)
       )
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
       .slice(0, 8),
-    [comments, dismissed, currentUser]
+    [comments, dismissed, currentUser, mentionTag]
   );
 
-  const totalCount = urgent.length + commentNotifs.length;
+  const totalCount = urgent.length + mentionNotifs.length + commentNotifs.length;
 
   const dismiss = (id) => {
     const next = new Set([...dismissed, id]);
@@ -151,7 +166,7 @@ export const NotificationBell = React.memo(function NotificationBell() {
     localStorage.setItem("af_dismissed", JSON.stringify([...next]));
   };
   const dismissAll = () => {
-    const next = new Set([...dismissed, ...urgent.map(x => x.id), ...commentNotifs.map(c => c.id)]);
+    const next = new Set([...dismissed, ...urgent.map(x => x.id), ...commentNotifs.map(c => c.id), ...mentionNotifs.map(c => c.id)]);
     setDismissed(next);
     localStorage.setItem("af_dismissed", JSON.stringify([...next]));
   };
@@ -173,6 +188,43 @@ export const NotificationBell = React.memo(function NotificationBell() {
             {totalCount > 0 && <button onClick={dismissAll} style={{ background: "none", border: "none", color: t.textMuted, fontSize: 12, cursor: "pointer" }}>Clear all</button>}
           </div>
           <div style={{ maxHeight: 400, overflowY: "auto" }}>
+
+            {/* Mention notifications */}
+            {mentionNotifs.length > 0 && (
+              <>
+                <div style={{ padding: "8px 16px 4px", fontSize: 10, fontWeight: 700, color: t.textGhost, letterSpacing: "0.07em", textTransform: "uppercase" }}>@ Mentions</div>
+                {mentionNotifs.map(c => {
+                  const proj = c.entity_type === "project" ? projectById[c.entity_id] : null;
+                  const task = c.entity_type === "task" ? taskById[c.entity_id] : null;
+                  const previewBody = c.body.replace(/@\[([^\]]+)\]/g, "@$1");
+                  return (
+                    <div key={c.id} style={{ padding: "10px 16px", borderBottom: `1px solid ${t.divider}`, display: "flex", gap: 10, alignItems: "flex-start", background: `${t.accent}08` }}>
+                      <Avatar name={c.user_name || "?"} size={28} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>
+                          <span style={{ color: t.accent }}>@you</span> · {c.user_name}
+                        </div>
+                        {proj && (
+                          <div
+                            onClick={() => { nav("project-detail", proj.id); setOpen(false); dismiss(c.id); }}
+                            style={{ fontSize: 11, color: t.accent, fontWeight: 600, cursor: "pointer", marginBottom: 2 }}
+                          >↗ {proj.title}</div>
+                        )}
+                        {task && (
+                          <div
+                            onClick={() => { nav("tasks"); setOpen(false); dismiss(c.id); }}
+                            style={{ fontSize: 11, color: t.accent, fontWeight: 600, cursor: "pointer", marginBottom: 2 }}
+                          >✓ {task.title}</div>
+                        )}
+                        <div style={{ fontSize: 12, color: t.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{previewBody}</div>
+                        <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>{timeAgo(c.created_at)}</div>
+                      </div>
+                      <button onClick={() => dismiss(c.id)} style={{ background: "none", border: "none", color: t.textFaint, cursor: "pointer", fontSize: 16, flexShrink: 0 }}>×</button>
+                    </div>
+                  );
+                })}
+              </>
+            )}
 
             {/* Project comments from teammates */}
             {commentNotifs.length > 0 && (
