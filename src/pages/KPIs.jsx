@@ -75,13 +75,9 @@ export const KPIs = React.memo(function KPIs() {
           const pct = k.target_value > 0 ? Math.min(100, Math.round((k.current_value/k.target_value)*100)) : 0;
           const proj = projectById[k.project_id];
           return (
-            <div key={k.id} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, position:"relative" }}>
-              <div style={{ position:"absolute", top:10, right:10, display:"flex", gap:4 }}>
-                <button onClick={() => openEdit(k)} title="Edit KPI" style={{ background:"none", border:"none", color:t.textGhost, cursor:"pointer", fontSize:13, padding:"1px 5px", borderRadius:4 }}>✏</button>
-                <button onClick={() => setConfirmDelete(k)} title="Delete KPI" style={{ background:"none", border:"none", color:t.textGhost, cursor:"pointer", fontSize:15, lineHeight:1, padding:"1px 4px", borderRadius:4 }}>×</button>
-              </div>
+            <div key={k.id} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20 }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
-                <div style={{ paddingRight:20 }}>
+                <div style={{ flex:1, minWidth:0, marginRight:10 }}>
                   <div style={{ fontSize:14, fontWeight:700, color:t.text, marginBottom:2 }}>{k.name}</div>
                   <div style={{ fontSize:11, color:t.textFaint }}>{k.category}</div>
                   {proj && (
@@ -91,7 +87,11 @@ export const KPIs = React.memo(function KPIs() {
                     </div>
                   )}
                 </div>
-                <Badge label={k.status} color={statusColor(k.status)} />
+                <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+                  <Badge label={k.status} color={statusColor(k.status)} />
+                  <button onClick={() => openEdit(k)} title="Edit KPI" style={{ background:"none", border:"none", color:t.textGhost, cursor:"pointer", fontSize:13, padding:"2px 6px", borderRadius:4, lineHeight:1 }}>✏</button>
+                  <button onClick={() => setConfirmDelete(k)} title="Delete KPI" style={{ background:"none", border:"none", color:t.textGhost, cursor:"pointer", fontSize:17, lineHeight:1, padding:"0 4px", borderRadius:4 }}>×</button>
+                </div>
               </div>
               <div style={{ marginBottom:10 }}>
                 <ProgressBar value={k.current_value} max={k.target_value||1} color={statusColor(k.status)} height={8} />
