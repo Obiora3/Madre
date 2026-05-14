@@ -32,6 +32,7 @@ const BLANK_KPI = { name:"", project_id:"", category:"Brand Awareness", target_v
 
 export const KPIs = React.memo(function KPIs() {
   const { kpis, setKpis, projects } = useApp();
+  const projectById = useMemo(() => Object.fromEntries((projects||[]).map(p => [p.id, p])), [projects]);
   const { theme: t } = useTheme();
   const toast = useToast();
   const iS = mkInputStyle(t); const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);
@@ -72,6 +73,7 @@ export const KPIs = React.memo(function KPIs() {
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16 }}>
         {filtered.map(k=>{
           const pct = k.target_value > 0 ? Math.min(100, Math.round((k.current_value/k.target_value)*100)) : 0;
+          const proj = projectById[k.project_id];
           return (
             <div key={k.id} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, position:"relative" }}>
               <div style={{ position:"absolute", top:10, right:10, display:"flex", gap:4 }}>
@@ -82,6 +84,12 @@ export const KPIs = React.memo(function KPIs() {
                 <div style={{ paddingRight:20 }}>
                   <div style={{ fontSize:14, fontWeight:700, color:t.text, marginBottom:2 }}>{k.name}</div>
                   <div style={{ fontSize:11, color:t.textFaint }}>{k.category}</div>
+                  {proj && (
+                    <div style={{ display:"inline-flex", alignItems:"center", gap:4, marginTop:5, background:t.navActive, borderRadius:6, padding:"2px 8px" }}>
+                      <span style={{ fontSize:10 }}>↗</span>
+                      <span style={{ fontSize:11, fontWeight:600, color:t.navActiveText }}>{proj.title}</span>
+                    </div>
+                  )}
                 </div>
                 <Badge label={k.status} color={statusColor(k.status)} />
               </div>
