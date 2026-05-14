@@ -167,7 +167,34 @@ export const Profitability = React.memo(function Profitability() {
 
   return (
     <div>
-      <h1 style={{ margin:"0 0 24px",fontSize:26,fontWeight:800,color:t.text }}>Profitability</h1>
+      {/* Hidden file input — always mounted so the top-bar button can trigger it */}
+      <input
+        ref={fileRef} type="file" accept=".csv,.txt,.pdf,.xlsx"
+        style={{ display:"none" }}
+        onChange={e => { const f = e.target.files[0]; if (f) handleFile(f); e.target.value = ""; }}
+      />
+
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
+        <h1 style={{ margin:0, fontSize:26, fontWeight:800, color:t.text }}>Profitability</h1>
+
+        {/* Top-right button group */}
+        <div style={{ display:"flex", border:`1px solid ${t.border2}`, borderRadius:99, overflow:"hidden", background:t.card, boxShadow:`0 1px 4px ${t.border2}` }}>
+          <button
+            onClick={() => fileRef.current?.click()}
+            style={{ display:"flex", alignItems:"center", gap:7, background:"transparent", border:"none", cursor:"pointer", padding:"9px 20px", fontSize:13, fontWeight:600, color:t.textSub }}
+          >
+            <span style={{ fontSize:15 }}>📊</span> Upload Plans
+          </button>
+          <div style={{ width:1, background:t.border2 }} />
+          <button
+            onClick={analyzeVsBudget}
+            disabled={!plan || analyzingPlan}
+            style={{ display:"flex", alignItems:"center", gap:7, background:"#3B82F6", border:"none", cursor:plan&&!analyzingPlan?"pointer":"not-allowed", padding:"9px 20px", fontSize:13, fontWeight:700, color:"#fff", opacity:!plan?0.55:1, transition:"opacity 0.15s" }}
+          >
+            <span style={{ fontSize:14 }}>⚡</span> {analyzingPlan ? "Analysing…" : "Live Analysis"}
+          </button>
+        </div>
+      </div>
 
       {/* Summary stats */}
       <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:24 }}>
@@ -208,11 +235,6 @@ export const Profitability = React.memo(function Profitability() {
                 background:dragOver ? `${t.accent}11` : t.statBg, transition:"all 0.15s",
               }}
             >
-              <input
-                ref={fileRef} type="file" accept=".csv,.txt,.pdf,.xlsx"
-                style={{ display:"none" }}
-                onChange={e => { const f = e.target.files[0]; if (f) handleFile(f); e.target.value = ""; }}
-              />
               <div style={{ fontSize:30, marginBottom:10 }}>📂</div>
               {parsing ? (
                 <div style={{ color:t.textMuted, fontSize:13, fontWeight:600 }}>Parsing file…</div>
