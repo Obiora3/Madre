@@ -15,12 +15,21 @@ export const WhiteLabel = React.memo(function WhiteLabel() {
     resetAllData,
     whiteLabelSettings,
     setWhiteLabelSettings,
-    resetWhiteLabelSettings
+    resetWhiteLabelSettings,
+    currentUser,
   } = useApp();
   const { theme: t } = useTheme();
   const iS = mkInputStyle(t); const bs = mkBtnSecondary(t);
   const [settings, setSettings] = useState(whiteLabelSettings);
   const [saved, setSaved] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const copyCode = () => {
+    if (!currentUser?.agency_code) return;
+    navigator.clipboard.writeText(currentUser.agency_code).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const save = () => {
     setWhiteLabelSettings(settings);
@@ -37,8 +46,37 @@ export const WhiteLabel = React.memo(function WhiteLabel() {
       <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:24 }}>
         <div>
           <div style={{ background:t.card,border:`1px solid ${t.border2}`,borderRadius:14,padding:20,marginBottom:16 }}>
-            <h3 style={{ margin:"0 0 16px",fontSize:14,fontWeight:700,color:t.text }}>Identity</h3>
-            <FormField label="Agency Name"><input style={iS} value={settings.agency_name} onChange={e=>setSettings({...settings,agency_name:e.target.value})} /></FormField>
+            <h3 style={{ margin:"0 0 16px",fontSize:14,fontWeight:700,color:t.text }}>Agency Workspace</h3>
+
+            {/* Workspace name — set at signup, read-only */}
+            <div style={{ marginBottom:16 }}>
+              <div style={{ fontSize:11,fontWeight:700,color:t.textMuted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:6 }}>Workspace Name</div>
+              <div style={{ ...iS,background:t.statBg,border:`1px solid ${t.border}`,color:t.text,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"default",userSelect:"text" }}>
+                <span>{currentUser?.agency_name || "—"}</span>
+                <span style={{ fontSize:11,color:t.textFaint,fontWeight:400 }}>set at signup</span>
+              </div>
+            </div>
+
+            {/* Invite code */}
+            <div style={{ marginBottom:16 }}>
+              <div style={{ fontSize:11,fontWeight:700,color:t.textMuted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:6 }}>Invite Code</div>
+              {currentUser?.agency_code ? (
+                <>
+                  <div style={{ display:"flex",gap:8 }}>
+                    <div style={{ ...iS,flex:1,fontFamily:"monospace",fontWeight:800,fontSize:16,letterSpacing:"0.18em",color:t.accent,background:t.statBg,border:`1px solid ${t.border}`,userSelect:"all" }}>
+                      {currentUser.agency_code}
+                    </div>
+                    <button onClick={copyCode} style={{ ...bs,padding:"0 16px",fontWeight:700,flexShrink:0 }}>
+                      {copied ? "✓ Copied" : "Copy"}
+                    </button>
+                  </div>
+                  <div style={{ fontSize:11,color:t.textFaint,marginTop:6 }}>Share this code with teammates so they can join your workspace.</div>
+                </>
+              ) : (
+                <div style={{ fontSize:13,color:t.textFaint }}>No agency connected.</div>
+              )}
+            </div>
+
             <FormField label="Tagline"><input style={iS} value={settings.tagline} onChange={e=>setSettings({...settings,tagline:e.target.value})} /></FormField>
           </div>
           <div style={{ background:t.card,border:`1px solid ${t.border2}`,borderRadius:14,padding:20,marginBottom:16 }}>
@@ -83,7 +121,7 @@ export const WhiteLabel = React.memo(function WhiteLabel() {
           </div>
           <div style={{ display:"flex",height:400 }}>
             <div style={{ width:180,background:settings.dark_sidebar?"#0f0f1a":"#F9F9FF",borderRight:`1px solid ${t.border}`,padding:16 }}>
-              <div style={{ fontSize:16,fontWeight:800,color:settings.primary_colour,marginBottom:4 }}>{settings.agency_name}</div>
+              <div style={{ fontSize:16,fontWeight:800,color:settings.primary_colour,marginBottom:4 }}>{currentUser?.agency_name || settings.agency_name}</div>
               <div style={{ fontSize:11,color:t.textFaint,marginBottom:20 }}>{settings.tagline}</div>
               {["Dashboard","Projects","Tasks","Team","Clients"].map(item=>(
                 <div key={item} style={{ padding:"8px 10px",borderRadius:8,marginBottom:4,fontSize:12,color:item==="Dashboard"?settings.primary_colour:t.textFaint,background:item==="Dashboard"?settings.primary_colour+"22":"transparent",fontWeight:item==="Dashboard"?700:400 }}>{item}</div>
