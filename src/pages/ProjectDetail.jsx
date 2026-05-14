@@ -67,7 +67,8 @@ const KANBAN_COLS = ["To Do","In Progress","In Review","Done"];
 
 // ─── PROJECT DETAIL ───────────────────────────────────────────────────────────
 export const ProjectDetail = React.memo(function ProjectDetail() {
-  const { projects, setProjects, tasks, setTasks, kpis, clients, users, departments, comments, setComments, currentUser, nav, pageParam: id } = useApp();
+  const { projects, setProjects, tasks, setTasks, kpis, clients, users, departments, comments, setComments, currentUser, nav, pageParam: id, whiteLabelSettings } = useApp();
+  const CS = ({ USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" })[whiteLabelSettings?.currency] || "$";
   const onBack = () => nav("projects");
   const { theme: t } = useTheme();
   const toast = useToast();
@@ -163,6 +164,8 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
       due_date: project.due_date || "",
       progress: project.progress ?? 0,
       kpi_summary: project.kpi_summary || "",
+      budget: project.budget || 0,
+      budget_spent: project.budget_spent || 0,
     });
     setShowEditForm(true);
   };
@@ -387,14 +390,42 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
             <Badge label={project.status} color={statusColor(project.status)} />
           </div>
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:16, marginBottom:16 }}>
-          {[["Assigned","👤",project.assigned_to?.name||"—"],["Start","📅",fmtDate(project.start_date)],["Due","🗓",fmtDate(project.due_date)],["Progress","📈",`${calcProgress(id,tasks)}%`]].map(([l,i,v])=>(
-            <div key={l} style={{ background:t.statBg, borderRadius:10, padding:"10px 14px" }}>
-              <div style={{ fontSize:11, color:t.textFaint, marginBottom:4 }}>{i} {l}</div>
-              <div style={{ fontSize:14, fontWeight:700, color:t.textSub }}>{v}</div>
-            </div>
-          ))}
-        </div>
+        {(() => {
+          const hasBudget = project.budget > 0;
+          const budgetUsedPct = hasBudget ? Math.min(150, Math.round(((project.budget_spent||0) / project.budget) * 100)) : 0;
+          const budgetOver = hasBudget && (project.budget_spent||0) > project.budget;
+          const statItems = [
+            ["Assigned","👤", project.assigned_to?.name||"—", null],
+            ["Start","📅", fmtDate(project.start_date), null],
+            ["Due","🗓", fmtDate(project.due_date), null],
+            ["Progress","📈", `${calcProgress(id,tasks)}%`, null],
+            ...(hasBudget ? [
+              ["Budget","💰", `${CS}${(project.budget||0).toLocaleString()}`, null],
+              ["Spent","📤", `${CS}${(project.budget_spent||0).toLocaleString()}`, budgetOver ? "#EF4444" : (budgetUsedPct >= 80 ? "#F59E0B" : "#059669")],
+            ] : []),
+          ];
+          return (
+            <>
+              <div style={{ display:"grid", gridTemplateColumns:`repeat(${statItems.length},1fr)`, gap:14, marginBottom:16 }}>
+                {statItems.map(([l,ic,v,color])=>(
+                  <div key={l} style={{ background:t.statBg, borderRadius:10, padding:"10px 14px" }}>
+                    <div style={{ fontSize:11, color:t.textFaint, marginBottom:4 }}>{ic} {l}</div>
+                    <div style={{ fontSize:14, fontWeight:700, color:color||t.textSub }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              {hasBudget && (
+                <div style={{ marginBottom:12 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4, fontSize:11, color:t.textFaint }}>
+                    <span>Budget utilisation</span>
+                    <span style={{ fontWeight:700, color: budgetOver?"#EF4444": budgetUsedPct>=80?"#F59E0B":"#059669" }}>{budgetUsedPct}%</span>
+                  </div>
+                  <ProgressBar value={budgetUsedPct} max={100} color={budgetOver?"#EF4444":budgetUsedPct>=80?"#F59E0B":"#059669"} height={6} />
+                </div>
+              )}
+            </>
+          );
+        })()}
         <ProgressBar value={calcProgress(id,tasks)} color="#7C3AED" height={8} />
       </div>
 
@@ -635,6 +666,10 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
             <FormField label="Due Date"><input type="date" style={iS} value={editForm.due_date} onChange={e=>setEditForm({...editForm,due_date:e.target.value})} /></FormField>
           </div>
           <FormField label="KPI Summary"><input style={iS} value={editForm.kpi_summary} onChange={e=>setEditForm({...editForm,kpi_summary:e.target.value})} placeholder="Brief summary of KPI targets" /></FormField>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <FormField label={`Budget (${CS})`}><input type="number" min="0" style={iS} value={editForm.budget||""} onChange={e=>setEditForm({...editForm,budget:parseFloat(e.target.value)||0})} placeholder="0" /></FormField>
+            <FormField label={`Budget Spent (${CS})`}><input type="number" min="0" style={iS} value={editForm.budget_spent||""} onChange={e=>setEditForm({...editForm,budget_spent:parseFloat(e.target.value)||0})} placeholder="0" /></FormField>
+          </div>
           <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
             <button style={bs} onClick={()=>setShowEditForm(false)}>Cancel</button>
             <button style={btnPrimary} onClick={handleEditSave} disabled={!editForm.title}>Save Changes</button>

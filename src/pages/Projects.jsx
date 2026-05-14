@@ -30,11 +30,14 @@ import {
 } from "./_shared.js";
 
 const STAGES = ["Brief", "Strategy", "Creative", "Review", "Delivered"];
-const BLANK_FORM = { title:"", client_id:"", description:"", stage:"Brief", priority:"Medium", assigneeId:"", start_date:"", due_date:"", status:"Active", progress:0, kpi_summary:"" };
+const BLANK_FORM = { title:"", client_id:"", description:"", stage:"Brief", priority:"Medium", assigneeId:"", start_date:"", due_date:"", status:"Active", progress:0, kpi_summary:"", budget:0, budget_spent:0 };
+
+const CURRENCY_SYMBOLS = { USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" };
 
 // ─── PROJECTS ─────────────────────────────────────────────────────────────────
 export const Projects = React.memo(function Projects() {
-  const { projects, setProjects, tasks, clients, users, nav } = useApp();
+  const { projects, setProjects, tasks, clients, users, nav, whiteLabelSettings } = useApp();
+  const CS = CURRENCY_SYMBOLS[whiteLabelSettings?.currency] || "$";
   const { theme: t } = useTheme();
   const toast = useToast();
   const iS = mkInputStyle(t); const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);
@@ -99,6 +102,14 @@ export const Projects = React.memo(function Projects() {
                     </div>
                     <ProgressBar value={calcProgress(p.id, tasks)} color={stageColor(stage)} />
                     <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4 }}>{calcProgress(p.id, tasks)}% · {fmtDate(p.due_date)}</div>
+                    {p.budget > 0 && (
+                      <div style={{ display:"flex", justifyContent:"space-between", marginTop:7, padding:"5px 8px", background:t.statBg, borderRadius:6 }}>
+                        <span style={{ fontSize:10, color:t.textFaint }}>Budget</span>
+                        <span style={{ fontSize:10, fontWeight:700, color: p.budget_spent > p.budget ? "#EF4444" : t.textSub }}>
+                          {CS}{(p.budget_spent||0).toLocaleString()} <span style={{ fontWeight:400, color:t.textGhost }}>/ {CS}{(p.budget||0).toLocaleString()}</span>
+                        </span>
+                      </div>
+                    )}
                     {nextStage && (
                       <button onClick={e => advanceStage(e, p)} style={{ display:"block", width:"100%", marginTop:8, background:t.accent+"18", border:`1px solid ${t.accent}33`, color:t.accent, borderRadius:6, padding:"4px 0", fontSize:11, fontWeight:700, cursor:"pointer" }}>
                         → Move to {nextStage}
@@ -139,6 +150,10 @@ export const Projects = React.memo(function Projects() {
             {users.map(u=><option key={u.id} value={u.id}>{u.name}{u.department?` · ${u.department}`:""}</option>)}
           </select>
         </FormField>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          <FormField label={`Budget (${CS})`}><input type="number" min="0" style={iS} value={form.budget||""} onChange={e=>setForm({...form,budget:parseFloat(e.target.value)||0})} placeholder="0" /></FormField>
+          <FormField label={`Budget Spent (${CS})`}><input type="number" min="0" style={iS} value={form.budget_spent||""} onChange={e=>setForm({...form,budget_spent:parseFloat(e.target.value)||0})} placeholder="0" /></FormField>
+        </div>
         <FormField label="Description"><textarea style={{...iS,height:80,resize:"vertical"}} value={form.description} onChange={e=>setForm({...form,description:e.target.value})} /></FormField>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
           <button style={bs} onClick={()=>setShowForm(false)}>Cancel</button>

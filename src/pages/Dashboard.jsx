@@ -16,7 +16,8 @@ import {
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 export const Dashboard = React.memo(function Dashboard() {
-  const { projects, tasks, clients, kpis, nav } = useApp();
+  const { projects, tasks, clients, kpis, nav, whiteLabelSettings } = useApp();
+  const CS = ({ USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" })[whiteLabelSettings?.currency] || "$";
   const { theme: t } = useTheme();
 
   const todayLabel = useMemo(() => {
@@ -24,9 +25,10 @@ export const Dashboard = React.memo(function Dashboard() {
   }, []);
 
   // Stat card values — recompute only when source arrays change
-  const { activeProjects, doneTasks, activeClients, kpiOnTrack, overdueTasks, highPriority } = useMemo(() => {
+  const { activeProjects, doneTasks, activeClients, kpiOnTrack, overdueTasks, highPriority, totalBudget, totalSpent } = useMemo(() => {
     const now = new Date();
     const activeProjects = projects.filter(p => p.status === "Active");
+    const budgetProjects = projects.filter(p => p.budget > 0);
     return {
       activeProjects,
       doneTasks:     tasks.filter(t2 => t2.status === "Done"),
@@ -34,6 +36,8 @@ export const Dashboard = React.memo(function Dashboard() {
       kpiOnTrack:    kpis.filter(k => ["On Track", "Achieved"].includes(k.status)),
       overdueTasks:  tasks.filter(t2 => t2.status !== "Done" && new Date(t2.due_date) < now),
       highPriority:  activeProjects.filter(p => ["Critical", "High"].includes(p.priority)),
+      totalBudget:   budgetProjects.reduce((s, p) => s + (p.budget || 0), 0),
+      totalSpent:    budgetProjects.reduce((s, p) => s + (p.budget_spent || 0), 0),
     };
   }, [projects, tasks, clients, kpis]);
 
@@ -79,11 +83,13 @@ export const Dashboard = React.memo(function Dashboard() {
         <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: t.text }}>Agency Overview</h1>
         <p style={{ margin: "4px 0 0", color: t.textFaint, fontSize: 14 }}>{todayLabel}</p>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 16, marginBottom: 28 }}>
         <StatCard icon="🚀" label="Active Projects" value={activeProjects.length} sub="across all clients" />
         <StatCard icon="✅" label="Tasks Completed" value={doneTasks.length} sub="total done" />
         <StatCard icon="👥" label="Active Clients" value={activeClients.length} sub="under management" />
         <StatCard icon="📊" label="KPIs On Track" value={`${kpiOnTrack.length}/${kpis.length}`} sub={`${Math.round((kpiOnTrack.length/Math.max(kpis.length,1))*100)}% on track`} />
+        <StatCard icon="💰" label="Total Budget" value={totalBudget > 0 ? `${CS}${totalBudget >= 1000 ? (totalBudget/1000).toFixed(1)+"k" : totalBudget.toLocaleString()}` : "—"} sub="across all projects" />
+        <StatCard icon="📤" label="Budget Spent" value={totalBudget > 0 ? `${Math.round((totalSpent/Math.max(totalBudget,1))*100)}%` : "—"} sub={totalBudget > 0 ? `${CS}${totalSpent >= 1000 ? (totalSpent/1000).toFixed(1)+"k" : totalSpent.toLocaleString()} spent` : "Set budget on projects"} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
         <div style={{ background: t.card, border: `1px solid ${t.border2}`, borderRadius: 14, padding: 20 }}>

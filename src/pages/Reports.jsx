@@ -152,13 +152,16 @@ export const Reports = React.memo(function Reports() {
   // ── Budget tracking ──────────────────────────────────────────────────────
   const budgetData = useMemo(() => {
     return filteredProjects.map(p => {
-      const pt      = tasks.filter(t2 => t2.project_id === p.id);
-      const planned = pt.reduce((s, t2) => s + (t2.estimated_hours || 0), 0) * RATE;
-      const actual  = pt.reduce((s, t2) => s + (t2.actual_hours    || 0), 0) * RATE;
+      const pt = tasks.filter(t2 => t2.project_id === p.id);
+      const hoursPlanned = pt.reduce((s, t2) => s + (t2.estimated_hours || 0), 0) * RATE;
+      const hoursActual  = pt.reduce((s, t2) => s + (t2.actual_hours    || 0), 0) * RATE;
+      const planned = p.budget > 0 ? p.budget : hoursPlanned;
+      const actual  = p.budget > 0 ? (p.budget_spent || 0) : hoursActual;
       const used    = planned > 0 ? Math.min(150, Math.round((actual / planned) * 100)) : 0;
-      return { id:p.id, title:p.title, client:clients.find(c=>c.id===p.client_id)?.name||"—", planned, actual, variance:planned-actual, used };
+      const source  = p.budget > 0 ? "direct" : "hours";
+      return { id:p.id, title:p.title, client:clients.find(c=>c.id===p.client_id)?.name||"—", planned, actual, variance:planned-actual, used, source };
     }).filter(p => p.planned > 0 || p.actual > 0).sort((a, b) => b.planned - a.planned);
-  }, [filteredProjects, tasks, clients]);
+  }, [filteredProjects, tasks, clients, RATE]);
 
   // ── Task distribution by week (burndown proxy) ───────────────────────────
   const [burnProject, setBurnProject] = useState("");
@@ -246,13 +249,21 @@ export const Reports = React.memo(function Reports() {
       </div>
 
       {/* Stats */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:14, marginBottom:24 }}>
-        <StatCard icon="🚀" label="Active Projects"  value={stats.active} />
-        <StatCard icon="✅" label="Tasks Completed"  value={stats.done} />
-        <StatCard icon="⚠️" label="Overdue Tasks"    value={stats.overdue} />
-        <StatCard icon="⏱"  label="Hours Estimated"  value={`${stats.totalEst}h`} />
-        <StatCard icon="📊" label="Completion Rate"  value={`${stats.pct}%`} />
-      </div>
+      {(() => {
+        const totalBudget = budgetData.reduce((s, p) => s + p.planned, 0);
+        const totalSpent  = budgetData.reduce((s, p) => s + p.actual, 0);
+        const budgetPct   = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : null;
+        return (
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:14, marginBottom:24 }}>
+            <StatCard icon="🚀" label="Active Projects" value={stats.active} />
+            <StatCard icon="✅" label="Tasks Completed" value={stats.done} />
+            <StatCard icon="⚠️" label="Overdue Tasks"   value={stats.overdue} />
+            <StatCard icon="⏱"  label="Hours Estimated" value={`${stats.totalEst}h`} />
+            <StatCard icon="💰" label="Total Budget"    value={totalBudget > 0 ? `${CURRENCY_SYMBOL}${totalBudget >= 1000 ? (totalBudget/1000).toFixed(1)+"k" : totalBudget.toLocaleString()}` : "—"} />
+            <StatCard icon="📊" label="Budget Used"     value={budgetPct !== null ? `${budgetPct}%` : "—"} sub={budgetPct !== null ? (budgetPct > 100 ? "Over budget" : budgetPct >= 80 ? "Nearly full" : "On track") : "No budget set"} />
+          </div>
+        );
+      })()}
 
       {/* Burndown + Team load */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, marginBottom:20 }}>
@@ -299,38 +310,54 @@ export const Reports = React.memo(function Reports() {
       </div>
 
       {/* Budget tracking */}
-      {budgetData.length > 0 && (
-        <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, overflow:"hidden", marginBottom:20 }}>
-          <div style={{ padding:"14px 20px", borderBottom:`1px solid ${t.border2}` }}>
-            <h3 style={{ margin:0, fontSize:14, fontWeight:700, color:t.text }}>Budget Tracking · Planned vs Actual</h3>
-            <div style={{ fontSize:11, color:t.textFaint, marginTop:2 }}>Based on estimated & actual hours at {CURRENCY_SYMBOL}{RATE}/h · adjust in Settings → Preferences</div>
+      <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, overflow:"hidden", marginBottom:20 }}>
+        <div style={{ padding:"14px 20px", borderBottom:`1px solid ${t.border2}` }}>
+          <h3 style={{ margin:0, fontSize:14, fontWeight:700, color:t.text }}>Budget Tracking · Planned vs Actual</h3>
+          <div style={{ fontSize:11, color:t.textFaint, marginTop:2 }}>
+            Direct budget from projects where set · otherwise derived from hours at {CURRENCY_SYMBOL}{RATE}/h · adjust rate in Settings → Preferences
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 90px 90px 100px 90px", padding:"8px 20px", borderBottom:`1px solid ${t.border2}`, background:t.statBg }}>
-            {["Project","Planned","Actual","Variance","Used %"].map((h,i) => (
-              <div key={i} style={{ fontSize:10, fontWeight:700, color:t.textFaint, textTransform:"uppercase", letterSpacing:"0.05em" }}>{h}</div>
-            ))}
-          </div>
-          {budgetData.map(p => (
-            <div key={p.id} style={{ display:"grid", gridTemplateColumns:"1fr 90px 90px 100px 90px", padding:"12px 20px", borderBottom:`1px solid ${t.divider}`, alignItems:"center" }}>
-              <div>
-                <div style={{ fontSize:13, fontWeight:600, color:t.textSub }}>{p.title}</div>
-                <div style={{ fontSize:11, color:t.textFaint }}>{p.client}</div>
-              </div>
-              <div style={{ fontSize:13, color:t.textMuted }}>{CURRENCY_SYMBOL}{Math.round(p.planned/1000)}k</div>
-              <div style={{ fontSize:13, fontWeight:600, color:t.textSub }}>{CURRENCY_SYMBOL}{Math.round(p.actual/1000)}k</div>
-              <div style={{ fontSize:13, fontWeight:700, color: p.variance >= 0 ? "#059669" : "#EF4444" }}>
-                {p.variance >= 0 ? "+" : "−"}{CURRENCY_SYMBOL}{Math.round(Math.abs(p.variance)/1000)}k
-              </div>
-              <div>
-                <div style={{ fontSize:11, fontWeight:700, color: p.used > 100 ? "#EF4444" : t.textFaint }}>{p.used}%</div>
-                <div style={{ background:t.statBg, borderRadius:99, height:4, marginTop:3, overflow:"hidden" }}>
-                  <div style={{ width:`${Math.min(100, p.used)}%`, background: p.used > 100 ? "#EF4444" : "#059669", height:"100%", borderRadius:99 }} />
-                </div>
-              </div>
-            </div>
-          ))}
         </div>
-      )}
+        {budgetData.length === 0 ? (
+          <div style={{ padding:"32px 20px", textAlign:"center", color:t.textFaint, fontSize:13 }}>
+            No budget data for this period. Add a budget to your projects or log estimated hours on tasks.
+          </div>
+        ) : (
+          <>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 70px 100px 100px 100px 90px", padding:"8px 20px", borderBottom:`1px solid ${t.border2}`, background:t.statBg }}>
+              {["Project","Source","Planned","Actual","Variance","Used %"].map((h,i) => (
+                <div key={i} style={{ fontSize:10, fontWeight:700, color:t.textFaint, textTransform:"uppercase", letterSpacing:"0.05em" }}>{h}</div>
+              ))}
+            </div>
+            {budgetData.map(p => {
+              const fmt = (v) => v >= 1000 ? `${CURRENCY_SYMBOL}${(v/1000).toFixed(1)}k` : `${CURRENCY_SYMBOL}${Math.round(v).toLocaleString()}`;
+              return (
+                <div key={p.id} style={{ display:"grid", gridTemplateColumns:"1fr 70px 100px 100px 100px 90px", padding:"12px 20px", borderBottom:`1px solid ${t.divider}`, alignItems:"center" }}>
+                  <div>
+                    <div style={{ fontSize:13, fontWeight:600, color:t.textSub }}>{p.title}</div>
+                    <div style={{ fontSize:11, color:t.textFaint }}>{p.client}</div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize:10, fontWeight:700, padding:"2px 6px", borderRadius:99, background: p.source==="direct" ? "#7C3AED22" : t.statBg, color: p.source==="direct" ? "#7C3AED" : t.textGhost }}>
+                      {p.source === "direct" ? "Budget" : "Hours"}
+                    </span>
+                  </div>
+                  <div style={{ fontSize:13, color:t.textMuted }}>{fmt(p.planned)}</div>
+                  <div style={{ fontSize:13, fontWeight:600, color:t.textSub }}>{fmt(p.actual)}</div>
+                  <div style={{ fontSize:13, fontWeight:700, color: p.variance >= 0 ? "#059669" : "#EF4444" }}>
+                    {p.variance >= 0 ? "+" : "−"}{fmt(Math.abs(p.variance))}
+                  </div>
+                  <div>
+                    <div style={{ fontSize:11, fontWeight:700, color: p.used > 100 ? "#EF4444" : t.textFaint }}>{p.used}%</div>
+                    <div style={{ background:t.statBg, borderRadius:99, height:4, marginTop:3, overflow:"hidden" }}>
+                      <div style={{ width:`${Math.min(100, p.used)}%`, background: p.used > 100 ? "#EF4444" : p.used >= 80 ? "#F59E0B" : "#059669", height:"100%", borderRadius:99 }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
+      </div>
 
       {/* Projects by Stage + KPI breakdown */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, marginBottom:20 }}>
