@@ -36,18 +36,11 @@ export const Tasks = React.memo(function Tasks() {
   const { theme: t } = useTheme();
   const toast = useToast();
   const bs = mkBtnSecondary(t);
-  const PAGE_SIZE = 25;
   const [commentTask, setCommentTask] = useState(null);
   const [viewMode, setViewMode]       = useState("Global");
   const [statusFilter, setStatusFilter] = useState("All");
   const [deptFilter, setDeptFilter]   = useState("All");
-  const [currentPage, setCurrentPage] = useState(1);
   const statuses = ["All","To Do","In Progress","In Review","Done"];
-
-  // Reset to page 1 whenever filters change
-  const handleStatusFilter = (s) => { setStatusFilter(s); setCurrentPage(1); };
-  const handleDeptFilter   = (d) => { setDeptFilter(d);   setCurrentPage(1); };
-  const handleViewMode     = (m) => { setViewMode(m);     setCurrentPage(1); };
 
   const filtered = useMemo(() => {
     let result = statusFilter === "All" ? tasks : tasks.filter(t2 => t2.status === statusFilter);
@@ -58,9 +51,22 @@ export const Tasks = React.memo(function Tasks() {
     return result;
   }, [tasks, statusFilter, viewMode, deptFilter, departments]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage   = Math.min(currentPage, totalPages);
-  const pageSlice  = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  // Group filtered tasks by project; unlinked tasks go under null key
+  const groups = useMemo(() => {
+    const map = new Map();
+    filtered.forEach(t2 => {
+      const key = t2.project_id || null;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(t2);
+    });
+    // Sort: named projects alphabetically, then unlinked at end
+    return [...map.entries()].sort(([a], [b]) => {
+      if (!a && !b) return 0;
+      if (!a) return 1;
+      if (!b) return -1;
+      return (projectById[a]?.title || "").localeCompare(projectById[b]?.title || "");
+    });
+  }, [filtered, projectById]);
 
   const changeTaskStatus = (id, newStatus) => {
     const task = tasks.find(t2 => t2.id === id);
@@ -68,114 +74,98 @@ export const Tasks = React.memo(function Tasks() {
     if (task) toast({ message: `"${task.title}" → ${newStatus}`, type: newStatus === "Done" ? "success" : "info" });
   };
 
+  const COLS = "32px 1fr 130px 110px 100px 90px 44px";
+  const ROW_HEADERS = ["","Task","Assigned To","Status","Priority","Due",""];
+
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
         <h1 style={{ margin:0, fontSize:26, fontWeight:800, color:t.text }}>
           Tasks
-          <span style={{ marginLeft:10, fontSize:14, fontWeight:500, color:t.textFaint }}>
-            ({filtered.length})
-          </span>
+          <span style={{ marginLeft:10, fontSize:14, fontWeight:500, color:t.textFaint }}>({filtered.length})</span>
         </h1>
         <div style={{ display:"flex", gap:8 }}>
           {["Global","By Department"].map(m=>(
-            <button key={m} onClick={()=>handleViewMode(m)} style={{...bs, background:viewMode===m?"#7C3AED":t.toggleBg, color:viewMode===m?"#fff":t.textSub, border:`1px solid ${viewMode===m?"#7C3AED":t.border2}`, padding:"7px 14px", fontSize:12}}>{m}</button>
+            <button key={m} onClick={()=>setViewMode(m)} style={{...bs, background:viewMode===m?"#7C3AED":t.toggleBg, color:viewMode===m?"#fff":t.textSub, border:`1px solid ${viewMode===m?"#7C3AED":t.border2}`, padding:"7px 14px", fontSize:12}}>{m}</button>
           ))}
         </div>
       </div>
+
       <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
         {statuses.map(s=>(
-          <button key={s} onClick={()=>handleStatusFilter(s)} style={{...bs, background:statusFilter===s?t.navActive:t.toggleBg, color:statusFilter===s?t.navActiveText:t.textMuted, border:`1px solid ${statusFilter===s?t.accent:t.border}`, padding:"5px 12px", fontSize:12}}>{s}</button>
+          <button key={s} onClick={()=>setStatusFilter(s)} style={{...bs, background:statusFilter===s?t.navActive:t.toggleBg, color:statusFilter===s?t.navActiveText:t.textMuted, border:`1px solid ${statusFilter===s?t.accent:t.border}`, padding:"5px 12px", fontSize:12}}>{s}</button>
         ))}
       </div>
+
       {viewMode === "By Department" && (
         <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
           {["All",...departments.map(d=>d.name)].map(d=>(
-            <button key={d} onClick={()=>handleDeptFilter(d)} style={{...bs, padding:"5px 12px", fontSize:12, background:deptFilter===d?t.navActive:t.toggleBg, color:deptFilter===d?t.navActiveText:t.textMuted, border:`1px solid ${deptFilter===d?t.accent:t.border}`}}>{d}</button>
+            <button key={d} onClick={()=>setDeptFilter(d)} style={{...bs, padding:"5px 12px", fontSize:12, background:deptFilter===d?t.navActive:t.toggleBg, color:deptFilter===d?t.navActiveText:t.textMuted, border:`1px solid ${deptFilter===d?t.accent:t.border}`}}>{d}</button>
           ))}
         </div>
       )}
-      <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, overflow:"hidden" }}>
-        <div style={{ display:"grid", gridTemplateColumns:"40px 1fr 120px 100px 100px 90px 50px", gap:0, padding:"10px 16px", borderBottom:`1px solid ${t.border2}` }}>
-          {["","Task","Assigned To","Status","Priority","Due",""].map((h,i)=>(
-            <div key={i} style={{ fontSize:11, fontWeight:700, color:t.textFaint, letterSpacing:"0.06em", textTransform:"uppercase" }}>{h}</div>
-          ))}
-        </div>
-        {pageSlice.map(t2=>{
-          const cnt = (comments||[]).filter(c=>c.entity_type==="task"&&c.entity_id===t2.id).length;
-          const proj = projectById[t2.project_id];
+
+      {filtered.length === 0 && (
+        <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:40, textAlign:"center", color:t.textFaint, fontSize:13 }}>No tasks match these filters.</div>
+      )}
+
+      <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+        {groups.map(([projectId, groupTasks]) => {
+          const proj = projectId ? projectById[projectId] : null;
+          const doneCount = groupTasks.filter(t2 => t2.status === "Done").length;
           return (
-            <div key={t2.id} style={{ display:"grid", gridTemplateColumns:"40px 1fr 120px 100px 100px 90px 50px", gap:0, padding:"12px 16px", borderBottom:`1px solid ${t.divider}`, alignItems:"center" }}>
-              <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
-              <div>
-                <div style={{ fontSize:13, fontWeight:600, color:t2.status==="Done"?t.textFaint:t.textSub, textDecoration:t2.status==="Done"?"line-through":"none" }}>{t2.title}</div>
-                <div style={{ fontSize:11, color:t.textGhost }}>
-                  {proj && <span style={{ color:t.accent, fontWeight:600, marginRight:6 }}>↗ {proj.title}</span>}
-                  {t2.estimated_hours}h est. · {t2.actual_hours}h actual
+            <div key={projectId || "__none__"} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, overflow:"hidden" }}>
+              {/* Card header */}
+              <div style={{ padding:"14px 18px", borderBottom:`1px solid ${t.border2}`, display:"flex", alignItems:"center", gap:12, background: proj ? proj.colour ? `${proj.colour}11` : `${t.accent}0d` : t.statBg }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:14, fontWeight:800, color: proj ? t.text : t.textMuted }}>
+                    {proj ? proj.title : "No Project"}
+                  </div>
+                  {proj && (
+                    <div style={{ fontSize:11, color:t.textFaint, marginTop:2 }}>
+                      {proj.client_id ? "" : ""}
+                      {proj.stage} · {proj.status}
+                    </div>
+                  )}
                 </div>
+                <span style={{ fontSize:12, color:t.textFaint }}>{doneCount}/{groupTasks.length} done</span>
+                {proj && <Badge label={proj.priority} color={priorityColor(proj.priority)} />}
               </div>
-              <div style={{ fontSize:12, color:t.textMuted, display:"flex", alignItems:"center", gap:6 }}><Avatar name={t2.assigned_to?.name||"?"} size={22} />{(t2.assigned_to?.name||"").split(" ")[0]}</div>
-              <Badge label={t2.status} color={statusColor(t2.status)} />
-              <Badge label={t2.priority} color={priorityColor(t2.priority)} />
-              <div style={{ fontSize:11, color:t.textMuted }}>{fmtDate(t2.due_date)}</div>
-              <button onClick={()=>setCommentTask(t2)} style={{ display:"flex", alignItems:"center", gap:3, background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 8px", fontSize:11, color:cnt>0?t.accent:t.textMuted, cursor:"pointer", fontWeight:cnt>0?700:400 }}>
-                💬{cnt>0?` ${cnt}`:""}
-              </button>
+
+              {/* Column headers */}
+              <div style={{ display:"grid", gridTemplateColumns:COLS, gap:0, padding:"8px 16px", borderBottom:`1px solid ${t.divider}` }}>
+                {ROW_HEADERS.map((h,i)=>(
+                  <div key={i} style={{ fontSize:10, fontWeight:700, color:t.textGhost, letterSpacing:"0.07em", textTransform:"uppercase" }}>{h}</div>
+                ))}
+              </div>
+
+              {/* Task rows */}
+              {groupTasks.map(t2 => {
+                const cnt = (comments||[]).filter(c=>c.entity_type==="task"&&c.entity_id===t2.id).length;
+                return (
+                  <div key={t2.id} style={{ display:"grid", gridTemplateColumns:COLS, gap:0, padding:"11px 16px", borderBottom:`1px solid ${t.divider}`, alignItems:"center" }}>
+                    <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
+                    <div>
+                      <div style={{ fontSize:13, fontWeight:600, color:t2.status==="Done"?t.textFaint:t.textSub, textDecoration:t2.status==="Done"?"line-through":"none" }}>{t2.title}</div>
+                      <div style={{ fontSize:11, color:t.textGhost }}>{t2.estimated_hours}h est.{t2.actual_hours ? ` · ${t2.actual_hours}h actual` : ""}</div>
+                    </div>
+                    <div style={{ fontSize:12, color:t.textMuted, display:"flex", alignItems:"center", gap:6 }}>
+                      <Avatar name={t2.assigned_to?.name||"?"} size={20} />
+                      {(t2.assigned_to?.name||"").split(" ")[0]}
+                    </div>
+                    <Badge label={t2.status} color={statusColor(t2.status)} />
+                    <Badge label={t2.priority} color={priorityColor(t2.priority)} />
+                    <div style={{ fontSize:11, color:t.textMuted }}>{fmtDate(t2.due_date)}</div>
+                    <button onClick={()=>setCommentTask(t2)} style={{ display:"flex", alignItems:"center", gap:3, background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 8px", fontSize:11, color:cnt>0?t.accent:t.textMuted, cursor:"pointer", fontWeight:cnt>0?700:400 }}>
+                      💬{cnt>0?` ${cnt}`:""}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           );
         })}
-        {filtered.length === 0 && (
-          <div style={{ padding:32, textAlign:"center", color:t.textFaint, fontSize:13 }}>No tasks match these filters.</div>
-        )}
       </div>
-
-      {/* Pagination controls */}
-      {totalPages > 1 && (
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:14, padding:"0 4px" }}>
-          <span style={{ fontSize:12, color:t.textFaint }}>
-            Showing {(safePage-1)*PAGE_SIZE+1}–{Math.min(safePage*PAGE_SIZE, filtered.length)} of {filtered.length} tasks
-          </span>
-          <div style={{ display:"flex", gap:4 }}>
-            <button
-              onClick={() => setCurrentPage(1)}
-              disabled={safePage === 1}
-              style={{...bs, padding:"5px 10px", fontSize:12, opacity: safePage===1 ? 0.4 : 1}}
-            >«</button>
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p-1))}
-              disabled={safePage === 1}
-              style={{...bs, padding:"5px 10px", fontSize:12, opacity: safePage===1 ? 0.4 : 1}}
-            >‹</button>
-            {Array.from({ length: totalPages }, (_, i) => i+1)
-              .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
-              .reduce((acc, p, idx, arr) => {
-                if (idx > 0 && p - arr[idx-1] > 1) acc.push("…");
-                acc.push(p);
-                return acc;
-              }, [])
-              .map((item, i) => item === "…"
-                ? <span key={`ellipsis-${i}`} style={{ padding:"5px 8px", color:t.textFaint, fontSize:12 }}>…</span>
-                : <button key={item} onClick={() => setCurrentPage(item)}
-                    style={{...bs, padding:"5px 10px", fontSize:12,
-                      background: item===safePage ? "#7C3AED" : t.toggleBg,
-                      color:      item===safePage ? "#fff"    : t.textSub,
-                      border:     `1px solid ${item===safePage ? "#7C3AED" : t.border2}`
-                    }}>{item}</button>
-              )
-            }
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))}
-              disabled={safePage === totalPages}
-              style={{...bs, padding:"5px 10px", fontSize:12, opacity: safePage===totalPages ? 0.4 : 1}}
-            >›</button>
-            <button
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={safePage === totalPages}
-              style={{...bs, padding:"5px 10px", fontSize:12, opacity: safePage===totalPages ? 0.4 : 1}}
-            >»</button>
-          </div>
-        </div>
-      )}
 
       <Modal open={!!commentTask} onClose={()=>setCommentTask(null)} title={`Comments · ${commentTask?.title || ""}`}>
         {commentTask && <CommentsPanel entityType="task" entityId={commentTask.id} comments={comments||[]} setComments={setComments} currentUser={currentUser} />}
