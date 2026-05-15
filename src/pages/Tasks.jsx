@@ -109,8 +109,8 @@ export const Tasks = React.memo(function Tasks() {
         </div>
       )}
 
-      {/* ── Kanban view ─────────────────────────────────────────────────────── */}
-      {viewMode === "Kanban" && (
+      {viewMode === "Kanban" ? (
+        /* ── Kanban: 4 columns by status ──────────────────────────────────── */
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
           {KANBAN_STATUSES.map(col => {
             const colTasks = tasks.filter(t2 => t2.status === col);
@@ -168,13 +168,13 @@ export const Tasks = React.memo(function Tasks() {
             );
           })}
         </div>
-      )}
-
-      {viewMode !== "Kanban" && filtered.length === 0 && (
-        <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:40, textAlign:"center", color:t.textFaint, fontSize:13 }}>No tasks match these filters.</div>
-      )}
-
-      {viewMode !== "Kanban" && <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      ) : (
+        /* ── Global / By Department: grouped by project ────────────────────── */
+        <>
+          {filtered.length === 0 && (
+            <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:40, textAlign:"center", color:t.textFaint, fontSize:13 }}>No tasks match these filters.</div>
+          )}
+          <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
         {groups.map(([projectId, groupTasks]) => {
           const proj = projectId ? projectById[projectId] : null;
           const doneCount = groupTasks.filter(t2 => t2.status === "Done").length;
@@ -239,7 +239,9 @@ export const Tasks = React.memo(function Tasks() {
             </div>
           );
         })}
-      </div>}
+      </div>
+    </>
+  )}
 
       <Modal open={!!commentTask} onClose={()=>setCommentTask(null)} title={`Comments · ${commentTask?.title || ""}`}>
         {commentTask && <CommentsPanel entityType="task" entityId={commentTask.id} comments={comments||[]} setComments={setComments} currentUser={currentUser} users={users} />}
