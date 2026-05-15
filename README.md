@@ -20,7 +20,7 @@ Email: adaeze@agency.io
 Password: agencyflow
 ```
 
-When `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` are present, sign in and sign up use Supabase Auth instead.
+When `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are present, sign in and sign up use Supabase Auth instead.
 
 ## Supabase
 
@@ -34,7 +34,7 @@ Required Vite environment variables:
 
 ```bash
 VITE_SUPABASE_URL=https://your-project-ref.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
 Useful commands:
@@ -44,6 +44,32 @@ npm run supabase:start
 npm run supabase:db:push
 npm run supabase:stop
 ```
+
+## Outbound Notifications
+
+Operational automation alerts can also be sent through email and WhatsApp. Enable the channels in Settings -> Automations after adding provider secrets to `.env.local` or your Vercel project.
+
+Email uses Resend:
+
+```bash
+RESEND_API_KEY=your_resend_api_key
+NOTIFICATION_EMAIL_FROM=Madre <notifications@your-domain.com>
+NOTIFICATION_EMAIL_TO=ops@your-domain.com
+```
+
+WhatsApp uses Meta WhatsApp Cloud API:
+
+```bash
+WHATSAPP_ACCESS_TOKEN=your_meta_whatsapp_access_token
+WHATSAPP_PHONE_NUMBER_ID=your_whatsapp_phone_number_id
+WHATSAPP_GRAPH_VERSION=v25.0
+NOTIFICATION_WHATSAPP_TO=2348012345678
+WHATSAPP_TEMPLATE_NAME=madre_task_alert
+WHATSAPP_TEMPLATE_LANGUAGE=en
+WHATSAPP_ALLOW_TEXT=false
+```
+
+For production, keep Supabase auth configured so `/api/notify` can verify the signed-in user before sending. WhatsApp business-initiated alerts should use an approved template with four body variables: alert label, task title, project, and due date.
 
 ## Local Development
 
@@ -81,6 +107,7 @@ This project is Vercel-ready:
 - Build command: `npm run build`
 - Output directory: `dist`
 - Serverless AI route: `/api/claude`
+- Serverless notification route: `/api/notify`
 
 Set these environment variables in Vercel before deploying:
 

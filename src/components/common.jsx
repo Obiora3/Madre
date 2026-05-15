@@ -94,7 +94,7 @@ export function AIBlock({ loading, error, result, placeholder, onRetry, prose = 
 
 
 export const NotificationBell = React.memo(function NotificationBell() {
-  const { tasks, comments, projects, currentUser, nav } = useApp();
+  const { tasks, comments, projects, currentUser, nav, whiteLabelSettings } = useApp();
   const { theme: t } = useTheme();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -124,29 +124,40 @@ export const NotificationBell = React.memo(function NotificationBell() {
     [tasks]
   );
 
+  const deadlineWindow = Number(whiteLabelSettings?.deadline_warning_hours || 24);
+  const escalationHours = Number(whiteLabelSettings?.overdue_escalation_hours || 24);
   const now = new Date();
-  const urgent = tasks.filter(t2 => t2.status !== "Done" && !dismissed.has(t2.id)).map(t2 => {
+  const urgent = whiteLabelSettings?.notify_deadlines === false ? [] : tasks.filter(t2 => t2.status !== "Done" && !dismissed.has(t2.id)).map(t2 => {
     const due = new Date(t2.due_date);
+    if (Number.isNaN(due.getTime())) return null;
     const diff = (due - now) / 3600000;
+    if (whiteLabelSettings?.automation_overdue_escalation && diff < -escalationHours) return { ...t2, urgency: "Escalated", urgencyColor: "#B91C1C" };
     if (diff < 0) return { ...t2, urgency: "Overdue", urgencyColor: "#EF4444" };
     if (diff < 24) return { ...t2, urgency: "Due today", urgencyColor: "#EF4444" };
     if (diff < 48) return { ...t2, urgency: "Due tomorrow", urgencyColor: "#F59E0B" };
-    if (diff < 72) return { ...t2, urgency: "Due soon", urgencyColor: "#3B82F6" };
+    if (diff <= deadlineWindow) return { ...t2, urgency: "Due soon", urgencyColor: "#3B82F6" };
     return null;
   }).filter(Boolean);
+
+  const blockedNotifs = whiteLabelSettings?.automation_blocked_alerts === false ? [] : tasks
+    .filter(t2 => t2.status !== "Done" && !dismissed.has(`blocked-${t2.id}`))
+    .filter(t2 => (t2.blocked_by || []).some(depId => taskById[depId]?.status !== "Done"))
+    .slice(0, 8)
+    .map(t2 => ({ ...t2, id: `blocked-${t2.id}`, task_id: t2.id, urgency: "Blocked", urgencyColor: "#F59E0B" }));
 
   const mentionTag = currentUser ? `@[${currentUser.name}]` : null;
 
   const mentionNotifs = useMemo(() => {
     if (!mentionTag) return [];
+    if (whiteLabelSettings?.notify_mentions === false) return [];
     return (comments || [])
       .filter(c => c.body?.includes(mentionTag) && c.user_id !== currentUser.id && !dismissed.has(c.id))
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
       .slice(0, 8);
-  }, [comments, mentionTag, currentUser, dismissed]);
+  }, [comments, mentionTag, currentUser, dismissed, whiteLabelSettings?.notify_mentions]);
 
   const commentNotifs = useMemo(() =>
-    (comments || [])
+    whiteLabelSettings?.notify_comments === false ? [] : (comments || [])
       .filter(c =>
         c.entity_type === "project" &&
         !dismissed.has(c.id) &&
@@ -155,10 +166,10 @@ export const NotificationBell = React.memo(function NotificationBell() {
       )
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
       .slice(0, 8),
-    [comments, dismissed, currentUser, mentionTag]
+    [comments, dismissed, currentUser, mentionTag, whiteLabelSettings?.notify_comments]
   );
 
-  const totalCount = urgent.length + mentionNotifs.length + commentNotifs.length;
+  const totalCount = urgent.length + blockedNotifs.length + mentionNotifs.length + commentNotifs.length;
 
   const dismiss = (id) => {
     const next = new Set([...dismissed, id]);
@@ -166,7 +177,7 @@ export const NotificationBell = React.memo(function NotificationBell() {
     localStorage.setItem("af_dismissed", JSON.stringify([...next]));
   };
   const dismissAll = () => {
-    const next = new Set([...dismissed, ...urgent.map(x => x.id), ...commentNotifs.map(c => c.id), ...mentionNotifs.map(c => c.id)]);
+    const next = new Set([...dismissed, ...urgent.map(x => x.id), ...blockedNotifs.map(x => x.id), ...commentNotifs.map(c => c.id), ...mentionNotifs.map(c => c.id)]);
     setDismissed(next);
     localStorage.setItem("af_dismissed", JSON.stringify([...next]));
   };
@@ -250,6 +261,23 @@ export const NotificationBell = React.memo(function NotificationBell() {
                     </div>
                   );
                 })}
+              </>
+            )}
+
+            {/* Blocked task alerts */}
+            {blockedNotifs.length > 0 && (
+              <>
+                <div style={{ padding: "8px 16px 4px", fontSize: 10, fontWeight: 700, color: t.textGhost, letterSpacing: "0.07em", textTransform: "uppercase" }}>Blocked Tasks</div>
+                {blockedNotifs.map(x => (
+                  <div key={x.id} style={{ padding: "10px 16px", borderBottom: `1px solid ${t.divider}`, display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: t.textSub, marginBottom: 2 }}>{x.title}</div>
+                      <div style={{ fontSize: 11, color: t.textFaint }}>Waiting on {x.blocked_by?.length || 0} task{x.blocked_by?.length === 1 ? "" : "s"}</div>
+                      <Badge label={x.urgency} color={x.urgencyColor} />
+                    </div>
+                    <button onClick={() => dismiss(x.id)} style={{ background: "none", border: "none", color: t.textFaint, cursor: "pointer", fontSize: 16 }}>×</button>
+                  </div>
+                ))}
               </>
             )}
 

@@ -123,6 +123,9 @@ export const WhiteLabel = React.memo(function Settings() {
     deleted:   { icon:"🗑", color:"#EF4444" },
     commented: { icon:"💬", color:"#0891B2" },
     status:    { icon:"🔄", color:"#F59E0B" },
+    deadline_warning: { icon:"⏰", color:"#F59E0B" },
+    escalated: { icon:"⚠", color:"#EF4444" },
+    blocked: { icon:"⛔", color:"#F59E0B" },
   };
 
   const activityFeed = useMemo(() => {
@@ -179,6 +182,31 @@ export const WhiteLabel = React.memo(function Settings() {
     return enrichedUsers.filter(u => u.role === roleFilter);
   }, [enrichedUsers, roleFilter]);
 
+  const automationStats = useMemo(() => {
+    const taskById = new Map((tasks || []).map(t2 => [t2.id, t2]));
+    const openTasks = (tasks || []).filter(t2 => t2.status !== "Done");
+    const deadlineWindow = Number(s.deadline_warning_hours || 24);
+    const escalationHours = Number(s.overdue_escalation_hours || 24);
+    let dueSoon = 0;
+    let overdue = 0;
+    let escalated = 0;
+    let blocked = 0;
+
+    openTasks.forEach(t2 => {
+      if (t2.due_date) {
+        const diffHours = (new Date(t2.due_date) - Date.now()) / 3600000;
+        if (!Number.isNaN(diffHours)) {
+          if (diffHours >= 0 && diffHours <= deadlineWindow) dueSoon += 1;
+          if (diffHours < 0) overdue += 1;
+          if (diffHours < -escalationHours) escalated += 1;
+        }
+      }
+      if ((t2.blocked_by || []).some(depId => taskById.get(depId)?.status !== "Done")) blocked += 1;
+    });
+
+    return { dueSoon, overdue, escalated, blocked, openTasks: openTasks.length };
+  }, [tasks, s.deadline_warning_hours, s.overdue_escalation_hours]);
+
   const CURRENCIES = [
     { code:"USD", symbol:"$",  label:"US Dollar" },
     { code:"GBP", symbol:"£",  label:"British Pound" },
@@ -202,6 +230,7 @@ export const WhiteLabel = React.memo(function Settings() {
     { id:"branding",      label:"Branding",        icon:"🎨" },
     { id:"preferences",   label:"Preferences",     icon:"⚙️" },
     { id:"notifications", label:"Notifications",   icon:"🔔" },
+    { id:"automations",   label:"Automations",     icon:"⚡" },
     { id:"activity",      label:"Activity",        icon:"📋" },
     { id:"teams",         label:"Teams & Roles",   icon:"👥" },
     { id:"data",          label:"Data & Security", icon:"🗄️" },
@@ -212,7 +241,7 @@ export const WhiteLabel = React.memo(function Settings() {
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
         <h1 style={{ margin:0, fontSize:26, fontWeight:800, color:t.text }}>Settings</h1>
-        {["branding","preferences","notifications"].includes(tab) && (
+        {["branding","preferences","notifications","automations"].includes(tab) && (
           <div style={{ display:"flex", gap:10 }}>
             <button style={bs} onClick={reset}>Reset Defaults</button>
             <button style={{ ...btnPrimary, minWidth:120 }} onClick={save}>
@@ -378,6 +407,63 @@ export const WhiteLabel = React.memo(function Settings() {
           <div style={{ marginTop:20, display:"flex", gap:10 }}>
             <button style={{ ...btnPrimary, minWidth:130 }} onClick={save}>{saved?"✓ Saved!":"Save Changes"}</button>
             <button style={bs} onClick={reset}>Reset Defaults</button>
+          </div>
+        </div>
+      )}
+
+      {/* Automations */}
+      {tab === "automations" && (
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 300px", gap:24, alignItems:"start" }}>
+          <div>
+            <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, marginBottom:16 }}>
+              <h3 style={{ margin:"0 0 4px", fontSize:14, fontWeight:700, color:t.text }}>Operational Rules</h3>
+              <p style={{ fontSize:12, color:t.textFaint, margin:"0 0 4px" }}>Run lightweight workspace automations in the browser and activity feed.</p>
+              <Row label="Enable Automations" sub="Allow Madre to monitor open tasks and log operational events"><Toggle value={s.automation_enabled} onChange={v=>set("automation_enabled",v)} accent={s.primary_colour} /></Row>
+              <Row label="Deadline Warnings" sub="Log an activity event when an open task enters the warning window"><Toggle value={s.automation_deadline_warnings} onChange={v=>set("automation_deadline_warnings",v)} accent={s.primary_colour} /></Row>
+              <Row label="Overdue Escalation" sub="Escalate tasks that remain overdue past the threshold below"><Toggle value={s.automation_overdue_escalation} onChange={v=>set("automation_overdue_escalation",v)} accent={s.primary_colour} /></Row>
+              <Row label="Blocked Task Alerts" sub="Flag tasks waiting on unfinished dependencies"><Toggle value={s.automation_blocked_alerts} onChange={v=>set("automation_blocked_alerts",v)} accent={s.primary_colour} /></Row>
+              <Row label="Toast Alerts" sub="Show immediate pop-up alerts when automations run"><Toggle value={s.automation_toasts} onChange={v=>set("automation_toasts",v)} accent={s.primary_colour} /></Row>
+            </div>
+            <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, marginBottom:16 }}>
+              <h3 style={{ margin:"0 0 4px", fontSize:14, fontWeight:700, color:t.text }}>Outbound Channels</h3>
+              <p style={{ fontSize:12, color:t.textFaint, margin:"0 0 4px" }}>Send automation alerts outside the app when provider environment variables are configured.</p>
+              <Row label="Email Alerts" sub="Send through Resend to task assignees and configured fallback recipients"><Toggle value={s.automation_email} onChange={v=>set("automation_email",v)} accent={s.primary_colour} /></Row>
+              <Row label="WhatsApp Alerts" sub="Send through Meta WhatsApp Cloud API to configured recipients"><Toggle value={s.automation_whatsapp} onChange={v=>set("automation_whatsapp",v)} accent={s.primary_colour} /></Row>
+            </div>
+            <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20 }}>
+              <h3 style={{ margin:"0 0 4px", fontSize:14, fontWeight:700, color:t.text }}>Escalation Threshold</h3>
+              <p style={{ fontSize:12, color:t.textFaint, margin:"0 0 16px" }}>How long a task can remain overdue before automation escalates it.</p>
+              <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+                {[["6","6 hours"],["12","12 hours"],["24","24 hours"],["48","2 days"]].map(([val,label])=>(
+                  <button key={val} onClick={()=>set("overdue_escalation_hours",Number(val))} style={{ ...bs, padding:"8px 16px", fontSize:13, fontWeight:700, background:s.overdue_escalation_hours===Number(val)?s.primary_colour+"22":t.toggleBg, color:s.overdue_escalation_hours===Number(val)?s.primary_colour:t.textMuted, border:`1px solid ${s.overdue_escalation_hours===Number(val)?s.primary_colour+"88":t.border}` }}>{label}</button>
+                ))}
+              </div>
+              <div style={{ fontSize:11, color:t.textFaint, marginTop:10 }}>Escalations run once per task per day and appear in Activity.</div>
+            </div>
+            <div style={{ marginTop:20, display:"flex", gap:10 }}>
+              <button style={{ ...btnPrimary, minWidth:130 }} onClick={save}>{saved?"✓ Saved!":"Save Changes"}</button>
+              <button style={bs} onClick={reset}>Reset Defaults</button>
+            </div>
+          </div>
+
+          <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20 }}>
+            <h3 style={{ margin:"0 0 12px", fontSize:14, fontWeight:700, color:t.text }}>Automation Watchlist</h3>
+            {[
+              ["Open Tasks", automationStats.openTasks, t.accent],
+              ["Due Soon", automationStats.dueSoon, "#3B82F6"],
+              ["Overdue", automationStats.overdue, "#EF4444"],
+              ["Escalated", automationStats.escalated, "#B91C1C"],
+              ["Blocked", automationStats.blocked, "#F59E0B"],
+            ].map(([label, value, color]) => (
+              <div key={label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 0", borderBottom:`1px solid ${t.divider}` }}>
+                <span style={{ fontSize:13, color:t.textMuted }}>{label}</span>
+                <span style={{ minWidth:30, textAlign:"center", fontSize:13, fontWeight:800, color, background:color+"18", borderRadius:6, padding:"3px 8px" }}>{value}</span>
+              </div>
+            ))}
+            <div style={{ marginTop:14, padding:"12px 14px", background:s.automation_enabled?t.accent+"12":t.statBg, borderRadius:10, border:`1px solid ${s.automation_enabled?t.accent+"33":t.border}` }}>
+              <div style={{ fontSize:12, fontWeight:700, color:s.automation_enabled?t.accent:t.textMuted }}>{s.automation_enabled ? "Automation is active" : "Automation is paused"}</div>
+              <div style={{ fontSize:11, color:t.textFaint, marginTop:3, lineHeight:1.5 }}>Rules run while a workspace member has the app open.</div>
+            </div>
           </div>
         </div>
       )}

@@ -4,6 +4,7 @@ import { AuthScreen } from "./components/AuthScreen.jsx";
 import { useAppData } from "./hooks/useAppData.js";
 import { useAuth } from "./hooks/useAuth.js";
 import { useLocalStorage } from "./hooks/useLocalStorage.js";
+import { useOperationalAutomations } from "./hooks/useOperationalAutomations.js";
 import { useWhiteLabelSettings } from "./hooks/useWhiteLabelSettings.js";
 import { DARK, LIGHT, ThemeContext } from "./theme.js";
 import { ToastContainer, ToastContext } from "./toast.jsx";
@@ -111,6 +112,15 @@ export default function Madre() {
       agency_name: auth.currentUser.agency_name,
     };
   }, [auth.currentUser, users]);
+
+  useOperationalAutomations({
+    tasks,
+    projects,
+    currentUser,
+    settings: whiteLabelSettings,
+    logActivity,
+    toast: addToast,
+  });
 
   const appUsers = useMemo(() => {
     if (!currentUser) return users;

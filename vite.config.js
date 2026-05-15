@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import claudeHandler from "./api/claude.js";
+import notifyHandler from "./api/notify.js";
 
 function createJsonResponse(res) {
   return {
@@ -40,16 +41,21 @@ function localApiPlugin() {
   return {
     name: "agencyflow-local-api",
     configureServer(server) {
-      server.middlewares.use("/api/claude", async (req, res) => {
+      const handlers = {
+        "/api/claude": claudeHandler,
+        "/api/notify": notifyHandler,
+      };
+
+      Object.entries(handlers).forEach(([path, handler]) => server.middlewares.use(path, async (req, res) => {
         try {
           req.body = await parseJsonBody(req);
-          await claudeHandler(req, createJsonResponse(res));
+          await handler(req, createJsonResponse(res));
         } catch (error) {
           res.statusCode = 400;
           res.setHeader("Content-Type", "application/json");
           res.end(JSON.stringify({ error: "Invalid JSON request body." }));
         }
-      });
+      }));
     }
   };
 }

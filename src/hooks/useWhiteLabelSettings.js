@@ -21,6 +21,16 @@ export const DEFAULT_WHITE_LABEL_SETTINGS = {
   notify_mentions:        true,
   notify_comments:        true,
   deadline_warning_hours: 24,      // hours before due to show warning
+
+  // Operational automations
+  automation_enabled: true,
+  automation_deadline_warnings: true,
+  automation_overdue_escalation: true,
+  automation_blocked_alerts: true,
+  automation_toasts: true,
+  automation_email: false,
+  automation_whatsapp: false,
+  overdue_escalation_hours: 24,     // hours after due date before escalation
 };
 
 export function useWhiteLabelSettings() {
