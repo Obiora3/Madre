@@ -21,7 +21,7 @@ const publicUser = (user) => ({
   id: user.id,
   name: user.name,
   email: user.email,
-  role: user.role || "admin",
+  role: user.role || "member",
   department:    clean(user.department,    STALE_DEPARTMENTS),
   department_id: user.department_id === "d1" ? "" : (user.department_id || ""),
   job_title:     clean(user.job_title,     STALE_JOB_TITLES),
@@ -39,7 +39,7 @@ const publicSupabaseUser = (user) => {
     id: user.id,
     name,
     email: user.email,
-    role: meta.role || "admin",
+    role: meta.role || "member",
     department:    meta.department    || "",
     department_id: meta.department_id || "",
     job_title:     meta.job_title     || "",
@@ -98,7 +98,7 @@ export function useAuth() {
     for (let i = 0; i < 6; i++) {
       const { data } = await supabase
         .from("profiles")
-        .select("agency_id")
+        .select("agency_id, role")
         .eq("id", userId)
         .maybeSingle();
       if (data?.agency_id) { profile = data; break; }
@@ -116,6 +116,7 @@ export function useAuth() {
     setCurrentUser(prev => prev ? {
       ...prev,
       agency_id: profile.agency_id,
+      role: profile.role || prev.role,
       agency_code: agency?.code ?? null,
       agency_name: agency?.name ?? null,
     } : null);
@@ -163,7 +164,7 @@ export function useAuth() {
         options: {
           data: {
             name: cleanName,
-            role: agencyMode === "create" ? "admin" : "user",
+            role: agencyMode === "create" ? "owner" : "member",
             department: "",
             department_id: "",
             job_title: "",
@@ -212,7 +213,7 @@ export function useAuth() {
       id: `auth-${Date.now()}`,
       name: cleanName,
       email: cleanEmail,
-      role: agencyMode === "create" ? "admin" : "user",
+      role: agencyMode === "create" ? "owner" : "member",
       department: "",
       department_id: "",
       job_title: "",

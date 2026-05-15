@@ -83,6 +83,10 @@ export const WhiteLabel = React.memo(function Settings() {
   const [editingRole, setEditingRole] = useState(null); // userId being edited
   const [pendingRoles, setPendingRoles] = useState({});  // { userId: newRole }
 
+  const currentRole = (currentUser?.role || "member").toLowerCase();
+  const canManageRoles = ["owner", "admin"].includes(currentRole);
+  const canResetData = currentRole === "owner";
+
   const set = (key, val) => setS(prev => ({ ...prev, [key]: val }));
 
   const save = () => {
@@ -104,6 +108,7 @@ export const WhiteLabel = React.memo(function Settings() {
   };
 
   const exportData = () => {
+    if (!canResetData) return;
     const blob = new Blob([JSON.stringify({ exported_at:new Date().toISOString(), workspace:currentUser?.agency_name, projects, tasks, clients, kpis, departments, pitches, comments }, null, 2)], { type:"application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = `madre-export-${new Date().toISOString().split("T")[0]}.json`; a.click();
@@ -496,7 +501,14 @@ export const WhiteLabel = React.memo(function Settings() {
                                 const newRole = pendingRoles[u.id];
                                 const originalRole = (users.find(x => x.id === u.id)?.role || "member").toLowerCase();
                                 if (newRole && newRole !== originalRole) {
-                                  await updateMemberRole(u.id, newRole);
+                                  const saved = await updateMemberRole(u.id, newRole);
+                                  if (!saved) {
+                                    setPendingRoles(p => {
+                                      const next = { ...p };
+                                      delete next[u.id];
+                                      return next;
+                                    });
+                                  }
                                 }
                                 setEditingRole(null);
                               }}
@@ -506,7 +518,7 @@ export const WhiteLabel = React.memo(function Settings() {
                           ) : (
                             <div style={{ display:"flex", alignItems:"center", gap:4 }}>
                               <span style={{ fontSize:11, fontWeight:700, color:rm.color, background:rm.color+"18", borderRadius:5, padding:"2px 8px" }}>{rm.label}</span>
-                              {!isMe && (
+                              {!isMe && canManageRoles && (
                                 <button onClick={() => setEditingRole(u.id)} style={{ background:"none", border:"none", cursor:"pointer", color:t.textGhost, fontSize:13, padding:0, lineHeight:1 }} title="Edit role">✏</button>
                               )}
                             </div>
@@ -586,7 +598,12 @@ export const WhiteLabel = React.memo(function Settings() {
             <h3 style={{ margin:"0 0 4px", fontSize:14, fontWeight:700, color:t.text }}>Export Data</h3>
             <p style={{ fontSize:12, color:t.textFaint, margin:"0 0 16px" }}>Download a full JSON backup of your workspace including projects, tasks, clients, KPIs, pitches and comments.</p>
             <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-              <button onClick={exportData} style={{ ...btnPrimary, padding:"9px 20px" }}>⬇ Download JSON Export</button>
+              <button
+                onClick={exportData}
+                disabled={!canResetData}
+                title={canResetData ? "Download JSON export" : "Only workspace owners can export all data"}
+                style={{ ...btnPrimary, padding:"9px 20px", opacity:canResetData?1:0.5, cursor:canResetData?"pointer":"not-allowed" }}
+              >⬇ Download JSON Export</button>
               <span style={{ fontSize:11, color:t.textFaint }}>{(projects?.length||0)+(tasks?.length||0)+(clients?.length||0)} records total</span>
             </div>
           </div>
@@ -610,7 +627,12 @@ export const WhiteLabel = React.memo(function Settings() {
           <div style={{ background:"#EF444408", border:"1px solid #EF444433", borderRadius:14, padding:20 }}>
             <div style={{ fontSize:13, fontWeight:700, color:"#EF4444", marginBottom:6 }}>⚠ Danger Zone</div>
             <p style={{ fontSize:12, color:t.textMuted, margin:"0 0 14px" }}>Wipe all projects, tasks, clients, KPIs, departments and pitches and restore factory demo data. <strong>This cannot be undone.</strong></p>
-            <button onClick={()=>{ if(window.confirm("Reset ALL app data to factory defaults? This cannot be undone.")) resetAllData(); }} style={{ background:"#EF4444", color:"#fff", border:"none", borderRadius:8, padding:"9px 18px", fontSize:13, fontWeight:700, cursor:"pointer" }}>Reset All App Data</button>
+            <button
+              onClick={()=>{ if(canResetData && window.confirm("Reset ALL app data to factory defaults? This cannot be undone.")) resetAllData(); }}
+              disabled={!canResetData}
+              title={canResetData ? "Reset all app data" : "Only workspace owners can reset all data"}
+              style={{ background:"#EF4444", color:"#fff", border:"none", borderRadius:8, padding:"9px 18px", fontSize:13, fontWeight:700, cursor:canResetData?"pointer":"not-allowed", opacity:canResetData?1:0.5 }}
+            >Reset All App Data</button>
           </div>
         </div>
       )}

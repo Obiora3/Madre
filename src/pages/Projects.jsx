@@ -36,7 +36,7 @@ const CURRENCY_SYMBOLS = { USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CA
 
 // ─── PROJECTS ─────────────────────────────────────────────────────────────────
 export const Projects = React.memo(function Projects() {
-  const { projects, setProjects, tasks, clients, users, nav, whiteLabelSettings, currentUser, logActivity } = useApp();
+  const { projects, setProjects, tasks, setTasks, kpis, setKpis, clients, users, nav, whiteLabelSettings, currentUser, logActivity } = useApp();
   const CS = CURRENCY_SYMBOLS[whiteLabelSettings?.currency] || "$";
   const { theme: t } = useTheme();
   const toast = useToast();
@@ -171,6 +171,8 @@ export const Projects = React.memo(function Projects() {
         open={!!confirmDelete}
         onClose={() => setConfirmDelete(null)}
         onConfirm={() => {
+          setTasks(tasks.map(t => t.project_id === confirmDelete.id ? { ...t, project_id: "" } : t));
+          setKpis((kpis || []).map(k => k.project_id === confirmDelete.id ? { ...k, project_id: "" } : k));
           setProjects(projects.filter(p => p.id !== confirmDelete.id));
           logActivity({ userName: currentUser?.name, eventType: "deleted", entityType: "project", entityId: confirmDelete.id, entityTitle: confirmDelete.title });
           toast({ message: `"${confirmDelete.title}" deleted`, sub: "Project removed permanently", type: "warning" });

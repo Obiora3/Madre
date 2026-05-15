@@ -171,6 +171,7 @@ export function Profile() {
   const toast = useToast();
   const iS = mkInputStyle(t);
   const bs = mkBtnSecondary(t);
+  const canResetData = (currentUser?.role || "member").toLowerCase() === "owner";
 
   const [form, setForm] = useState({
     name: currentUser?.name || "",
@@ -255,11 +256,18 @@ export function Profile() {
             </div>
             <button
               onClick={async () => {
+                if (!canResetData) return;
                 if (!window.confirm("Delete ALL data permanently? This cannot be undone.")) return;
-                await resetAllData();
-                toast({ message: "All data cleared.", type: "success" });
+                try {
+                  await resetAllData();
+                  toast({ message: "All data cleared.", type: "success" });
+                } catch (err) {
+                  toast({ message: err.message, type: "error" });
+                }
               }}
-              style={{ background: "#ef4444", color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+              disabled={!canResetData}
+              title={canResetData ? "Clear all data" : "Only workspace owners can clear all data"}
+              style={{ background: "#ef4444", color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: canResetData ? "pointer" : "not-allowed", opacity: canResetData ? 1 : 0.5 }}
             >
               Clear All Data
             </button>

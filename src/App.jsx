@@ -99,7 +99,19 @@ export default function Madre() {
     window.addEventListener("af-sync-error", handler);
     return () => window.removeEventListener("af-sync-error", handler);
   }, [addToast]);
-  const currentUser = auth.currentUser;
+  const currentUser = useMemo(() => {
+    if (!auth.currentUser) return null;
+    const profile = users.find(u => u.email === auth.currentUser.email || u.id === auth.currentUser.id);
+    if (!profile) return auth.currentUser;
+    return {
+      ...auth.currentUser,
+      ...profile,
+      agency_id: auth.currentUser.agency_id,
+      agency_code: auth.currentUser.agency_code,
+      agency_name: auth.currentUser.agency_name,
+    };
+  }, [auth.currentUser, users]);
+
   const appUsers = useMemo(() => {
     if (!currentUser) return users;
     const found = users.some(u => u.email === currentUser.email);
@@ -141,14 +153,15 @@ export default function Madre() {
     { id:"reports",      label:"Reports",    icon:"\ud83d\udcc8" },
     { id:"ai-brief",     label:"AI Brief",   icon:"\u2728" },
   ];
+  const canAccessSettings = ["owner", "admin"].includes((currentUser?.role || "").toLowerCase());
   const advancedItems = [
     { id:"profitability",    label:"Profitability",   icon:"\ud83d\udcb0" },
     { id:"pitches",          label:"Pitch Pipeline",  icon:"\ud83c\udfaf" },
     { id:"benchmarking",     label:"Benchmarking",    icon:"\ud83d\udd2c" },
     { id:"departments",      label:"Departments",     icon:"\ud83c\udfe2", badge:"NEW" },
     { id:"delivery-scores",  label:"Delivery Scores", icon:"\u2b50", badge:"NEW" },
-    { id:"settings",         label:"Settings",        icon:"\u2699\ufe0f" },
-  ];
+    canAccessSettings ? { id:"settings", label:"Settings", icon:"\u2699\ufe0f" } : null,
+  ].filter(Boolean);
 
   const activeId = page === "project-detail" ? "projects" : page;
   const headerHeight = 72;

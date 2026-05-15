@@ -311,9 +311,17 @@ export function useAppData(agencyId) {
 
   const resetAllData = useCallback(async () => {
     if (isSupabaseConfigured && agencyId) {
-      await Promise.all(TABLES.map(t =>
+      const results = await Promise.all(TABLES.map(t =>
         supabase.from(t).delete().eq("agency_id", agencyId)
       ));
+      const failed = results
+        .map((result, idx) => ({ table: TABLES[idx], error: result.error }))
+        .filter(item => item.error);
+      if (failed.length) {
+        const detail = failed.map(item => `${item.table}: ${item.error.message}`).join("; ");
+        window.dispatchEvent(new CustomEvent("af-sync-error", { detail: `Reset failed: ${detail}` }));
+        throw new Error(detail);
+      }
       // Clear localStorage data and migration flag so nothing gets re-migrated
       TABLES.forEach(t => localStorage.removeItem(LS_KEYS[t]));
       localStorage.removeItem(`af_migrated_v2_${agencyId}`);
@@ -360,10 +368,11 @@ export function useAppData(agencyId) {
       if (error) {
         console.error("[role] update failed:", error.message);
         window.dispatchEvent(new CustomEvent("af-sync-error", { detail: `Role update failed: ${error.message}` }));
-        return;
+        return false;
       }
     }
     setDbUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
+    return true;
   }, [agencyId]);
 
   const activeEvents = live ? dbEvents : lsEvents;
