@@ -106,7 +106,7 @@ export const Projects = React.memo(function Projects() {
                       <div style={{ display:"flex", justifyContent:"space-between", marginTop:7, padding:"5px 8px", background:t.statBg, borderRadius:6 }}>
                         <span style={{ fontSize:10, color:t.textFaint }}>Budget</span>
                         <span style={{ fontSize:10, fontWeight:700, color: p.budget_spent > p.budget ? "#EF4444" : t.textSub }}>
-                          {CS}{(p.budget_spent||0).toLocaleString()} <span style={{ fontWeight:400, color:t.textGhost }}>/ {CS}{(p.budget||0).toLocaleString()}</span>
+                          {CS}{((p.budget_spent||0)/1_000_000).toFixed(2)}M <span style={{ fontWeight:400, color:t.textGhost }}>/ {CS}{((p.budget||0)/1_000_000).toFixed(2)}M</span>
                         </span>
                       </div>
                     )}

@@ -88,8 +88,8 @@ export const Dashboard = React.memo(function Dashboard() {
         <StatCard icon="✅" label="Tasks Completed" value={doneTasks.length} sub="total done" />
         <StatCard icon="👥" label="Active Clients" value={activeClients.length} sub="under management" />
         <StatCard icon="📊" label="KPIs On Track" value={`${kpiOnTrack.length}/${kpis.length}`} sub={`${Math.round((kpiOnTrack.length/Math.max(kpis.length,1))*100)}% on track`} />
-        <StatCard icon="💰" label="Total Budget" value={totalBudget > 0 ? `${CS}${totalBudget >= 1000 ? (totalBudget/1000).toFixed(1)+"k" : totalBudget.toLocaleString()}` : "—"} sub="across all projects" />
-        <StatCard icon="📤" label="Budget Spent" value={totalBudget > 0 ? `${Math.round((totalSpent/Math.max(totalBudget,1))*100)}%` : "—"} sub={totalBudget > 0 ? `${CS}${totalSpent >= 1000 ? (totalSpent/1000).toFixed(1)+"k" : totalSpent.toLocaleString()} spent` : "Set budget on projects"} />
+        <StatCard icon="💰" label="Total Budget" value={totalBudget > 0 ? `${CS}${(totalBudget/1_000_000).toFixed(2)}M` : "—"} sub="across all projects" />
+        <StatCard icon="📤" label="Budget Spent" value={totalBudget > 0 ? `${Math.round((totalSpent/Math.max(totalBudget,1))*100)}%` : "—"} sub={totalBudget > 0 ? `${CS}${(totalSpent/1_000_000).toFixed(2)}M spent` : "Set budget on projects"} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
         <div style={{ background: t.card, border: `1px solid ${t.border2}`, borderRadius: 14, padding: 20 }}>

@@ -400,8 +400,8 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
             ["Due","🗓", fmtDate(project.due_date), null],
             ["Progress","📈", `${calcProgress(id,tasks)}%`, null],
             ...(hasBudget ? [
-              ["Budget","💰", `${CS}${(project.budget||0).toLocaleString()}`, null],
-              ["Spent","📤", `${CS}${(project.budget_spent||0).toLocaleString()}`, budgetOver ? "#EF4444" : (budgetUsedPct >= 80 ? "#F59E0B" : "#059669")],
+              ["Budget","💰", `${CS}${((project.budget||0)/1_000_000).toFixed(2)}M`, null],
+              ["Spent","📤", `${CS}${((project.budget_spent||0)/1_000_000).toFixed(2)}M`, budgetOver ? "#EF4444" : (budgetUsedPct >= 80 ? "#F59E0B" : "#059669")],
             ] : []),
           ];
           return (

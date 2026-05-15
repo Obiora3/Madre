@@ -259,7 +259,7 @@ export const Reports = React.memo(function Reports() {
             <StatCard icon="✅" label="Tasks Completed" value={stats.done} />
             <StatCard icon="⚠️" label="Overdue Tasks"   value={stats.overdue} />
             <StatCard icon="⏱"  label="Hours Estimated" value={`${stats.totalEst}h`} />
-            <StatCard icon="💰" label="Total Budget"    value={totalBudget > 0 ? `${CURRENCY_SYMBOL}${totalBudget >= 1000 ? (totalBudget/1000).toFixed(1)+"k" : totalBudget.toLocaleString()}` : "—"} />
+            <StatCard icon="💰" label="Total Budget"    value={totalBudget > 0 ? `${CURRENCY_SYMBOL}${(totalBudget/1_000_000).toFixed(2)}M` : "—"} />
             <StatCard icon="📊" label="Budget Used"     value={budgetPct !== null ? `${budgetPct}%` : "—"} sub={budgetPct !== null ? (budgetPct > 100 ? "Over budget" : budgetPct >= 80 ? "Nearly full" : "On track") : "No budget set"} />
           </div>
         );
@@ -329,7 +329,7 @@ export const Reports = React.memo(function Reports() {
               ))}
             </div>
             {budgetData.map(p => {
-              const fmt = (v) => v >= 1000 ? `${CURRENCY_SYMBOL}${(v/1000).toFixed(1)}k` : `${CURRENCY_SYMBOL}${Math.round(v).toLocaleString()}`;
+              const fmt = (v) => `${CURRENCY_SYMBOL}${(v/1_000_000).toFixed(2)}M`;
               return (
                 <div key={p.id} style={{ display:"grid", gridTemplateColumns:"1fr 70px 100px 100px 100px 90px", padding:"12px 20px", borderBottom:`1px solid ${t.divider}`, alignItems:"center" }}>
                   <div>
