@@ -494,7 +494,8 @@ export const WhiteLabel = React.memo(function Settings() {
                               onChange={e => setPendingRoles(p => ({ ...p, [u.id]: e.target.value }))}
                               onBlur={async () => {
                                 const newRole = pendingRoles[u.id];
-                                if (newRole && newRole !== u.role) {
+                                const originalRole = (users.find(x => x.id === u.id)?.role || "member").toLowerCase();
+                                if (newRole && newRole !== originalRole) {
                                   await updateMemberRole(u.id, newRole);
                                 }
                                 setEditingRole(null);
