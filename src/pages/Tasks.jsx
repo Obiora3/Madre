@@ -110,60 +110,74 @@ export const Tasks = React.memo(function Tasks() {
       )}
 
       {viewMode === "Kanban" ? (
-        /* ── Kanban: 4 columns by status ──────────────────────────────────── */
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
-          {KANBAN_STATUSES.map(col => {
-            const colTasks = tasks.filter(t2 => t2.status === col);
-            const cc = KANBAN_COLORS[col];
+        /* ── Kanban: swimlanes by project, columns by status ─────────────── */
+        <div style={{ overflowX:"auto" }}>
+          {/* Column headers */}
+          <div style={{ display:"grid", gridTemplateColumns:"180px repeat(4,1fr)", gap:8, marginBottom:8, minWidth:780 }}>
+            <div />
+            {KANBAN_STATUSES.map(col => (
+              <div key={col} style={{ display:"flex", alignItems:"center", gap:6 }}>
+                <div style={{ width:8, height:8, borderRadius:"50%", background:KANBAN_COLORS[col], flexShrink:0 }} />
+                <span style={{ fontSize:11, fontWeight:700, color:t.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}>{col}</span>
+              </div>
+            ))}
+          </div>
+          {/* Swimlane rows */}
+          {groups.map(([projectId, groupTasks]) => {
+            const proj = projectId ? projectById[projectId] : null;
             return (
-              <div key={col}>
-                <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:10 }}>
-                  <div style={{ width:8, height:8, borderRadius:"50%", background:cc }} />
-                  <span style={{ fontSize:11, fontWeight:700, color:t.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}>{col}</span>
-                  <span style={{ fontSize:10, color:t.textGhost, marginLeft:"auto", background:t.toggleBg, borderRadius:99, padding:"1px 7px", fontWeight:700 }}>{colTasks.length}</span>
+              <div key={projectId||"__none__"} style={{ display:"grid", gridTemplateColumns:"180px repeat(4,1fr)", gap:8, marginBottom:16, minWidth:780, alignItems:"start" }}>
+                {/* Project label */}
+                <div style={{ paddingTop:4, paddingRight:8 }}>
+                  <div style={{ fontSize:12, fontWeight:800, color: proj ? t.text : t.textMuted, lineHeight:1.3 }}>{proj ? proj.title : "No Project"}</div>
+                  {proj && <div style={{ fontSize:10, color:t.textFaint, marginTop:2 }}>{proj.stage} · {proj.status}</div>}
                 </div>
-                {colTasks.map(t2 => {
-                  const proj    = t2.project_id ? projectById[t2.project_id] : null;
-                  const subs    = t2.subtasks || [];
-                  const cnt     = (comments||[]).filter(c=>c.entity_type==="task"&&c.entity_id===t2.id).length;
-                  const blocked = (t2.blocked_by||[]).some(depId => { const dep = tasks.find(x=>x.id===depId); return dep && dep.status!=="Done"; });
+                {/* Status columns */}
+                {KANBAN_STATUSES.map(col => {
+                  const cc = KANBAN_COLORS[col];
+                  const colTasks = groupTasks.filter(t2 => t2.status === col);
                   return (
-                    <div key={t2.id} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:10, padding:12, marginBottom:8 }}>
-                      <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:4, marginBottom:6 }}>
-                        <span style={{ fontSize:12, fontWeight:700, color:t2.status==="Done"?t.textFaint:t.text, lineHeight:1.35, textDecoration:t2.status==="Done"?"line-through":"none", flex:1 }}>{t2.title}</span>
-                        {blocked && <span title="Blocked" style={{ fontSize:13, flexShrink:0 }}>🔒</span>}
-                      </div>
-                      {proj && <div style={{ fontSize:10, color:t.textFaint, marginBottom:5, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{proj.title}</div>}
-                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                        <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                          <Avatar name={t2.assigned_to?.name||"?"} size={18} />
-                          <span style={{ fontSize:11, color:t.textMuted }}>{(t2.assigned_to?.name||"").split(" ")[0]||"Unassigned"}</span>
-                        </div>
-                        <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                          <Badge label={t2.priority} color={priorityColor(t2.priority)} />
-                          {t2.recurrence && t2.recurrence !== "none" && <span style={{ fontSize:11 }}>🔄</span>}
-                        </div>
-                      </div>
-                      {subs.length > 0 && (
-                        <div style={{ marginTop:7 }}>
-                          <div style={{ height:3, borderRadius:99, background:t.toggleBg }}>
-                            <div style={{ height:"100%", borderRadius:99, width:`${Math.round((subs.filter(s=>s.done).length/subs.length)*100)}%`, background:cc }} />
+                    <div key={col} style={{ background:t.statBg, borderRadius:10, padding:8, minHeight:60 }}>
+                      {colTasks.map(t2 => {
+                        const subs    = t2.subtasks || [];
+                        const cnt     = (comments||[]).filter(c=>c.entity_type==="task"&&c.entity_id===t2.id).length;
+                        const blocked = (t2.blocked_by||[]).some(depId => { const dep = tasks.find(x=>x.id===depId); return dep && dep.status!=="Done"; });
+                        return (
+                          <div key={t2.id} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:8, padding:10, marginBottom:6 }}>
+                            <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:4, marginBottom:5 }}>
+                              <span style={{ fontSize:12, fontWeight:700, color:t2.status==="Done"?t.textFaint:t.text, lineHeight:1.35, textDecoration:t2.status==="Done"?"line-through":"none", flex:1 }}>{t2.title}</span>
+                              {blocked && <span title="Blocked" style={{ fontSize:12, flexShrink:0 }}>🔒</span>}
+                            </div>
+                            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                              <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                                <Avatar name={t2.assigned_to?.name||"?"} size={16} />
+                                <span style={{ fontSize:10, color:t.textMuted }}>{(t2.assigned_to?.name||"").split(" ")[0]||"?"}</span>
+                              </div>
+                              <Badge label={t2.priority} color={priorityColor(t2.priority)} />
+                            </div>
+                            {subs.length > 0 && (
+                              <div style={{ marginTop:6 }}>
+                                <div style={{ height:3, borderRadius:99, background:t.toggleBg }}>
+                                  <div style={{ height:"100%", borderRadius:99, width:`${Math.round((subs.filter(s=>s.done).length/subs.length)*100)}%`, background:cc }} />
+                                </div>
+                                <div style={{ fontSize:10, color:t.textGhost, marginTop:2 }}>{subs.filter(s=>s.done).length}/{subs.length} subtasks</div>
+                              </div>
+                            )}
+                            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:6 }}>
+                              <span style={{ fontSize:10, color:t.textGhost }}>{fmtDate(t2.due_date)}</span>
+                              <button onClick={()=>setCommentTask(t2)} style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:5, padding:"1px 6px", fontSize:10, color:cnt>0?t.accent:t.textMuted, cursor:"pointer", fontWeight:cnt>0?700:400 }}>
+                                💬{cnt>0?` ${cnt}`:""}
+                              </button>
+                            </div>
                           </div>
-                          <div style={{ fontSize:10, color:t.textGhost, marginTop:3 }}>{subs.filter(s=>s.done).length}/{subs.length} subtasks</div>
-                        </div>
+                        );
+                      })}
+                      {colTasks.length === 0 && (
+                        <div style={{ border:`1px dashed ${t.border2}`, borderRadius:8, padding:"12px 8px", textAlign:"center", color:t.textGhost, fontSize:11 }}>—</div>
                       )}
-                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:8 }}>
-                        <span style={{ fontSize:10, color:t.textGhost }}>{fmtDate(t2.due_date)}</span>
-                        <button onClick={()=>setCommentTask(t2)} style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:6, padding:"2px 7px", fontSize:10, color:cnt>0?t.accent:t.textMuted, cursor:"pointer", fontWeight:cnt>0?700:400 }}>
-                          💬{cnt>0?` ${cnt}`:""}
-                        </button>
-                      </div>
                     </div>
                   );
                 })}
-                {colTasks.length === 0 && (
-                  <div style={{ border:`2px dashed ${t.border2}`, borderRadius:10, padding:"20px 12px", textAlign:"center", color:t.textGhost, fontSize:12 }}>No tasks</div>
-                )}
               </div>
             );
           })}
