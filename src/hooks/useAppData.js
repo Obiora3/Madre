@@ -32,6 +32,17 @@ const sanitize = obj => Object.fromEntries(
   Object.entries(obj).map(([k, v]) => [k, v === "" ? null : v])
 );
 
+const isTransient = (msg) => !msg || msg.includes("fetch") || msg.includes("network") || msg.includes("timeout");
+
+async function withRetry(fn, retries = 2, delayMs = 1200) {
+  for (let i = 0; i <= retries; i++) {
+    const { error } = await fn();
+    if (!error) return null;
+    if (!isTransient(error.message) || i === retries) return error;
+    await new Promise(r => setTimeout(r, delayMs));
+  }
+}
+
 async function syncCollection(table, oldItems, newItems, agencyId) {
   if (!agencyId) return;
 
@@ -48,14 +59,14 @@ async function syncCollection(table, oldItems, newItems, agencyId) {
   const toDelete = oldItems.filter(i => !newMap.has(i.id)).map(i => i.id);
 
   if (toUpsert.length > 0) {
-    const { error } = await supabase.from(table).upsert(toUpsert);
+    const error = await withRetry(() => supabase.from(table).upsert(toUpsert));
     if (error) {
       console.error(`[sync] upsert ${table}:`, error.message, error);
       window.dispatchEvent(new CustomEvent("af-sync-error", { detail: error.message }));
     }
   }
   if (toDelete.length > 0) {
-    const { error } = await supabase.from(table).delete().in("id", toDelete);
+    const error = await withRetry(() => supabase.from(table).delete().in("id", toDelete));
     if (error) {
       console.error(`[sync] delete ${table}:`, error.message, error);
       window.dispatchEvent(new CustomEvent("af-sync-error", { detail: error.message }));
