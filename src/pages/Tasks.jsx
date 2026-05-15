@@ -37,7 +37,7 @@ export const Tasks = React.memo(function Tasks() {
   const toast = useToast();
   const bs = mkBtnSecondary(t);
   const [commentTask, setCommentTask] = useState(null);
-  const [viewMode, setViewMode]       = useState("Global");
+  const [viewMode, setViewMode]       = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
   const [deptFilter, setDeptFilter]   = useState("All");
   const statuses = ["All","To Do","In Progress","In Review","Done"];
@@ -87,7 +87,7 @@ export const Tasks = React.memo(function Tasks() {
           <span style={{ marginLeft:10, fontSize:14, fontWeight:500, color:t.textFaint }}>({filtered.length})</span>
         </h1>
         <div style={{ display:"flex", gap:8 }}>
-          {["Global","Kanban","By Department"].map(m=>(
+          {["All","Kanban","By Department"].map(m=>(
             <button key={m} onClick={()=>setViewMode(m)} style={{...bs, background:viewMode===m?"#7C3AED":t.toggleBg, color:viewMode===m?"#fff":t.textSub, border:`1px solid ${viewMode===m?"#7C3AED":t.border2}`, padding:"7px 14px", fontSize:12}}>{m}</button>
           ))}
         </div>
