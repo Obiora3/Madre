@@ -41,6 +41,8 @@ export const Tasks = React.memo(function Tasks() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [deptFilter, setDeptFilter]   = useState("All");
   const statuses = ["All","To Do","In Progress","In Review","Done"];
+  const KANBAN_STATUSES = ["To Do","In Progress","In Review","Done"];
+  const KANBAN_COLORS   = { "To Do":"#6B7280","In Progress":"#3B82F6","In Review":"#F59E0B","Done":"#059669" };
 
   const filtered = useMemo(() => {
     let result = statusFilter === "All" ? tasks : tasks.filter(t2 => t2.status === statusFilter);
@@ -85,17 +87,19 @@ export const Tasks = React.memo(function Tasks() {
           <span style={{ marginLeft:10, fontSize:14, fontWeight:500, color:t.textFaint }}>({filtered.length})</span>
         </h1>
         <div style={{ display:"flex", gap:8 }}>
-          {["Global","By Department"].map(m=>(
+          {["Global","Kanban","By Department"].map(m=>(
             <button key={m} onClick={()=>setViewMode(m)} style={{...bs, background:viewMode===m?"#7C3AED":t.toggleBg, color:viewMode===m?"#fff":t.textSub, border:`1px solid ${viewMode===m?"#7C3AED":t.border2}`, padding:"7px 14px", fontSize:12}}>{m}</button>
           ))}
         </div>
       </div>
 
-      <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
-        {statuses.map(s=>(
-          <button key={s} onClick={()=>setStatusFilter(s)} style={{...bs, background:statusFilter===s?t.navActive:t.toggleBg, color:statusFilter===s?t.navActiveText:t.textMuted, border:`1px solid ${statusFilter===s?t.accent:t.border}`, padding:"5px 12px", fontSize:12}}>{s}</button>
-        ))}
-      </div>
+      {viewMode !== "Kanban" && (
+        <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
+          {statuses.map(s=>(
+            <button key={s} onClick={()=>setStatusFilter(s)} style={{...bs, background:statusFilter===s?t.navActive:t.toggleBg, color:statusFilter===s?t.navActiveText:t.textMuted, border:`1px solid ${statusFilter===s?t.accent:t.border}`, padding:"5px 12px", fontSize:12}}>{s}</button>
+          ))}
+        </div>
+      )}
 
       {viewMode === "By Department" && (
         <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
@@ -105,11 +109,72 @@ export const Tasks = React.memo(function Tasks() {
         </div>
       )}
 
-      {filtered.length === 0 && (
+      {/* ── Kanban view ─────────────────────────────────────────────────────── */}
+      {viewMode === "Kanban" && (
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
+          {KANBAN_STATUSES.map(col => {
+            const colTasks = tasks.filter(t2 => t2.status === col);
+            const cc = KANBAN_COLORS[col];
+            return (
+              <div key={col}>
+                <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:10 }}>
+                  <div style={{ width:8, height:8, borderRadius:"50%", background:cc }} />
+                  <span style={{ fontSize:11, fontWeight:700, color:t.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}>{col}</span>
+                  <span style={{ fontSize:10, color:t.textGhost, marginLeft:"auto", background:t.toggleBg, borderRadius:99, padding:"1px 7px", fontWeight:700 }}>{colTasks.length}</span>
+                </div>
+                {colTasks.map(t2 => {
+                  const proj    = t2.project_id ? projectById[t2.project_id] : null;
+                  const subs    = t2.subtasks || [];
+                  const cnt     = (comments||[]).filter(c=>c.entity_type==="task"&&c.entity_id===t2.id).length;
+                  const blocked = (t2.blocked_by||[]).some(depId => { const dep = tasks.find(x=>x.id===depId); return dep && dep.status!=="Done"; });
+                  return (
+                    <div key={t2.id} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:10, padding:12, marginBottom:8 }}>
+                      <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:4, marginBottom:6 }}>
+                        <span style={{ fontSize:12, fontWeight:700, color:t2.status==="Done"?t.textFaint:t.text, lineHeight:1.35, textDecoration:t2.status==="Done"?"line-through":"none", flex:1 }}>{t2.title}</span>
+                        {blocked && <span title="Blocked" style={{ fontSize:13, flexShrink:0 }}>🔒</span>}
+                      </div>
+                      {proj && <div style={{ fontSize:10, color:t.textFaint, marginBottom:5, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{proj.title}</div>}
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                          <Avatar name={t2.assigned_to?.name||"?"} size={18} />
+                          <span style={{ fontSize:11, color:t.textMuted }}>{(t2.assigned_to?.name||"").split(" ")[0]||"Unassigned"}</span>
+                        </div>
+                        <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                          <Badge label={t2.priority} color={priorityColor(t2.priority)} />
+                          {t2.recurrence && t2.recurrence !== "none" && <span style={{ fontSize:11 }}>🔄</span>}
+                        </div>
+                      </div>
+                      {subs.length > 0 && (
+                        <div style={{ marginTop:7 }}>
+                          <div style={{ height:3, borderRadius:99, background:t.toggleBg }}>
+                            <div style={{ height:"100%", borderRadius:99, width:`${Math.round((subs.filter(s=>s.done).length/subs.length)*100)}%`, background:cc }} />
+                          </div>
+                          <div style={{ fontSize:10, color:t.textGhost, marginTop:3 }}>{subs.filter(s=>s.done).length}/{subs.length} subtasks</div>
+                        </div>
+                      )}
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:8 }}>
+                        <span style={{ fontSize:10, color:t.textGhost }}>{fmtDate(t2.due_date)}</span>
+                        <button onClick={()=>setCommentTask(t2)} style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:6, padding:"2px 7px", fontSize:10, color:cnt>0?t.accent:t.textMuted, cursor:"pointer", fontWeight:cnt>0?700:400 }}>
+                          💬{cnt>0?` ${cnt}`:""}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {colTasks.length === 0 && (
+                  <div style={{ border:`2px dashed ${t.border2}`, borderRadius:10, padding:"20px 12px", textAlign:"center", color:t.textGhost, fontSize:12 }}>No tasks</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {viewMode !== "Kanban" && filtered.length === 0 && (
         <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:40, textAlign:"center", color:t.textFaint, fontSize:13 }}>No tasks match these filters.</div>
       )}
 
-      <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      {viewMode !== "Kanban" && <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
         {groups.map(([projectId, groupTasks]) => {
           const proj = projectId ? projectById[projectId] : null;
           const doneCount = groupTasks.filter(t2 => t2.status === "Done").length;
@@ -174,7 +239,7 @@ export const Tasks = React.memo(function Tasks() {
             </div>
           );
         })}
-      </div>
+      </div>}
 
       <Modal open={!!commentTask} onClose={()=>setCommentTask(null)} title={`Comments · ${commentTask?.title || ""}`}>
         {commentTask && <CommentsPanel entityType="task" entityId={commentTask.id} comments={comments||[]} setComments={setComments} currentUser={currentUser} users={users} />}
