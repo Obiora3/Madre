@@ -356,8 +356,12 @@ export function useAppData(agencyId) {
 
   const updateMemberRole = useCallback(async (userId, newRole) => {
     if (isSupabaseConfigured && agencyId) {
-      const { error } = await supabase.from("profiles").update({ role: newRole }).eq("id", userId);
-      if (error) { window.dispatchEvent(new CustomEvent("af-sync-error", { detail: error.message })); return; }
+      const { error } = await supabase.rpc("update_member_role", { p_user_id: userId, p_role: newRole });
+      if (error) {
+        console.error("[role] update failed:", error.message);
+        window.dispatchEvent(new CustomEvent("af-sync-error", { detail: `Role update failed: ${error.message}` }));
+        return;
+      }
     }
     setDbUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
   }, [agencyId]);
