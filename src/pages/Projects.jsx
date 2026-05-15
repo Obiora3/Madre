@@ -36,7 +36,7 @@ const CURRENCY_SYMBOLS = { USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CA
 
 // ─── PROJECTS ─────────────────────────────────────────────────────────────────
 export const Projects = React.memo(function Projects() {
-  const { projects, setProjects, tasks, clients, users, nav, whiteLabelSettings } = useApp();
+  const { projects, setProjects, tasks, clients, users, nav, whiteLabelSettings, currentUser, logActivity } = useApp();
   const CS = CURRENCY_SYMBOLS[whiteLabelSettings?.currency] || "$";
   const { theme: t } = useTheme();
   const toast = useToast();
@@ -53,6 +53,7 @@ export const Projects = React.memo(function Projects() {
     const assignee = assigneeId ? users.find(u => u.id === assigneeId) : null;
     const np = { ...rest, id: "p"+Date.now(), assigned_to: assignee ? { name: assignee.name, email: assignee.email } : {} };
     setProjects([...projects, np]);
+    logActivity({ userName: currentUser?.name, eventType: "created", entityType: "project", entityId: np.id, entityTitle: np.title });
     toast({ message: `Project "${form.title}" created`, sub: `${form.stage} · ${form.priority} priority`, type: "success" });
     setShowForm(false);
     setForm(BLANK_FORM);
@@ -151,8 +152,14 @@ export const Projects = React.memo(function Projects() {
           </select>
         </FormField>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-          <FormField label={`Budget (${CS})`}><input type="number" min="0" style={iS} value={form.budget||""} onChange={e=>setForm({...form,budget:parseFloat(e.target.value)||0})} placeholder="0" /></FormField>
-          <FormField label={`Budget Spent (${CS})`}><input type="number" min="0" style={iS} value={form.budget_spent||""} onChange={e=>setForm({...form,budget_spent:parseFloat(e.target.value)||0})} placeholder="0" /></FormField>
+          <FormField label={`Budget (${CS})`}>
+            <input type="number" min="0" style={iS} value={form.budget||""} onChange={e=>setForm({...form,budget:parseFloat(e.target.value)||0})} placeholder="e.g. 5000000 for 5M" />
+            {form.budget > 0 && <div style={{ fontSize:11, color:"#7C3AED", marginTop:3 }}>= {CS}{(form.budget/1_000_000).toFixed(2)}M</div>}
+          </FormField>
+          <FormField label={`Budget Spent (${CS})`}>
+            <input type="number" min="0" style={iS} value={form.budget_spent||""} onChange={e=>setForm({...form,budget_spent:parseFloat(e.target.value)||0})} placeholder="e.g. 2500000 for 2.5M" />
+            {form.budget_spent > 0 && <div style={{ fontSize:11, color: form.budget > 0 && form.budget_spent > form.budget ? "#EF4444" : "#059669", marginTop:3 }}>= {CS}{(form.budget_spent/1_000_000).toFixed(2)}M{form.budget > 0 && form.budget_spent > form.budget ? " · over budget" : ""}</div>}
+          </FormField>
         </div>
         <FormField label="Description"><textarea style={{...iS,height:80,resize:"vertical"}} value={form.description} onChange={e=>setForm({...form,description:e.target.value})} /></FormField>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
@@ -165,6 +172,7 @@ export const Projects = React.memo(function Projects() {
         onClose={() => setConfirmDelete(null)}
         onConfirm={() => {
           setProjects(projects.filter(p => p.id !== confirmDelete.id));
+          logActivity({ userName: currentUser?.name, eventType: "deleted", entityType: "project", entityId: confirmDelete.id, entityTitle: confirmDelete.title });
           toast({ message: `"${confirmDelete.title}" deleted`, sub: "Project removed permanently", type: "warning" });
         }}
         title={`Delete "${confirmDelete?.title}"?`}

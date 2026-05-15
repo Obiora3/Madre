@@ -29,7 +29,7 @@ import {
 } from "./_shared.js";
 
 export const Clients = React.memo(function Clients() {
-  const { clients, setClients, projects } = useApp();
+  const { clients, setClients, projects, currentUser, logActivity } = useApp();
   const { theme: t } = useTheme();
   const toast = useToast();
   const iS = mkInputStyle(t); const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);
@@ -42,7 +42,9 @@ export const Clients = React.memo(function Clients() {
       setClients(clients.map(c=>c.id===editClient.id?{...form,id:editClient.id}:c));
       toast({ message: `"${form.name}" updated`, sub: form.industry, type: "success" });
     } else {
-      setClients([...clients, { ...form, id:"c"+Date.now() }]);
+      const nc = { ...form, id:"c"+Date.now() };
+      setClients([...clients, nc]);
+      logActivity({ userName: currentUser?.name, eventType: "created", entityType: "client", entityId: nc.id, entityTitle: nc.name });
       toast({ message: `Client "${form.name}" added`, sub: form.industry, type: "success" });
     }
     setShowForm(false); setEditClient(null);

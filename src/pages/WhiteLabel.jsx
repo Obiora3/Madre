@@ -61,6 +61,7 @@ export const WhiteLabel = React.memo(function Settings() {
   const {
     resetAllData, whiteLabelSettings, setWhiteLabelSettings, resetWhiteLabelSettings,
     currentUser, users, projects, tasks, clients, kpis, departments, pitches, comments, nav,
+    events: activityEvents, updateMemberRole,
   } = useApp();
   const { theme: t } = useTheme();
   const iS = mkInputStyle(t);
@@ -109,38 +110,44 @@ export const WhiteLabel = React.memo(function Settings() {
     URL.revokeObjectURL(url);
   };
 
-  // ── Activity feed (derived from comments, tasks, projects) ──────────────────
-  const activityFeed = useMemo(() => {
-    const events = [];
+  // ── Activity feed — real events when available, synthetic fallback ──────────
+  const EVENT_META = {
+    created:   { icon:"✦",  color:"#7C3AED" },
+    updated:   { icon:"✏",  color:"#3B82F6" },
+    completed: { icon:"✅", color:"#059669" },
+    deleted:   { icon:"🗑", color:"#EF4444" },
+    commented: { icon:"💬", color:"#0891B2" },
+    status:    { icon:"🔄", color:"#F59E0B" },
+  };
 
+  const activityFeed = useMemo(() => {
+    if (activityEvents && activityEvents.length > 0) {
+      return activityEvents.map(e => {
+        const meta = EVENT_META[e.event_type] || { icon:"•", color:"#6B7280" };
+        return { id:e.id, type:e.entity_type, icon:meta.icon, color:meta.color, user:e.user_name, action:e.event_type, target:e.entity_title||e.entity_id||"", targetSub:e.entity_type, ts:e.created_at };
+      });
+    }
+    // Synthetic fallback when no real events exist yet
+    const evts = [];
     comments.forEach(c => {
       const proj = c.entity_type === "project" ? projects.find(p => p.id === c.entity_id) : null;
       const task = c.entity_type === "task"    ? tasks.find(t2 => t2.id === c.entity_id) : null;
-      events.push({ id:c.id, type:"comment", icon:"💬", color:"#3B82F6", user:c.user_name||"Someone", action:"commented on", target:proj?.title||task?.title||"an item", targetSub: proj?"Project":(task?"Task":""), ts:c.created_at });
+      evts.push({ id:c.id, type:"comment", icon:"💬", color:"#3B82F6", user:c.user_name||"Someone", action:"commented on", target:proj?.title||task?.title||"an item", targetSub: proj?"Project":(task?"Task":""), ts:c.created_at });
     });
-
     tasks.forEach(t2 => {
       if (!t2.created_at) return;
       const proj = projects.find(p => p.id === t2.project_id);
-      events.push({ id:`tc-${t2.id}`, type:"task", icon:"✓", color:"#059669", user:t2.assigned_to?.name||"Unassigned", action:"assigned to task", target:t2.title, targetSub:proj?`in ${proj.title}`:"", ts:t2.created_at });
-      if (t2.status === "Done") {
-        events.push({ id:`td-${t2.id}`, type:"task", icon:"✅", color:"#059669", user:t2.assigned_to?.name||"Someone", action:"completed", target:t2.title, targetSub:proj?`in ${proj.title}`:"", ts:t2.due_date||t2.created_at });
-      }
+      evts.push({ id:`tc-${t2.id}`, type:"task", icon:"✓", color:"#059669", user:t2.assigned_to?.name||"Unassigned", action:"created task", target:t2.title, targetSub:proj?`in ${proj.title}`:"", ts:t2.created_at });
+      if (t2.status === "Done") evts.push({ id:`td-${t2.id}`, type:"task", icon:"✅", color:"#059669", user:t2.assigned_to?.name||"Someone", action:"completed", target:t2.title, targetSub:proj?`in ${proj.title}`:"", ts:t2.due_date||t2.created_at });
     });
-
     projects.forEach(p => {
       const ts = p.created_at || p.start_date;
       if (!ts) return;
-      events.push({ id:`pc-${p.id}`, type:"project", icon:"🗂", color:"#7C3AED", user:p.assigned_to?.name||"Team", action:"created project", target:p.title, targetSub:p.stage||"", ts });
-      if (p.status === "Completed") {
-        events.push({ id:`pf-${p.id}`, type:"project", icon:"🎉", color:"#7C3AED", user:p.assigned_to?.name||"Team", action:"delivered project", target:p.title, targetSub:"", ts:p.due_date||ts });
-      }
+      evts.push({ id:`pc-${p.id}`, type:"project", icon:"🗂", color:"#7C3AED", user:p.assigned_to?.name||"Team", action:"created project", target:p.title, targetSub:p.stage||"", ts });
+      if (p.status === "Completed") evts.push({ id:`pf-${p.id}`, type:"project", icon:"🎉", color:"#7C3AED", user:p.assigned_to?.name||"Team", action:"delivered project", target:p.title, targetSub:"", ts:p.due_date||ts });
     });
-
-    return events
-      .filter(e => e.ts)
-      .sort((a, b) => new Date(b.ts) - new Date(a.ts));
-  }, [comments, tasks, projects]);
+    return evts.filter(e => e.ts).sort((a, b) => new Date(b.ts) - new Date(a.ts));
+  }, [activityEvents, comments, tasks, projects]);
 
   const filteredActivity = useMemo(() => {
     if (actFilter === "all") return activityFeed;
@@ -485,7 +492,13 @@ export const WhiteLabel = React.memo(function Settings() {
                               style={{ ...sS, fontSize:11, padding:"4px 6px" }}
                               value={pendingRoles[u.id] || u.role || "member"}
                               onChange={e => setPendingRoles(p => ({ ...p, [u.id]: e.target.value }))}
-                              onBlur={() => setEditingRole(null)}
+                              onBlur={async () => {
+                                const newRole = pendingRoles[u.id];
+                                if (newRole && newRole !== u.role) {
+                                  await updateMemberRole(u.id, newRole);
+                                }
+                                setEditingRole(null);
+                              }}
                             >
                               {Object.keys(ROLE_META).map(r => <option key={r} value={r}>{ROLE_META[r].label}</option>)}
                             </select>

@@ -28,12 +28,16 @@ import {
   mkSelectStyle
 } from "./_shared.js";
 
+const CURRENCY_SYMBOLS = { USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" };
+const fmtM = (v, cs) => v >= 1_000_000 ? `${cs}${(v/1_000_000).toFixed(2)}M` : v >= 1000 ? `${cs}${(v/1000).toFixed(0)}k` : `${cs}${Math.round(v)}`;
+
 export const Profitability = React.memo(function Profitability() {
-  const { projects, tasks } = useApp();
+  const { projects, tasks, whiteLabelSettings } = useApp();
   const { theme: t } = useTheme();
   const toast = useToast();
-  const billableRate = 150;
-  const costRate = 80;
+  const CS = CURRENCY_SYMBOLS[whiteLabelSettings?.currency] || "$";
+  const RATE = whiteLabelSettings?.billing_rate || 150;
+  const costRate = Math.round(RATE * 0.55);
   const fileRef = useRef(null);
 
   const [plan, setPlan] = useState(null);
@@ -42,21 +46,23 @@ export const Profitability = React.memo(function Profitability() {
   const [planAnalysis, setPlanAnalysis] = useState("");
   const [analyzingPlan, setAnalyzingPlan] = useState(false);
 
-  const { projectData, totalRev, totalCost, avgMargin, best } = useMemo(() => {
+  const { projectData, totalRev, totalCost, totalBudget, totalSpent, avgMargin, best } = useMemo(() => {
     const projectData = projects.map(p => {
       const projTasks  = tasks.filter(t2 => t2.project_id === p.id);
       const totalHours = projTasks.reduce((s, t2) => s + (t2.actual_hours || t2.estimated_hours || 0), 0);
-      const revenue    = totalHours * billableRate;
-      const cost       = totalHours * costRate;
-      const margin     = revenue ? Math.round(((revenue - cost) / revenue) * 100) : 0;
-      return { ...p, totalHours, revenue, cost, margin };
+      const revenue    = p.budget > 0 ? p.budget : totalHours * RATE;
+      const cost       = p.budget > 0 ? (p.budget_spent || totalHours * costRate) : totalHours * costRate;
+      const margin     = revenue > 0 ? Math.round(((revenue - cost) / revenue) * 100) : 0;
+      return { ...p, totalHours, revenue, cost, margin, hasBudget: p.budget > 0 };
     });
-    const totalRev  = projectData.reduce((s, p) => s + p.revenue, 0);
-    const totalCost = projectData.reduce((s, p) => s + p.cost, 0);
-    const avgMargin = projectData.length ? Math.round(projectData.reduce((s, p) => s + p.margin, 0) / projectData.length) : 0;
-    const best      = projectData.reduce((a, b) => a.margin > b.margin ? a : b, projectData[0] || { title:"—", margin:0 });
-    return { projectData, totalRev, totalCost, avgMargin, best };
-  }, [projects, tasks]);
+    const totalRev    = projectData.reduce((s, p) => s + p.revenue, 0);
+    const totalCost   = projectData.reduce((s, p) => s + p.cost, 0);
+    const totalBudget = projects.filter(p => p.budget > 0).reduce((s, p) => s + (p.budget || 0), 0);
+    const totalSpent  = projects.filter(p => p.budget > 0).reduce((s, p) => s + (p.budget_spent || 0), 0);
+    const avgMargin   = projectData.length ? Math.round(projectData.reduce((s, p) => s + p.margin, 0) / projectData.length) : 0;
+    const best        = projectData.reduce((a, b) => a.margin > b.margin ? a : b, projectData[0] || { title:"—", margin:0 });
+    return { projectData, totalRev, totalCost, totalBudget, totalSpent, avgMargin, best };
+  }, [projects, tasks, RATE, costRate]);
 
   const parseCSV = (text) => {
     const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
@@ -149,10 +155,10 @@ export const Profitability = React.memo(function Profitability() {
     try {
       const lines = planComparison.linked.map(i =>
         i.proj
-          ? `- ${i.name}: Planned $${i.budget.toLocaleString()} | Est. Cost $${i.estCost.toLocaleString()} | Variance ${i.variance >= 0 ? '+' : ''}$${i.variance.toLocaleString()} [${i.risk}]`
-          : `- ${i.name}: Planned $${i.budget.toLocaleString()} | Unlinked`
+          ? `- ${i.name}: Planned ${fmtM(i.budget, CS)} | Est. Cost ${fmtM(i.estCost, CS)} | Variance ${i.variance >= 0 ? '+' : ''}${fmtM(Math.abs(i.variance), CS)} [${i.risk}]`
+          : `- ${i.name}: Planned ${fmtM(i.budget, CS)} | Unlinked`
       ).join('\n');
-      const prompt = `Agency financial plan vs project cost analysis:\n\n${lines}\n\nTotal plan budget: $${planComparison.totalPlanBudget.toLocaleString()}\nTotal estimated cost: $${planComparison.totalEstCost.toLocaleString()}\nOverall variance: ${planComparison.totalVariance >= 0 ? '+' : ''}$${planComparison.totalVariance.toLocaleString()}\n\nProvide a concise profitability report: 1) Overall health of the plan 2) Line items at risk of cost overrun 3) Specific actions to protect margins.`;
+      const prompt = `Agency financial plan vs project cost analysis:\n\n${lines}\n\nTotal plan budget: ${fmtM(planComparison.totalPlanBudget, CS)}\nTotal estimated cost: ${fmtM(planComparison.totalEstCost, CS)}\nOverall variance: ${planComparison.totalVariance >= 0 ? '+' : ''}${fmtM(Math.abs(planComparison.totalVariance), CS)}\n\nProvide a concise profitability report: 1) Overall health of the plan 2) Line items at risk of cost overrun 3) Specific actions to protect margins.`;
       const result = await callClaude(prompt, "You are a senior agency financial advisor. Be direct, specific, and actionable.");
       setPlanAnalysis(result);
     } catch (err) {
@@ -197,11 +203,13 @@ export const Profitability = React.memo(function Profitability() {
       </div>
 
       {/* Summary stats */}
-      <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:24 }}>
-        <StatCard icon="💵" label="Est. Revenue" value={`$${Math.round(totalRev/1000)}k`} />
-        <StatCard icon="📉" label="Est. Cost"    value={`$${Math.round(totalCost/1000)}k`} />
-        <StatCard icon="📈" label="Avg Margin"   value={`${avgMargin}%`} />
-        <StatCard icon="🏅" label="Best Project" value={best?.title?.split(" ")[0]||"—"} sub={`${best?.margin||0}% margin`} />
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:14,marginBottom:24 }}>
+        <StatCard icon="💵" label="Est. Revenue"   value={fmtM(totalRev, CS)} />
+        <StatCard icon="📉" label="Est. Cost"      value={fmtM(totalCost, CS)} />
+        <StatCard icon="📈" label="Avg Margin"     value={`${avgMargin}%`} />
+        <StatCard icon="🏅" label="Best Project"   value={best?.title?.split(" ")[0]||"—"} sub={`${best?.margin||0}% margin`} />
+        <StatCard icon="💰" label="Total Budget"   value={totalBudget > 0 ? fmtM(totalBudget, CS) : "—"} sub="direct budgets set" />
+        <StatCard icon="📤" label="Budget Spent"   value={totalBudget > 0 ? fmtM(totalSpent, CS) : "—"} sub={totalBudget > 0 ? `${Math.round((totalSpent/totalBudget)*100)}% used` : "Set budget on projects"} />
       </div>
 
       {/* Parsing indicator */}
@@ -218,7 +226,7 @@ export const Profitability = React.memo(function Profitability() {
           <div style={{ padding:"14px 20px", borderBottom:`1px solid ${t.border2}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <div>
               <h3 style={{ margin:0, fontSize:14, fontWeight:700, color:t.text }}>Media Plan · {plan.fileName}</h3>
-              <div style={{ fontSize:11, color:t.textFaint, marginTop:2 }}>{plan.items.length} line items · Total ${plan.totalBudget.toLocaleString()}</div>
+              <div style={{ fontSize:11, color:t.textFaint, marginTop:2 }}>{plan.items.length} line items · Total {fmtM(plan.totalBudget, CS)}</div>
             </div>
             <button
               onClick={() => { setPlan(null); setPlanAnalysis(""); }}
@@ -231,10 +239,10 @@ export const Profitability = React.memo(function Profitability() {
               {planComparison.linkedCount > 0 && (
                 <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:16 }}>
                   {[
-                    ["Plan Budget",  `$${Math.round(planComparison.totalPlanBudget/1000)}k`, t.accentLight],
-                    ["Est. Cost",    `$${Math.round(planComparison.totalEstCost/1000)}k`,    t.textSub],
-                    ["Variance",     `${planComparison.totalVariance>=0?"+":""}$${Math.round(planComparison.totalVariance/1000)}k`, planComparison.totalVariance>=0?"#059669":"#EF4444"],
-                    ["At Risk",      `${planComparison.atRisk} item${planComparison.atRisk!==1?"s":""}`, planComparison.atRisk>0?"#EF4444":t.textMuted],
+                    ["Plan Budget", fmtM(planComparison.totalPlanBudget, CS), t.accentLight],
+                    ["Est. Cost",   fmtM(planComparison.totalEstCost, CS),    t.textSub],
+                    ["Variance",    `${planComparison.totalVariance>=0?"+":""}${fmtM(Math.abs(planComparison.totalVariance), CS)}`, planComparison.totalVariance>=0?"#059669":"#EF4444"],
+                    ["At Risk",     `${planComparison.atRisk} item${planComparison.atRisk!==1?"s":""}`, planComparison.atRisk>0?"#EF4444":t.textMuted],
                   ].map(([label, value, color]) => (
                     <div key={label} style={{ background:t.statBg, border:`1px solid ${t.border2}`, borderRadius:10, padding:"10px 14px" }}>
                       <div style={{ fontSize:10, color:t.textFaint, fontWeight:700, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.06em" }}>{label}</div>
@@ -257,7 +265,7 @@ export const Profitability = React.memo(function Profitability() {
                     style={{ display:"grid", gridTemplateColumns:"1fr 90px 180px 90px 90px 96px", padding:"11px 14px", borderBottom:`1px solid ${t.divider}`, alignItems:"center" }}
                   >
                     <div style={{ fontSize:13, fontWeight:600, color:t.textSub, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{item.name}</div>
-                    <div style={{ fontSize:13, color:t.accentLight, fontWeight:700 }}>${item.budget.toLocaleString()}</div>
+                    <div style={{ fontSize:13, color:t.accentLight, fontWeight:700 }}>{fmtM(item.budget, CS)}</div>
                     <select
                       value={item.projectId || ""}
                       onChange={e => linkItem(item.id, e.target.value)}
@@ -266,9 +274,9 @@ export const Profitability = React.memo(function Profitability() {
                       <option value="">— unlinked —</option>
                       {projectData.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
                     </select>
-                    <div style={{ fontSize:13, color:t.textMuted }}>{item.estCost !== null ? `$${item.estCost.toLocaleString()}` : "—"}</div>
+                    <div style={{ fontSize:13, color:t.textMuted }}>{item.estCost !== null ? fmtM(item.estCost, CS) : "—"}</div>
                     <div style={{ fontSize:13, fontWeight:700, color: item.variance !== null ? (item.variance >= 0 ? "#059669" : "#EF4444") : t.textFaint }}>
-                      {item.variance !== null ? `${item.variance >= 0 ? "+" : ""}$${item.variance.toLocaleString()}` : "—"}
+                      {item.variance !== null ? `${item.variance >= 0 ? "+" : "−"}${fmtM(Math.abs(item.variance), CS)}` : "—"}
                     </div>
                     <div>
                       {item.risk && (
@@ -307,28 +315,36 @@ export const Profitability = React.memo(function Profitability() {
 
       {/* ── Project-Level Breakdown ──────────────────────────────────────────── */}
       <div style={{ background:t.card,border:`1px solid ${t.border2}`,borderRadius:14,overflow:"hidden",marginBottom:20 }}>
-        <div style={{ padding:"14px 20px",borderBottom:`1px solid ${t.border2}` }}>
-          <h3 style={{ margin:0,fontSize:14,fontWeight:700,color:t.text }}>Project-Level Breakdown</h3>
+        <div style={{ padding:"14px 20px",borderBottom:`1px solid ${t.border2}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <div>
+            <h3 style={{ margin:0,fontSize:14,fontWeight:700,color:t.text }}>Project-Level Breakdown</h3>
+            <div style={{ fontSize:11, color:t.textFaint, marginTop:2 }}>Revenue uses direct budget when set · otherwise hours × {CS}{RATE}/h rate</div>
+          </div>
         </div>
-        <div style={{ display:"grid",gridTemplateColumns:"1fr 80px 80px 80px 100px",padding:"10px 20px",borderBottom:`1px solid ${t.border2}` }}>
-          {["Project","Stage","Hours","Revenue","Margin"].map((h,i) => (
-            <div key={i} style={{ fontSize:11,fontWeight:700,color:t.textFaint,textTransform:"uppercase",letterSpacing:"0.05em" }}>{h}</div>
+        <div style={{ display:"grid",gridTemplateColumns:"1fr 70px 70px 110px 110px 100px",padding:"10px 20px",borderBottom:`1px solid ${t.border2}`, background:t.statBg }}>
+          {["Project","Stage","Hours","Revenue / Budget","Cost / Spent","Margin"].map((h,i) => (
+            <div key={i} style={{ fontSize:10,fontWeight:700,color:t.textFaint,textTransform:"uppercase",letterSpacing:"0.05em" }}>{h}</div>
           ))}
         </div>
         {projectData.map(p => {
           const mc = p.margin>=40?"#059669":p.margin>=25?"#F59E0B":"#EF4444";
+          const budgetOver = p.hasBudget && p.cost > p.revenue;
           return (
-            <div key={p.id} style={{ display:"grid",gridTemplateColumns:"1fr 80px 80px 80px 100px",padding:"12px 20px",borderBottom:`1px solid ${t.divider}`,alignItems:"center" }}>
+            <div key={p.id} style={{ display:"grid",gridTemplateColumns:"1fr 70px 70px 110px 110px 100px",padding:"12px 20px",borderBottom:`1px solid ${t.divider}`,alignItems:"center" }}>
               <div>
                 <div style={{ fontSize:13,fontWeight:600,color:t.textSub }}>{p.title}</div>
-                <div style={{ fontSize:11,color:t.textFaint }}>{p.assigned_to?.name}</div>
+                <div style={{ display:"flex", gap:5, marginTop:2, alignItems:"center" }}>
+                  <div style={{ fontSize:10, color:t.textFaint }}>{p.assigned_to?.name}</div>
+                  {p.hasBudget && <span style={{ fontSize:9, fontWeight:700, color:"#7C3AED", background:"#7C3AED18", borderRadius:3, padding:"1px 5px" }}>BUDGET</span>}
+                </div>
               </div>
               <Badge label={p.stage} color={stageColor(p.stage)} />
               <div style={{ fontSize:13,color:t.textMuted }}>{p.totalHours}h</div>
-              <div style={{ fontSize:13,color:t.accentLight,fontWeight:600 }}>${p.revenue.toLocaleString()}</div>
+              <div style={{ fontSize:13,color:t.accentLight,fontWeight:600 }}>{fmtM(p.revenue, CS)}</div>
+              <div style={{ fontSize:13, fontWeight:600, color: budgetOver ? "#EF4444" : t.textSub }}>{fmtM(p.cost, CS)}</div>
               <div>
                 <span style={{ fontSize:14,fontWeight:800,color:mc }}>{p.margin}%</span>
-                <div style={{ marginTop:3 }}><ProgressBar value={p.margin} max={100} color={mc} height={4} /></div>
+                <div style={{ marginTop:3 }}><ProgressBar value={Math.max(0,p.margin)} max={100} color={mc} height={4} /></div>
               </div>
             </div>
           );

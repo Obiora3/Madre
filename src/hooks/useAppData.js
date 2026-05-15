@@ -82,6 +82,7 @@ const LS_KEYS = {
   projects: "af_projects", tasks: "af_tasks", clients: "af_clients",
   kpis: "af_kpis", departments: "af_departments", pitches: "af_pitches", comments: "af_comments",
 };
+const LS_EVENTS_KEY = "af_events";
 // Insertion order respects FK constraints (clients/departments before projects, projects before tasks/kpis)
 const MIGRATION_ORDER = ["clients", "departments", "projects", "tasks", "kpis", "pitches", "comments"];
 
@@ -180,10 +181,12 @@ export function useAppData(agencyId) {
   const [lsDepartments, setLsDepartments] = useLocalStorage("af_departments", []);
   const [lsPitches,     setLsPitches]     = useLocalStorage("af_pitches",     []);
   const [lsComments,    setLsComments]    = useLocalStorage("af_comments",    []);
+  const [lsEvents,      setLsEvents]      = useLocalStorage(LS_EVENTS_KEY,    []);
 
   // ── Supabase state ────────────────────────────────────────────────────────
   const [db, setDb]           = useState(EMPTY);
   const [dbUsers, setDbUsers] = useState([]);
+  const [dbEvents, setDbEvents] = useState([]);
   const [loading, setLoading] = useState(false);
   const loadedRef             = useRef(null);
   const dbRef                 = useRef(EMPTY);
@@ -199,9 +202,10 @@ export function useAppData(agencyId) {
     setLoading(true);
 
     (async () => {
-      const [projects, tasks, clients, kpis, departments, pitches, comments, profiles] = await Promise.all([
+      const [projects, tasks, clients, kpis, departments, pitches, comments, profiles, eventsRows] = await Promise.all([
         ...TABLES.map(fetchTable),
         supabase.from("profiles").select("*").then(r => r.data ?? []),
+        supabase.from("events").select("*").order("created_at", { ascending: false }).limit(200).then(r => r.data ?? []),
       ]);
       if (cancelled) return;
 
@@ -212,6 +216,7 @@ export function useAppData(agencyId) {
       setDb(next);
       dbRef.current = next;
       if (profiles.length) setDbUsers(cleanProfiles(profiles));
+      setDbEvents(eventsRows);
       loadedRef.current = agencyId;
       setLoading(false);
     })();
@@ -329,6 +334,36 @@ export function useAppData(agencyId) {
     }
   }, [agencyId, setLsProjects, setLsTasks, setLsClients, setLsKpis, setLsDepartments, setLsPitches, setLsComments]);
 
+  const logActivity = useCallback(({ userName, eventType, entityType, entityId, entityTitle }) => {
+    const event = {
+      id: `ev${Date.now()}${Math.random().toString(36).slice(2,6)}`,
+      user_name: userName || "Someone",
+      event_type: eventType,
+      entity_type: entityType,
+      entity_id: entityId || null,
+      entity_title: entityTitle || "",
+      created_at: new Date().toISOString(),
+    };
+    if (isSupabaseConfigured && agencyId) {
+      supabase.from("events").insert({ ...event, agency_id: agencyId }).then(({ error }) => {
+        if (error) console.warn("[events] log failed:", error.message);
+        else setDbEvents(prev => [event, ...prev].slice(0, 200));
+      });
+    } else {
+      setLsEvents(prev => [event, ...prev].slice(0, 200));
+    }
+  }, [agencyId, setLsEvents]);
+
+  const updateMemberRole = useCallback(async (userId, newRole) => {
+    if (isSupabaseConfigured && agencyId) {
+      const { error } = await supabase.from("profiles").update({ role: newRole }).eq("id", userId);
+      if (error) { window.dispatchEvent(new CustomEvent("af-sync-error", { detail: error.message })); return; }
+    }
+    setDbUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
+  }, [agencyId]);
+
+  const activeEvents = live ? dbEvents : lsEvents;
+
   const active = live ? db : {
     projects: lsProjects, tasks: lsTasks, clients: lsClients,
     kpis: lsKpis, departments: lsDepartments, pitches: lsPitches, comments: lsComments,
@@ -338,6 +373,9 @@ export function useAppData(agencyId) {
     ...active,
     setProjects, setTasks, setClients, setKpis, setDepartments, setPitches, setComments,
     users: dbUsers,
+    events: activeEvents,
+    logActivity,
+    updateMemberRole,
     resetAllData,
     loading,
   };

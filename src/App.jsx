@@ -87,7 +87,8 @@ export default function Madre() {
     projects, setProjects, tasks, setTasks, clients, setClients,
     kpis, setKpis, departments, setDepartments, pitches, setPitches,
     comments, setComments,
-    users, resetAllData, loading: dataLoading,
+    users, events, logActivity, updateMemberRole,
+    resetAllData, loading: dataLoading,
   } = useAppData(auth.currentUser?.agency_id);
 
   const nav = useCallback((p, param = null) => { setPage(p); setPageParam(param); }, []);
@@ -120,11 +121,13 @@ export default function Madre() {
     comments, setComments,
     users: appUsers, currentUser, signOut: auth.signOut, updateProfile: auth.updateProfile,
     setupAgency: auth.setupAgency, nav, page, pageParam, resetAllData,
+    events, logActivity, updateMemberRole,
     whiteLabelSettings, setWhiteLabelSettings, resetWhiteLabelSettings,
   }), [
     projects, tasks, clients, kpis, departments, pitches, comments, appUsers, currentUser,
-    auth.signOut, auth.updateProfile, auth.setupAgency, nav, page, pageParam, resetAllData, whiteLabelSettings,
-    setWhiteLabelSettings, resetWhiteLabelSettings, setComments
+    auth.signOut, auth.updateProfile, auth.setupAgency, nav, page, pageParam, resetAllData,
+    events, logActivity, updateMemberRole,
+    whiteLabelSettings, setWhiteLabelSettings, resetWhiteLabelSettings, setComments
   ]);
 
   const navItems = [

@@ -67,7 +67,7 @@ const KANBAN_COLS = ["To Do","In Progress","In Review","Done"];
 
 // ─── PROJECT DETAIL ───────────────────────────────────────────────────────────
 export const ProjectDetail = React.memo(function ProjectDetail() {
-  const { projects, setProjects, tasks, setTasks, kpis, clients, users, departments, comments, setComments, currentUser, nav, pageParam: id, whiteLabelSettings } = useApp();
+  const { projects, setProjects, tasks, setTasks, kpis, clients, users, departments, comments, setComments, currentUser, nav, pageParam: id, whiteLabelSettings, logActivity } = useApp();
   const CS = ({ USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" })[whiteLabelSettings?.currency] || "$";
   const onBack = () => nav("projects");
   const { theme: t } = useTheme();
@@ -122,7 +122,9 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   };
   const addMilestone = () => {
     if (!newMsTitle.trim()) return;
-    saveMilestones([...milestones, { id:`ms${Date.now()}`, title:newMsTitle.trim(), date:newMsDate, done:false }]);
+    const ms = { id:`ms${Date.now()}`, title:newMsTitle.trim(), date:newMsDate, done:false };
+    saveMilestones([...milestones, ms]);
+    logActivity({ userName: currentUser?.name, eventType: "milestone_added", entityType: "project", entityId: id, entityTitle: ms.title });
     setNewMsTitle(""); setNewMsDate("");
   };
   const toggleMs   = (msId) => saveMilestones(milestones.map(m => m.id===msId ? {...m, done:!m.done} : m));
@@ -192,6 +194,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     const newTasks = [...tasks, { ...taskForm, id:"t"+Date.now(), project_id:id, assigned_to:assignedTo, created_at:new Date().toISOString() }];
     setTasks(newTasks);
     setProjects(projects.map(p => p.id === id ? { ...p, progress:calcProgress(id, newTasks) } : p));
+    logActivity({ userName: currentUser?.name, eventType: "task_added", entityType: "task", entityId: newTasks[newTasks.length-1]?.id, entityTitle: taskForm.title });
     toast({ message:`Task "${taskForm.title}" added`, sub:`${taskForm.priority} priority · Due ${fmtDate(taskForm.due_date)}`, type:"success" });
     setShowTaskForm(false); setTaskForm(BLANK_TASK); setTaskAssigneeKey("");
   };
@@ -240,6 +243,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     }
     setTasks(newTasks);
     setProjects(projects.map(p => p.id === id ? { ...p, progress:calcProgress(id, newTasks) } : p));
+    if (newStatus === "Done") logActivity({ userName: currentUser?.name, eventType: "task_completed", entityType: "task", entityId: tid, entityTitle: task.title });
   };
 
   const simulateAI = async () => {
@@ -667,8 +671,14 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
           </div>
           <FormField label="KPI Summary"><input style={iS} value={editForm.kpi_summary} onChange={e=>setEditForm({...editForm,kpi_summary:e.target.value})} placeholder="Brief summary of KPI targets" /></FormField>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-            <FormField label={`Budget (${CS})`}><input type="number" min="0" style={iS} value={editForm.budget||""} onChange={e=>setEditForm({...editForm,budget:parseFloat(e.target.value)||0})} placeholder="0" /></FormField>
-            <FormField label={`Budget Spent (${CS})`}><input type="number" min="0" style={iS} value={editForm.budget_spent||""} onChange={e=>setEditForm({...editForm,budget_spent:parseFloat(e.target.value)||0})} placeholder="0" /></FormField>
+            <FormField label={`Budget (${CS})`}>
+              <input type="number" min="0" style={iS} value={editForm.budget||""} onChange={e=>setEditForm({...editForm,budget:parseFloat(e.target.value)||0})} placeholder="e.g. 5000000 for 5M" />
+              {editForm.budget > 0 && <div style={{ fontSize:11, color:"#7C3AED", marginTop:3 }}>= {CS}{(editForm.budget/1_000_000).toFixed(2)}M</div>}
+            </FormField>
+            <FormField label={`Budget Spent (${CS})`}>
+              <input type="number" min="0" style={iS} value={editForm.budget_spent||""} onChange={e=>setEditForm({...editForm,budget_spent:parseFloat(e.target.value)||0})} placeholder="e.g. 2500000 for 2.5M" />
+              {editForm.budget_spent > 0 && <div style={{ fontSize:11, color: editForm.budget > 0 && editForm.budget_spent > editForm.budget ? "#EF4444" : "#059669", marginTop:3 }}>= {CS}{(editForm.budget_spent/1_000_000).toFixed(2)}M{editForm.budget > 0 && editForm.budget_spent > editForm.budget ? " · over budget" : ""}</div>}
+            </FormField>
           </div>
           <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
             <button style={bs} onClick={()=>setShowEditForm(false)}>Cancel</button>
