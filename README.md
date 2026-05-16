@@ -57,6 +57,18 @@ NOTIFICATION_EMAIL_FROM=Madre <notifications@your-domain.com>
 NOTIFICATION_EMAIL_TO=ops@your-domain.com
 ```
 
+After adding those values, send a direct smoke-test email:
+
+```bash
+npm run test:email
+```
+
+You can override the recipient for one run:
+
+```bash
+npm run test:email -- --to you@example.com
+```
+
 WhatsApp uses Meta WhatsApp Cloud API:
 
 ```bash
