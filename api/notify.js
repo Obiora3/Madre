@@ -119,8 +119,16 @@ async function sendEmail(notification, recipients, { includeFallbackRecipients =
   const fallbackRecipients = includeFallbackRecipients ? csv(process.env.NOTIFICATION_EMAIL_TO) : [];
   const to = unique([...fallbackRecipients, ...recipients]);
 
-  if (!apiKey || !from || to.length === 0) {
-    return { channel: "email", skipped: true, reason: "Email provider or recipients not configured." };
+  if (!apiKey) {
+    return { channel: "email", skipped: true, reason: "RESEND_API_KEY is not configured for this deployment." };
+  }
+
+  if (!from) {
+    return { channel: "email", skipped: true, reason: "NOTIFICATION_EMAIL_FROM is not configured for this deployment." };
+  }
+
+  if (to.length === 0) {
+    return { channel: "email", skipped: true, reason: "No assigned user email was provided." };
   }
 
   const resp = await fetch(RESEND_ENDPOINT, {
