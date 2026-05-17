@@ -55,7 +55,11 @@ Email uses Resend:
 RESEND_API_KEY=your_resend_api_key
 NOTIFICATION_EMAIL_FROM=Madre <notifications@your-domain.com>
 NOTIFICATION_EMAIL_TO=ops@your-domain.com
+NOTIFICATION_BRAND_NAME=Madre
+NOTIFICATION_APP_URL=https://your-app-url.com
 ```
+
+`NOTIFICATION_BRAND_NAME` customizes the email footer and subject prefix. `NOTIFICATION_APP_URL` adds a call-to-action button to notification emails.
 
 After adding those values, send a direct smoke-test email:
 
