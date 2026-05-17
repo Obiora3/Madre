@@ -29,6 +29,7 @@ import {
   mkInputStyle,
   mkSelectStyle
 } from "./_shared.js";
+import { sendAssignmentEmail } from "../lib/assignmentNotifications.js";
 
 // ─── TASK TEMPLATES ───────────────────────────────────────────────────────────
 const TASK_TEMPLATES = [
@@ -191,11 +192,24 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
       const d = departments.find(x => x.id === taskAssigneeKey.slice(5));
       if (d) assignedTo = { name:d.name, email:"" };
     }
-    const newTasks = [...tasks, { ...taskForm, id:"t"+Date.now(), project_id:id, assigned_to:assignedTo, created_at:new Date().toISOString() }];
+    const newTask = { ...taskForm, id:"t"+Date.now(), project_id:id, assigned_to:assignedTo, created_at:new Date().toISOString() };
+    const newTasks = [...tasks, newTask];
     setTasks(newTasks);
     setProjects(projects.map(p => p.id === id ? { ...p, progress:calcProgress(id, newTasks) } : p));
-    logActivity({ userName: currentUser?.name, eventType: "task_added", entityType: "task", entityId: newTasks[newTasks.length-1]?.id, entityTitle: taskForm.title });
+    logActivity({ userName: currentUser?.name, eventType: "task_added", entityType: "task", entityId: newTask.id, entityTitle: taskForm.title });
     toast({ message:`Task "${taskForm.title}" added`, sub:`${taskForm.priority} priority · Due ${fmtDate(taskForm.due_date)}`, type:"success" });
+    if (whiteLabelSettings?.assignment_email_alerts !== false && newTask.assigned_to?.email) {
+      const client = clients.find(c => c.id === project.client_id);
+      sendAssignmentEmail({
+        kind: "task_assigned",
+        task: newTask,
+        project: { ...project, client_name: client?.name },
+        assignedEmail: newTask.assigned_to.email,
+        actorName: currentUser?.name,
+      }).catch((error) => {
+        toast({ message: "Assignment email failed", sub: error.message, type: "warning" });
+      });
+    }
     setShowTaskForm(false); setTaskForm(BLANK_TASK); setTaskAssigneeKey("");
   };
 

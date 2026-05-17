@@ -69,6 +69,13 @@ You can override the recipient for one run:
 npm run test:email -- --to you@example.com
 ```
 
+When Assignment Emails are enabled in Settings -> Automations, Madre sends a Resend email directly to the assigned user when:
+
+- a new project is created with a team member assigned
+- a new task is created with a team member assigned
+
+These assignment emails do not use `NOTIFICATION_EMAIL_TO`; that fallback inbox is reserved for automation alerts.
+
 WhatsApp uses Meta WhatsApp Cloud API:
 
 ```bash

@@ -28,6 +28,7 @@ import {
   mkInputStyle,
   mkSelectStyle
 } from "./_shared.js";
+import { sendAssignmentEmail } from "../lib/assignmentNotifications.js";
 
 const STAGES = ["Brief", "Strategy", "Creative", "Review", "Delivered"];
 const BLANK_FORM = { title:"", client_id:"", description:"", stage:"Brief", priority:"Medium", assigneeId:"", start_date:"", due_date:"", status:"Active", progress:0, kpi_summary:"", budget:0, budget_spent:0 };
@@ -52,9 +53,20 @@ export const Projects = React.memo(function Projects() {
     const { assigneeId, ...rest } = form;
     const assignee = assigneeId ? users.find(u => u.id === assigneeId) : null;
     const np = { ...rest, id: "p"+Date.now(), assigned_to: assignee ? { name: assignee.name, email: assignee.email } : {} };
+    const client = clients.find(c => c.id === np.client_id);
     setProjects([...projects, np]);
     logActivity({ userName: currentUser?.name, eventType: "created", entityType: "project", entityId: np.id, entityTitle: np.title });
     toast({ message: `Project "${form.title}" created`, sub: `${form.stage} · ${form.priority} priority`, type: "success" });
+    if (whiteLabelSettings?.assignment_email_alerts !== false && np.assigned_to?.email) {
+      sendAssignmentEmail({
+        kind: "project_assigned",
+        project: { ...np, client_name: client?.name },
+        assignedEmail: np.assigned_to.email,
+        actorName: currentUser?.name,
+      }).catch((error) => {
+        toast({ message: "Assignment email failed", sub: error.message, type: "warning" });
+      });
+    }
     setShowForm(false);
     setForm(BLANK_FORM);
   };

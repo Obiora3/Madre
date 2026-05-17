@@ -30,6 +30,7 @@ export const DEFAULT_WHITE_LABEL_SETTINGS = {
   automation_toasts: true,
   automation_email: false,
   automation_whatsapp: false,
+  assignment_email_alerts: true,
   overdue_escalation_hours: 24,     // hours after due date before escalation
 };
 

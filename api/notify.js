@@ -64,23 +64,38 @@ function makeNotification(input) {
   const kind = input.kind || "notification";
   const task = input.task || {};
   const project = input.project || {};
-  const title = task.title || input.title || "Madre notification";
-  const projectLine = project.title ? `Project: ${project.title}` : "";
+  const title = task.title || project.title || input.title || "Madre notification";
+  const isProjectAssignment = kind === "project_assigned";
+  const projectLine = project.title && !isProjectAssignment ? `Project: ${project.title}` : "";
   const dueLine = task.due_date ? `Due: ${task.due_date}` : "";
   const assigneeLine = task.assigned_to?.name ? `Assigned to: ${task.assigned_to.name}` : "";
   const label = {
+    task_assigned: "New task assigned",
+    project_assigned: "New project assigned",
     deadline_warning: "Deadline warning",
     escalated: "Overdue escalation",
     blocked: "Blocked task alert",
   }[kind] || "Workspace notification";
+  const detailLines = [
+    isProjectAssignment && project.title ? `Project: ${project.title}` : null,
+    project.client_name ? `Client: ${project.client_name}` : null,
+    project.stage ? `Stage: ${project.stage}` : null,
+    task.status ? `Status: ${task.status}` : project.status ? `Status: ${project.status}` : null,
+    task.priority ? `Priority: ${task.priority}` : project.priority ? `Priority: ${project.priority}` : null,
+    project.start_date ? `Start: ${project.start_date}` : null,
+    dueLine || (project.due_date ? `Due: ${project.due_date}` : null),
+    task.estimated_hours ? `Estimated hours: ${task.estimated_hours}` : null,
+    assigneeLine || (project.assigned_to?.name ? `Assigned to: ${project.assigned_to.name}` : null),
+  ].filter(Boolean);
+  const description = task.description || project.description || "";
 
   const subject = truncate(`Madre: ${label} - ${title}`, 140);
   const text = truncate([
     `${label}: ${title}`,
     input.message,
     projectLine,
-    dueLine,
-    assigneeLine,
+    ...detailLines,
+    description ? `Details: ${description}` : null,
   ].filter(Boolean).join("\n"));
   const html = `
     <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
@@ -89,19 +104,20 @@ function makeNotification(input) {
       ${input.message ? `<p style="margin:0 0 12px">${escapeHtml(input.message)}</p>` : ""}
       <ul style="padding-left:18px;margin:0">
         ${projectLine ? `<li>${escapeHtml(projectLine)}</li>` : ""}
-        ${dueLine ? `<li>${escapeHtml(dueLine)}</li>` : ""}
-        ${assigneeLine ? `<li>${escapeHtml(assigneeLine)}</li>` : ""}
+        ${detailLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
       </ul>
+      ${description ? `<p style="margin:12px 0 0">${escapeHtml(description)}</p>` : ""}
     </div>
   `;
 
   return { kind, subject, text, html, variables: { label, title, project: project.title || "-", due: task.due_date || "-" } };
 }
 
-async function sendEmail(notification, recipients) {
+async function sendEmail(notification, recipients, { includeFallbackRecipients = true } = {}) {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.NOTIFICATION_EMAIL_FROM || process.env.RESEND_FROM_EMAIL;
-  const to = unique([...csv(process.env.NOTIFICATION_EMAIL_TO), ...recipients]);
+  const fallbackRecipients = includeFallbackRecipients ? csv(process.env.NOTIFICATION_EMAIL_TO) : [];
+  const to = unique([...fallbackRecipients, ...recipients]);
 
   if (!apiKey || !from || to.length === 0) {
     return { channel: "email", skipped: true, reason: "Email provider or recipients not configured." };
@@ -229,7 +245,11 @@ export default async function handler(req, res) {
     ].filter(email => String(email || "").includes("@")));
 
     const results = [];
-    if (channels.includes("email")) results.push(await sendEmail(notification, emailRecipients));
+    if (channels.includes("email")) {
+      results.push(await sendEmail(notification, emailRecipients, {
+        includeFallbackRecipients: body.includeFallbackRecipients !== false,
+      }));
+    }
     if (channels.includes("whatsapp")) results.push(await sendWhatsApp(notification));
 
     return json(res, 200, { ok: true, results });

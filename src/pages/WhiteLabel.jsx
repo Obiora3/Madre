@@ -426,7 +426,8 @@ export const WhiteLabel = React.memo(function Settings() {
             </div>
             <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, marginBottom:16 }}>
               <h3 style={{ margin:"0 0 4px", fontSize:14, fontWeight:700, color:t.text }}>Outbound Channels</h3>
-              <p style={{ fontSize:12, color:t.textFaint, margin:"0 0 4px" }}>Send automation alerts outside the app when provider environment variables are configured.</p>
+              <p style={{ fontSize:12, color:t.textFaint, margin:"0 0 4px" }}>Send assignment and automation alerts outside the app when provider environment variables are configured.</p>
+              <Row label="Assignment Emails" sub="Email users when a new assigned task or project is created"><Toggle value={s.assignment_email_alerts} onChange={v=>set("assignment_email_alerts",v)} accent={s.primary_colour} /></Row>
               <Row label="Email Alerts" sub="Send through Resend to task assignees and configured fallback recipients"><Toggle value={s.automation_email} onChange={v=>set("automation_email",v)} accent={s.primary_colour} /></Row>
               <Row label="WhatsApp Alerts" sub="Send through Meta WhatsApp Cloud API to configured recipients"><Toggle value={s.automation_whatsapp} onChange={v=>set("automation_whatsapp",v)} accent={s.primary_colour} /></Row>
             </div>
