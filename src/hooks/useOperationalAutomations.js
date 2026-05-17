@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 
 const RUNS_KEY = "af_automation_runs";
@@ -87,6 +87,8 @@ async function sendExternalNotification({ action, project, settings }) {
 }
 
 export function useOperationalAutomations({ tasks, projects, currentUser, settings, logActivity, toast }) {
+  const quietInitialSweeps = useRef(new Set());
+
   useEffect(() => {
     if (!currentUser || !settings?.automation_enabled) return;
     if ((currentUser.role || "member").toLowerCase() === "viewer") return;
@@ -94,6 +96,8 @@ export function useOperationalAutomations({ tasks, projects, currentUser, settin
 
     const today = new Date().toISOString().slice(0, 10);
     const scope = currentUser.agency_id || currentUser.email || "local";
+    const isInitialSweep = !quietInitialSweeps.current.has(scope);
+    quietInitialSweeps.current.add(scope);
     const previousRuns = readRuns();
     const seen = new Set(previousRuns);
     const nextRuns = [...previousRuns];
@@ -167,7 +171,9 @@ export function useOperationalAutomations({ tasks, projects, currentUser, settin
       });
     });
 
-    if (settings.automation_toasts) {
+    const shouldShowToasts = settings.automation_toasts && !isInitialSweep;
+
+    if (shouldShowToasts) {
       actions.slice(0, 3).forEach((action) => {
         toast({ message: action.message, sub: action.sub, type: action.type });
       });
@@ -180,7 +186,7 @@ export function useOperationalAutomations({ tasks, projects, currentUser, settin
           project: projectById.get(action.task.project_id) || null,
           settings,
         }).catch((error) => {
-          if (settings.automation_toasts) {
+          if (shouldShowToasts) {
             toast({ message: "External notification failed", sub: error.message, type: "error" });
           }
         });
