@@ -177,8 +177,25 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     if (!editForm?.title?.trim()) { toast({ message:"Title is required.", type:"error" }); return; }
     const { assigneeId, ...rest } = editForm;
     const assignee = assigneeId ? users.find(u => u.id === assigneeId) : null;
-    setProjects(projects.map(p => p.id === id ? { ...project, ...rest, milestones, assigned_to: assignee ? { name:assignee.name, email:assignee.email } : {} } : p));
+    const assignedTo = assignee ? { name:assignee.name, email:assignee.email } : {};
+    const updatedProject = { ...project, ...rest, milestones, assigned_to: assignedTo };
+    setProjects(projects.map(p => p.id === id ? updatedProject : p));
     toast({ message:"Project updated." });
+    if (
+      whiteLabelSettings?.assignment_email_alerts !== false &&
+      assignedTo.email &&
+      assignedTo.email !== project.assigned_to?.email
+    ) {
+      const client = clients.find(c => c.id === updatedProject.client_id);
+      sendAssignmentEmail({
+        kind: "project_assigned",
+        project: { ...updatedProject, client_name: client?.name },
+        assignedEmail: assignedTo.email,
+        actorName: currentUser?.name,
+      }).catch((error) => {
+        toast({ message: "Assignment email failed", sub: error.message, type: "warning" });
+      });
+    }
     setShowEditForm(false);
   };
 
@@ -209,6 +226,8 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
       }).catch((error) => {
         toast({ message: "Assignment email failed", sub: error.message, type: "warning" });
       });
+    } else if (whiteLabelSettings?.assignment_email_alerts !== false && newTask.assigned_to?.name) {
+      toast({ message: "Assignment email not sent", sub: "Choose a team member with an email, not a department.", type: "warning" });
     }
     setShowTaskForm(false); setTaskForm(BLANK_TASK); setTaskAssigneeKey("");
   };
@@ -230,9 +249,33 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     else if (editTaskAssigneeKey.startsWith("dept:")) { const d = departments.find(x => x.id === editTaskAssigneeKey.slice(5)); if (d) assignedTo = { name:d.name, email:"" }; }
     else assignedTo = {};
     const newTasks = tasks.map(t2 => t2.id === editTask.id ? { ...t2, ...editTaskForm, assigned_to:assignedTo } : t2);
+    const updatedTask = newTasks.find(t2 => t2.id === editTask.id);
     setTasks(newTasks);
     setProjects(projects.map(p => p.id === id ? { ...p, progress:calcProgress(id, newTasks) } : p));
     toast({ message:`Task "${editTaskForm.title}" updated.` });
+    if (
+      whiteLabelSettings?.assignment_email_alerts !== false &&
+      updatedTask?.assigned_to?.email &&
+      updatedTask.assigned_to.email !== editTask.assigned_to?.email
+    ) {
+      const client = clients.find(c => c.id === project.client_id);
+      sendAssignmentEmail({
+        kind: "task_assigned",
+        task: updatedTask,
+        project: { ...project, client_name: client?.name },
+        assignedEmail: updatedTask.assigned_to.email,
+        actorName: currentUser?.name,
+      }).catch((error) => {
+        toast({ message: "Assignment email failed", sub: error.message, type: "warning" });
+      });
+    } else if (
+      whiteLabelSettings?.assignment_email_alerts !== false &&
+      updatedTask?.assigned_to?.name &&
+      !updatedTask.assigned_to.email &&
+      editTask.assigned_to?.name !== updatedTask.assigned_to.name
+    ) {
+      toast({ message: "Assignment email not sent", sub: "Choose a team member with an email, not a department.", type: "warning" });
+    }
     setEditTask(null); setEditTaskForm(null);
   };
 
