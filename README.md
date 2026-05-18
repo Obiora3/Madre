@@ -49,12 +49,23 @@ Email uses Resend:
 ```bash
 RESEND_API_KEY=your_resend_api_key
 NOTIFICATION_EMAIL_FROM=Madre <notifications@your-domain.com>
+NOTIFICATION_REPLY_TO=support@your-domain.com
 NOTIFICATION_EMAIL_TO=ops@your-domain.com
 NOTIFICATION_BRAND_NAME=Madre
 NOTIFICATION_APP_URL=https://your-app-url.com
 ```
 
-`NOTIFICATION_BRAND_NAME` customizes the email footer and subject prefix. `NOTIFICATION_APP_URL` adds a call-to-action button to notification emails.
+`NOTIFICATION_REPLY_TO` should be a real monitored mailbox on the same verified domain. `NOTIFICATION_BRAND_NAME` customizes the email footer and subject prefix. `NOTIFICATION_APP_URL` adds a call-to-action button to notification emails.
+
+If emails arrive in spam, fix the sender/domain trust before changing app logic:
+
+- In Resend, verify the domain used by `NOTIFICATION_EMAIL_FROM`.
+- Add every SPF and DKIM DNS record shown in the Resend domain screen.
+- Add a DMARC TXT record for the same domain, starting with `p=none` while testing.
+- Use a domain or subdomain dedicated to transactional email, for example `notifications.your-domain.com`.
+- Avoid `no-reply` senders; keep `NOTIFICATION_REPLY_TO` set to a mailbox people can answer.
+- In Resend domain settings, disable click tracking and open tracking for these transactional emails if they are enabled.
+- After DNS changes, wait for propagation, redeploy Vercel, send `npm run test:email -- --to you@example.com`, then inspect the message headers for `spf=pass`, `dkim=pass`, and `dmarc=pass`.
 
 After adding those values, send a direct smoke-test email:
 
@@ -138,8 +149,9 @@ VITE_SUPABASE_URL=https://your-project-ref.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 RESEND_API_KEY=your_resend_api_key
 NOTIFICATION_EMAIL_FROM=Madre <notifications@your-domain.com>
+NOTIFICATION_REPLY_TO=support@your-domain.com
 NOTIFICATION_BRAND_NAME=Madre
 NOTIFICATION_APP_URL=https://your-app-url.com
 ```
 
-`ANTHROPIC_MODEL`, `NOTIFICATION_BRAND_NAME`, and `NOTIFICATION_APP_URL` are optional. Assignment emails require the Supabase and Resend variables above, followed by a Vercel redeploy.
+`ANTHROPIC_MODEL`, `NOTIFICATION_REPLY_TO`, `NOTIFICATION_BRAND_NAME`, and `NOTIFICATION_APP_URL` are optional. Assignment emails require the Supabase and Resend variables above, followed by a Vercel redeploy.

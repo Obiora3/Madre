@@ -60,6 +60,11 @@ const idempotencyKey = (value, fallback) =>
     .replace(/[^a-zA-Z0-9:_-]/g, "-")
     .slice(0, 256);
 
+const tagValue = (value, fallback) =>
+  String(value || fallback)
+    .replace(/[^a-zA-Z0-9_-]/g, "-")
+    .slice(0, 256) || fallback;
+
 const money = (value) => {
   const amount = Number(value);
   if (!Number.isFinite(amount) || amount <= 0) return "";
@@ -245,6 +250,7 @@ function makeNotification(input) {
 async function sendEmail(notification, recipients, { includeFallbackRecipients = true } = {}) {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.NOTIFICATION_EMAIL_FROM || process.env.RESEND_FROM_EMAIL;
+  const replyTo = process.env.NOTIFICATION_REPLY_TO || process.env.NOTIFICATION_EMAIL_REPLY_TO;
   const fallbackRecipients = includeFallbackRecipients ? csv(process.env.NOTIFICATION_EMAIL_TO) : [];
   const to = unique([...fallbackRecipients, ...recipients]);
 
@@ -260,23 +266,36 @@ async function sendEmail(notification, recipients, { includeFallbackRecipients =
     return { channel: "email", skipped: true, reason: "No assigned user email was provided." };
   }
 
+  const messageKey = idempotencyKey(
+    notification.idempotencyKey,
+    `madre-${notification.kind}-${Date.now()}`
+  );
+  const payload = {
+    from,
+    to,
+    subject: notification.subject,
+    html: notification.html,
+    text: notification.text,
+    headers: {
+      "Auto-Submitted": "auto-generated",
+      "X-Auto-Response-Suppress": "All",
+      "X-Entity-Ref-ID": messageKey,
+    },
+    tags: [
+      { name: "app", value: "madre" },
+      { name: "kind", value: tagValue(notification.kind, "notification") },
+    ],
+  };
+  if (replyTo) payload.reply_to = replyTo;
+
   const resp = await fetch(RESEND_ENDPOINT, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      "Idempotency-Key": idempotencyKey(
-        notification.idempotencyKey,
-        `madre-${notification.kind}-${Date.now()}`
-      ),
+      "Idempotency-Key": messageKey,
     },
-    body: JSON.stringify({
-      from,
-      to,
-      subject: notification.subject,
-      html: notification.html,
-      text: notification.text,
-    }),
+    body: JSON.stringify(payload),
   });
 
   const body = await resp.json().catch(() => ({}));

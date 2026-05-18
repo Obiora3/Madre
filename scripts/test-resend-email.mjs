@@ -44,6 +44,7 @@ loadEnvFile(path.resolve(process.cwd(), ".env.local"));
 
 const apiKey = process.env.RESEND_API_KEY;
 const from = process.env.NOTIFICATION_EMAIL_FROM || process.env.RESEND_FROM_EMAIL;
+const replyTo = process.env.NOTIFICATION_REPLY_TO || process.env.NOTIFICATION_EMAIL_REPLY_TO;
 const to = csv(argValue("--to") || process.env.NOTIFICATION_EMAIL_TO);
 const hasPlaceholder = (value) => /your_|example|placeholder/i.test(String(value || ""));
 
@@ -60,21 +61,33 @@ if (!apiKey.startsWith("re_")) {
 
 const subject = `Madre Resend test - ${new Date().toISOString()}`;
 const bodyText = "Resend is connected to Madre. This is a test notification email.";
+const messageKey = `madre-resend-test-${Date.now()}`;
+const payload = {
+  from,
+  to,
+  subject,
+  text: bodyText,
+  html: `<p>${bodyText}</p>`,
+  headers: {
+    "Auto-Submitted": "auto-generated",
+    "X-Auto-Response-Suppress": "All",
+    "X-Entity-Ref-ID": messageKey,
+  },
+  tags: [
+    { name: "app", value: "madre" },
+    { name: "kind", value: "smoke_test" },
+  ],
+};
+if (replyTo) payload.reply_to = replyTo;
 
 const response = await fetch(RESEND_ENDPOINT, {
   method: "POST",
   headers: {
     Authorization: `Bearer ${apiKey}`,
     "Content-Type": "application/json",
-    "Idempotency-Key": `madre-resend-test-${Date.now()}`,
+    "Idempotency-Key": messageKey,
   },
-  body: JSON.stringify({
-    from,
-    to,
-    subject,
-    text: bodyText,
-    html: `<p>${bodyText}</p>`,
-  }),
+  body: JSON.stringify(payload),
 });
 
 const result = await response.json().catch(() => ({}));
