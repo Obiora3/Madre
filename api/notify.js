@@ -11,6 +11,8 @@ const unique = (items) => [...new Set(items.filter(Boolean))];
 
 const json = (res, status, payload) => res.status(status).json(payload);
 
+const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
+
 const escapeHtml = (value) =>
   String(value || "")
     .replaceAll("&", "&amp;")
@@ -85,6 +87,19 @@ const appUrl = () => {
   return /^https?:\/\//i.test(url) ? url : `https://${url}`;
 };
 
+const absoluteUrl = (value) => {
+  const url = String(value || "").trim();
+  if (!url) return "";
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+};
+
+const logoUrl = () => {
+  const configured = absoluteUrl(process.env.NOTIFICATION_LOGO_URL || process.env.NOTIFICATION_BRAND_LOGO_URL);
+  if (configured) return configured;
+  const base = appUrl().replace(/\/+$/, "");
+  return base ? `${base}/logo.png` : "";
+};
+
 const notificationMeta = (kind) => ({
   task_assigned: {
     label: "New task assigned",
@@ -137,12 +152,14 @@ function renderRows(rows) {
   `).join("");
 }
 
-function renderEmailHtml({ brand, meta, title, message, rows, description, ctaUrl }) {
+function renderEmailHtml({ brand, meta, title, message, rows, description, ctaUrl, logo, recipientName }) {
   const safeBrand = escapeHtml(brand);
   const safeTitle = escapeHtml(title);
   const safeMessage = escapeHtml(message || meta.intro);
   const safeDescription = escapeHtml(description);
   const safeCtaUrl = escapeHtml(ctaUrl);
+  const safeLogo = escapeHtml(logo);
+  const greeting = recipientName ? `Hi ${recipientName},` : "Hi there,";
 
   return `<!doctype html>
 <html>
@@ -153,13 +170,16 @@ function renderEmailHtml({ brand, meta, title, message, rows, description, ctaUr
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#FFFFFF;border:1px solid #EAECF0;border-radius:10px;overflow:hidden">
             <tr>
               <td style="padding:18px 24px;border-bottom:1px solid #EAECF0">
-                <div style="font-size:13px;line-height:18px;font-weight:700;color:${meta.accent};margin-bottom:8px">${safeBrand}</div>
+                ${logo ? `
+                  <img src="${safeLogo}" alt="${safeBrand}" width="120" style="display:block;width:120px;max-width:120px;max-height:52px;height:auto;margin:0 0 14px;border:0;outline:none;text-decoration:none;object-fit:contain" />
+                ` : `<div style="font-size:13px;line-height:18px;font-weight:700;color:${meta.accent};margin-bottom:8px">${safeBrand}</div>`}
                 <div style="font-size:22px;line-height:28px;font-weight:700;color:#101828;margin-bottom:8px">${escapeHtml(meta.label)}</div>
                 <div style="font-size:14px;line-height:20px;color:#475467">${safeMessage}</div>
               </td>
             </tr>
             <tr>
               <td style="padding:22px 24px">
+                <div style="font-size:14px;line-height:20px;color:#101828;margin-bottom:12px">${escapeHtml(greeting)}</div>
                 <div style="font-size:16px;line-height:22px;font-weight:700;color:#101828;margin-bottom:14px">${safeTitle}</div>
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse">
                   ${renderRows(rows)}
@@ -190,6 +210,46 @@ function renderEmailHtml({ brand, meta, title, message, rows, description, ctaUr
 </html>`;
 }
 
+function recipientMap(input) {
+  const entries = [
+    input.task?.assigned_to,
+    input.project?.assigned_to,
+    ...(Array.isArray(input.recipientUsers) ? input.recipientUsers : []),
+  ];
+  return entries.reduce((map, user) => {
+    const email = normalizeEmail(user?.email);
+    const name = String(user?.name || "").trim();
+    if (email && name) map[email] = name;
+    return map;
+  }, {});
+}
+
+function personalizeNotification(notification, recipientName) {
+  const greeting = recipientName ? `Hi ${recipientName},` : "Hi there,";
+  return {
+    subject: notification.subject,
+    text: truncate([
+      greeting,
+      `${notification.meta.label}: ${notification.title}`,
+      notification.message || notification.meta.intro,
+      ...notification.detailLines,
+      notification.description ? `Details: ${notification.description}` : null,
+      notification.ctaUrl ? `Open in ${notification.brand}: ${notification.ctaUrl}` : null,
+    ].filter(Boolean).join("\n")),
+    html: renderEmailHtml({
+      brand: notification.brand,
+      meta: notification.meta,
+      title: notification.title,
+      message: notification.message,
+      rows: notification.rows,
+      description: notification.description,
+      ctaUrl: notification.ctaUrl,
+      logo: notification.logo,
+      recipientName,
+    }),
+  };
+}
+
 function makeNotification(input) {
   const kind = input.kind || "notification";
   const task = input.task || {};
@@ -198,6 +258,7 @@ function makeNotification(input) {
   const meta = notificationMeta(kind);
   const brand = process.env.NOTIFICATION_BRAND_NAME || "Madre";
   const description = task.description || project.description || "";
+  const message = input.message || meta.intro;
   const rows = [
     row(task.title ? "Task" : "Project", title),
     task.title ? row("Project", project.title) : null,
@@ -213,26 +274,26 @@ function makeNotification(input) {
   ].filter(Boolean);
   const detailLines = rows.map((item) => `${item.label}: ${item.value}`);
   const ctaUrl = appUrl();
+  const logo = logoUrl();
+  const recipientNames = recipientMap(input);
 
   const subject = truncate(`${brand}: ${meta.label} - ${title}`, 140);
-  const text = truncate([
-    `${meta.label}: ${title}`,
-    input.message || meta.intro,
-    ...detailLines,
-    description ? `Details: ${description}` : null,
-    ctaUrl ? `Open in ${brand}: ${ctaUrl}` : null,
-  ].filter(Boolean).join("\n"));
-  const html = renderEmailHtml({
+  const notification = {
+    kind,
+    subject,
     brand,
     meta,
     title,
-    message: input.message,
+    message,
     rows,
+    detailLines,
     description,
     ctaUrl,
-  });
-
-  return { kind, subject, text, html, variables: { label: meta.label, title, project: project.title || "-", due: task.due_date || "-" } };
+    logo,
+    recipientNames,
+    variables: { label: meta.label, title, project: project.title || "-", due: task.due_date || "-" },
+  };
+  return { ...notification, ...personalizeNotification(notification) };
 }
 
 async function sendEmail(notification, recipients, { includeFallbackRecipients = true } = {}) {
@@ -258,30 +319,55 @@ async function sendEmail(notification, recipients, { includeFallbackRecipients =
     notification.idempotencyKey,
     `madre-${notification.kind}-${Date.now()}`
   );
-  const payload = {
-    from,
-    to,
-    subject: notification.subject,
-    html: notification.html,
-    text: notification.text,
-  };
-  if (replyTo) payload.reply_to = replyTo;
 
-  const resp = await fetch(RESEND_ENDPOINT, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "Idempotency-Key": messageKey,
-    },
-    body: JSON.stringify(payload),
-  });
+  const results = [];
+  for (const recipient of to) {
+    const recipientName = notification.recipientNames?.[normalizeEmail(recipient)] || "";
+    const personalized = personalizeNotification(notification, recipientName);
+    const payload = {
+      from,
+      to: [recipient],
+      subject: personalized.subject,
+      html: personalized.html,
+      text: personalized.text,
+    };
+    if (replyTo) payload.reply_to = replyTo;
 
-  const body = await resp.json().catch(() => ({}));
-  if (!resp.ok) {
-    return { channel: "email", ok: false, error: body?.message || body?.error || `Resend error ${resp.status}` };
+    const resp = await fetch(RESEND_ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey(`${messageKey}:${recipient}`, messageKey),
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const body = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      results.push({
+        to: recipient,
+        ok: false,
+        error: body?.message || body?.error || `Resend error ${resp.status}`,
+      });
+      continue;
+    }
+    results.push({ to: recipient, ok: true, id: body.id });
   }
-  return { channel: "email", ok: true, id: body.id };
+
+  const failed = results.find((result) => !result.ok);
+  if (failed) {
+    return { channel: "email", ok: false, error: failed.error, results };
+  }
+
+  return {
+    channel: "email",
+    ok: true,
+    id: results[0]?.id || null,
+    ids: results.map((result) => result.id).filter(Boolean),
+    recipientCount: results.length,
+    results,
+  };
 }
 
 function makeWhatsAppPayload(to, notification) {

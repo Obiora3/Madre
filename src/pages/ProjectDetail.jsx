@@ -141,12 +141,17 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     if (!dept) return [];
     return uniqueEmails(dept.members || []);
   };
+  const departmentMemberUsers = (departmentName) => {
+    const emails = departmentMemberEmails(departmentName);
+    return emails.map(email => users.find(u => u.email === email) || { email, name: "" });
+  };
   const emailTaskAssignment = (task, previousAssignee = {}) => {
     if (!task) return;
     if (whiteLabelSettings?.assignment_email_alerts === false) return;
     const client = clients.find(c => c.id === project.client_id);
     const directEmail = task.assigned_to?.email || "";
-    const departmentEmails = directEmail ? [] : departmentMemberEmails(task.assigned_to?.name);
+    const departmentUsers = directEmail ? [] : departmentMemberUsers(task.assigned_to?.name);
+    const departmentEmails = departmentUsers.map(member => member.email);
     const recipients = directEmail ? [directEmail] : departmentEmails;
 
     if (recipients.length === 0) {
@@ -165,6 +170,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
       project: { ...project, client_name: client?.name },
       assignedEmail: directEmail || recipients[0],
       emailRecipients: recipients,
+      recipientUsers: directEmail ? [task.assigned_to] : departmentUsers,
       actorName: currentUser?.name,
     }).then((result) => {
       toast({ message: "Assignment email sent", sub: `${result.recipientCount || recipients.length} recipient(s)`, type: "success" });

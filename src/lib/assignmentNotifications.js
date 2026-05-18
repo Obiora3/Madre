@@ -2,6 +2,7 @@ import { isSupabaseConfigured, supabase } from "./supabaseClient.js";
 
 const emailLike = (value) => /\S+@\S+\.\S+/.test(String(value || ""));
 const unique = (items) => [...new Set(items.filter(Boolean))];
+const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
 
 async function authHeaders() {
   if (!isSupabaseConfigured || !supabase) return {};
@@ -20,7 +21,20 @@ function assignmentIdempotencyKey(kind, entity, email) {
   ].join(":");
 }
 
-export async function sendAssignmentEmail({ kind, task, project, assignedEmail, emailRecipients = [], actorName }) {
+function uniqueRecipientUsers(users) {
+  const byEmail = new Map();
+  users.forEach((user) => {
+    const email = normalizeEmail(user?.email);
+    if (!email || byEmail.has(email)) return;
+    byEmail.set(email, {
+      email,
+      name: String(user?.name || "").trim(),
+    });
+  });
+  return [...byEmail.values()];
+}
+
+export async function sendAssignmentEmail({ kind, task, project, assignedEmail, emailRecipients = [], recipientUsers = [], actorName }) {
   const recipients = unique([
     assignedEmail,
     task?.assigned_to?.email,
@@ -28,6 +42,11 @@ export async function sendAssignmentEmail({ kind, task, project, assignedEmail, 
     ...emailRecipients,
   ].filter(emailLike));
   if (recipients.length === 0) return { skipped: true, reason: "No assigned user email." };
+  const recipientProfiles = uniqueRecipientUsers([
+    task?.assigned_to,
+    project?.assigned_to,
+    ...recipientUsers,
+  ]);
 
   const entity = task || project;
   const message = kind === "task_assigned"
@@ -49,6 +68,7 @@ export async function sendAssignmentEmail({ kind, task, project, assignedEmail, 
       project,
       assignedEmail: recipients[0],
       emailRecipients: recipients,
+      recipientUsers: recipientProfiles,
       idempotencyKey: assignmentIdempotencyKey(kind, entity, recipients.join(",")),
     }),
   });

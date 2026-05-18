@@ -53,9 +53,10 @@ NOTIFICATION_REPLY_TO=support@your-domain.com
 NOTIFICATION_EMAIL_TO=ops@your-domain.com
 NOTIFICATION_BRAND_NAME=Madre
 NOTIFICATION_APP_URL=https://madre.com.ng
+NOTIFICATION_LOGO_URL=https://madre.com.ng/logo.png
 ```
 
-`NOTIFICATION_REPLY_TO` should be a real monitored mailbox on the same verified domain. `NOTIFICATION_BRAND_NAME` customizes the email subject prefix. `NOTIFICATION_APP_URL` adds the website CTA button in notification emails.
+`NOTIFICATION_REPLY_TO` should be a real monitored mailbox on the same verified domain. `NOTIFICATION_BRAND_NAME` customizes the email subject prefix. `NOTIFICATION_APP_URL` adds the website CTA button in notification emails. `NOTIFICATION_LOGO_URL` adds the logo shown at the top of notification emails.
 
 If emails arrive in spam, fix the sender/domain trust before changing app logic:
 
@@ -152,6 +153,7 @@ NOTIFICATION_EMAIL_FROM=Madre <notifications@your-domain.com>
 NOTIFICATION_REPLY_TO=support@your-domain.com
 NOTIFICATION_BRAND_NAME=Madre
 NOTIFICATION_APP_URL=https://madre.com.ng
+NOTIFICATION_LOGO_URL=https://madre.com.ng/logo.png
 ```
 
-`ANTHROPIC_MODEL`, `NOTIFICATION_REPLY_TO`, `NOTIFICATION_BRAND_NAME`, and `NOTIFICATION_APP_URL` are optional. Assignment emails require the Supabase and Resend variables above, followed by a Vercel redeploy.
+`ANTHROPIC_MODEL`, `NOTIFICATION_REPLY_TO`, `NOTIFICATION_BRAND_NAME`, `NOTIFICATION_APP_URL`, and `NOTIFICATION_LOGO_URL` are optional. Assignment emails require the Supabase and Resend variables above, followed by a Vercel redeploy.
