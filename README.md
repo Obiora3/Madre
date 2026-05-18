@@ -78,6 +78,7 @@ When Assignment Emails are enabled in Settings -> Automations, Madre sends a Res
 - a new project is created with a team member assigned
 - a new task is created with a team member assigned
 - an existing project or task is newly assigned to a different team member
+- a task is assigned to a department; every department member with an email receives the alert
 
 These assignment emails do not use `NOTIFICATION_EMAIL_TO`; that fallback inbox is reserved for automation alerts.
 

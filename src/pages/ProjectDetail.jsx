@@ -65,6 +65,7 @@ const TASK_TEMPLATES = [
 ];
 
 const KANBAN_COLS = ["To Do","In Progress","In Review","Done"];
+const uniqueEmails = (items) => [...new Set(items.filter(email => /\S+@\S+\.\S+/.test(String(email || ""))))];
 
 // ─── PROJECT DETAIL ───────────────────────────────────────────────────────────
 export const ProjectDetail = React.memo(function ProjectDetail() {
@@ -135,6 +136,40 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   const taskCommentCount = (tid) => (comments || []).filter(c => c.entity_type === "task" && c.entity_id === tid).length;
   const toggleExpand = (tid) => setExpanded(prev => { const n = new Set(prev); n.has(tid) ? n.delete(tid) : n.add(tid); return n; });
   const isBlocked    = (task) => (task.blocked_by||[]).some(depId => { const dep = tasks.find(t2 => t2.id === depId); return dep && dep.status !== "Done"; });
+  const departmentMemberEmails = (departmentName) => {
+    const dept = departments.find(d => d.name === departmentName);
+    if (!dept) return [];
+    return uniqueEmails(dept.members || []);
+  };
+  const emailTaskAssignment = (task, previousAssignee = {}) => {
+    if (!task) return;
+    if (whiteLabelSettings?.assignment_email_alerts === false) return;
+    const client = clients.find(c => c.id === project.client_id);
+    const directEmail = task.assigned_to?.email || "";
+    const departmentEmails = directEmail ? [] : departmentMemberEmails(task.assigned_to?.name);
+    const recipients = directEmail ? [directEmail] : departmentEmails;
+
+    if (recipients.length === 0) {
+      if (task.assigned_to?.name) {
+        toast({ message: "Assignment email not sent", sub: "No department members with email addresses were found.", type: "warning" });
+      }
+      return;
+    }
+
+    if (!directEmail && previousAssignee?.name === task.assigned_to?.name) return;
+    if (directEmail && previousAssignee?.email === directEmail) return;
+
+    sendAssignmentEmail({
+      kind: "task_assigned",
+      task,
+      project: { ...project, client_name: client?.name },
+      assignedEmail: directEmail || recipients[0],
+      emailRecipients: recipients,
+      actorName: currentUser?.name,
+    }).catch((error) => {
+      toast({ message: "Assignment email failed", sub: error.message, type: "warning" });
+    });
+  };
   const addSubtask   = (taskId, title) => setTasks(tasks.map(t2 => t2.id === taskId ? { ...t2, subtasks:[...(t2.subtasks||[]),{id:`st${Date.now()}`,title,done:false}] } : t2));
   const toggleSubtask = (taskId, stId) => setTasks(tasks.map(t2 => t2.id === taskId ? { ...t2, subtasks:(t2.subtasks||[]).map(s=>s.id===stId?{...s,done:!s.done}:s) } : t2));
   const deleteSubtask = (taskId, stId) => setTasks(tasks.map(t2 => t2.id === taskId ? { ...t2, subtasks:(t2.subtasks||[]).filter(s=>s.id!==stId) } : t2));
@@ -215,20 +250,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     setProjects(projects.map(p => p.id === id ? { ...p, progress:calcProgress(id, newTasks) } : p));
     logActivity({ userName: currentUser?.name, eventType: "task_added", entityType: "task", entityId: newTask.id, entityTitle: taskForm.title });
     toast({ message:`Task "${taskForm.title}" added`, sub:`${taskForm.priority} priority · Due ${fmtDate(taskForm.due_date)}`, type:"success" });
-    if (whiteLabelSettings?.assignment_email_alerts !== false && newTask.assigned_to?.email) {
-      const client = clients.find(c => c.id === project.client_id);
-      sendAssignmentEmail({
-        kind: "task_assigned",
-        task: newTask,
-        project: { ...project, client_name: client?.name },
-        assignedEmail: newTask.assigned_to.email,
-        actorName: currentUser?.name,
-      }).catch((error) => {
-        toast({ message: "Assignment email failed", sub: error.message, type: "warning" });
-      });
-    } else if (whiteLabelSettings?.assignment_email_alerts !== false && newTask.assigned_to?.name) {
-      toast({ message: "Assignment email not sent", sub: "Choose a team member with an email, not a department.", type: "warning" });
-    }
+    emailTaskAssignment(newTask);
     setShowTaskForm(false); setTaskForm(BLANK_TASK); setTaskAssigneeKey("");
   };
 
@@ -253,29 +275,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     setTasks(newTasks);
     setProjects(projects.map(p => p.id === id ? { ...p, progress:calcProgress(id, newTasks) } : p));
     toast({ message:`Task "${editTaskForm.title}" updated.` });
-    if (
-      whiteLabelSettings?.assignment_email_alerts !== false &&
-      updatedTask?.assigned_to?.email &&
-      updatedTask.assigned_to.email !== editTask.assigned_to?.email
-    ) {
-      const client = clients.find(c => c.id === project.client_id);
-      sendAssignmentEmail({
-        kind: "task_assigned",
-        task: updatedTask,
-        project: { ...project, client_name: client?.name },
-        assignedEmail: updatedTask.assigned_to.email,
-        actorName: currentUser?.name,
-      }).catch((error) => {
-        toast({ message: "Assignment email failed", sub: error.message, type: "warning" });
-      });
-    } else if (
-      whiteLabelSettings?.assignment_email_alerts !== false &&
-      updatedTask?.assigned_to?.name &&
-      !updatedTask.assigned_to.email &&
-      editTask.assigned_to?.name !== updatedTask.assigned_to.name
-    ) {
-      toast({ message: "Assignment email not sent", sub: "Choose a team member with an email, not a department.", type: "warning" });
-    }
+    emailTaskAssignment(updatedTask, editTask.assigned_to);
     setEditTask(null); setEditTaskForm(null);
   };
 

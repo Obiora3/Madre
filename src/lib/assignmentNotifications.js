@@ -1,6 +1,7 @@
 import { isSupabaseConfigured, supabase } from "./supabaseClient.js";
 
 const emailLike = (value) => /\S+@\S+\.\S+/.test(String(value || ""));
+const unique = (items) => [...new Set(items.filter(Boolean))];
 
 async function authHeaders() {
   if (!isSupabaseConfigured || !supabase) return {};
@@ -19,9 +20,14 @@ function assignmentIdempotencyKey(kind, entity, email) {
   ].join(":");
 }
 
-export async function sendAssignmentEmail({ kind, task, project, assignedEmail, actorName }) {
-  const recipient = assignedEmail || task?.assigned_to?.email || project?.assigned_to?.email;
-  if (!emailLike(recipient)) return { skipped: true, reason: "No assigned user email." };
+export async function sendAssignmentEmail({ kind, task, project, assignedEmail, emailRecipients = [], actorName }) {
+  const recipients = unique([
+    assignedEmail,
+    task?.assigned_to?.email,
+    project?.assigned_to?.email,
+    ...emailRecipients,
+  ].filter(emailLike));
+  if (recipients.length === 0) return { skipped: true, reason: "No assigned user email." };
 
   const entity = task || project;
   const message = kind === "task_assigned"
@@ -41,9 +47,9 @@ export async function sendAssignmentEmail({ kind, task, project, assignedEmail, 
       message,
       task,
       project,
-      assignedEmail: recipient,
-      emailRecipients: [recipient],
-      idempotencyKey: assignmentIdempotencyKey(kind, entity, recipient),
+      assignedEmail: recipients[0],
+      emailRecipients: recipients,
+      idempotencyKey: assignmentIdempotencyKey(kind, entity, recipients.join(",")),
     }),
   });
 
