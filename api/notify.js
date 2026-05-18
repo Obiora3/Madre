@@ -77,36 +77,118 @@ const prettyDate = (value) => {
   });
 };
 
+const appUrl = () => {
+  const configured = process.env.NOTIFICATION_APP_URL;
+  const fallback = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "";
+  const url = configured || fallback;
+  if (!url) return "";
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+};
+
 const notificationMeta = (kind) => ({
   task_assigned: {
     label: "New task assigned",
     intro: "A new task has been assigned to you.",
+    action: "Open task",
+    accent: "#1F6FEB",
   },
   project_assigned: {
     label: "New project assigned",
     intro: "A new project has been assigned to you.",
+    action: "Open project",
+    accent: "#0F766E",
   },
   deadline_warning: {
     label: "Deadline warning",
     intro: "A task is approaching its deadline.",
+    action: "Review deadline",
+    accent: "#B45309",
   },
   escalated: {
     label: "Overdue escalation",
     intro: "A task is overdue and needs attention.",
+    action: "Review task",
+    accent: "#B91C1C",
   },
   blocked: {
     label: "Blocked task alert",
     intro: "A task is blocked by unfinished work.",
+    action: "Review blocker",
+    accent: "#7C2D12",
   },
 }[kind] || {
   label: "Workspace notification",
   intro: "There is a new workspace notification.",
+  action: "Open Madre",
+  accent: "#374151",
 });
 
 const row = (label, value) => {
   if (value === null || value === undefined || value === "") return null;
   return { label, value: String(value) };
 };
+
+function renderRows(rows) {
+  return rows.map((item) => `
+    <tr>
+      <td style="padding:9px 12px 9px 0;color:#667085;font-size:13px;line-height:18px;border-bottom:1px solid #EAECF0;vertical-align:top;width:34%">${escapeHtml(item.label)}</td>
+      <td style="padding:9px 0;color:#101828;font-size:13px;line-height:18px;border-bottom:1px solid #EAECF0;vertical-align:top;font-weight:600">${escapeHtml(item.value)}</td>
+    </tr>
+  `).join("");
+}
+
+function renderEmailHtml({ brand, meta, title, message, rows, description, ctaUrl }) {
+  const safeBrand = escapeHtml(brand);
+  const safeTitle = escapeHtml(title);
+  const safeMessage = escapeHtml(message || meta.intro);
+  const safeDescription = escapeHtml(description);
+  const safeCtaUrl = escapeHtml(ctaUrl);
+
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#F6F7F9;font-family:Arial,sans-serif;color:#101828">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F6F7F9;padding:24px 12px">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#FFFFFF;border:1px solid #EAECF0;border-radius:10px;overflow:hidden">
+            <tr>
+              <td style="padding:18px 24px;border-bottom:1px solid #EAECF0">
+                <div style="font-size:13px;line-height:18px;font-weight:700;color:${meta.accent};margin-bottom:8px">${safeBrand}</div>
+                <div style="font-size:22px;line-height:28px;font-weight:700;color:#101828;margin-bottom:8px">${escapeHtml(meta.label)}</div>
+                <div style="font-size:14px;line-height:20px;color:#475467">${safeMessage}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:22px 24px">
+                <div style="font-size:16px;line-height:22px;font-weight:700;color:#101828;margin-bottom:14px">${safeTitle}</div>
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse">
+                  ${renderRows(rows)}
+                </table>
+                ${description ? `
+                  <div style="margin-top:16px">
+                    <div style="font-size:12px;line-height:16px;font-weight:700;color:#667085;text-transform:uppercase;margin-bottom:6px">Details</div>
+                    <div style="font-size:14px;line-height:20px;color:#344054">${safeDescription}</div>
+                  </div>
+                ` : ""}
+                ${ctaUrl ? `
+                  <div style="margin-top:22px">
+                    <a href="${safeCtaUrl}" style="display:inline-block;background:${meta.accent};color:#FFFFFF;text-decoration:none;border-radius:7px;padding:11px 16px;font-size:14px;line-height:18px;font-weight:700">${escapeHtml(meta.action)}</a>
+                  </div>
+                ` : ""}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 24px;background:#F9FAFB;border-top:1px solid #EAECF0;color:#667085;font-size:12px;line-height:18px">
+                Sent by ${safeBrand}. You received this because assignment notifications are enabled for your workspace.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
 
 function makeNotification(input) {
   const kind = input.kind || "notification";
@@ -130,6 +212,7 @@ function makeNotification(input) {
     row("Assigned to", task.assigned_to?.name || project.assigned_to?.name),
   ].filter(Boolean);
   const detailLines = rows.map((item) => `${item.label}: ${item.value}`);
+  const ctaUrl = appUrl();
 
   const subject = truncate(`${brand}: ${meta.label} - ${title}`, 140);
   const text = truncate([
@@ -137,18 +220,17 @@ function makeNotification(input) {
     input.message || meta.intro,
     ...detailLines,
     description ? `Details: ${description}` : null,
+    ctaUrl ? `Open in ${brand}: ${ctaUrl}` : null,
   ].filter(Boolean).join("\n"));
-  const html = `
-    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
-      <h2 style="margin:0 0 12px">${escapeHtml(meta.label)}</h2>
-      <p style="margin:0 0 12px"><strong>${escapeHtml(title)}</strong></p>
-      <p style="margin:0 0 12px">${escapeHtml(input.message || meta.intro)}</p>
-      <ul style="padding-left:18px;margin:0">
-        ${detailLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
-      </ul>
-      ${description ? `<p style="margin:12px 0 0">${escapeHtml(description)}</p>` : ""}
-    </div>
-  `;
+  const html = renderEmailHtml({
+    brand,
+    meta,
+    title,
+    message: input.message,
+    rows,
+    description,
+    ctaUrl,
+  });
 
   return { kind, subject, text, html, variables: { label: meta.label, title, project: project.title || "-", due: task.due_date || "-" } };
 }
