@@ -60,11 +60,6 @@ const idempotencyKey = (value, fallback) =>
     .replace(/[^a-zA-Z0-9:_-]/g, "-")
     .slice(0, 256);
 
-const tagValue = (value, fallback) =>
-  String(value || fallback)
-    .replace(/[^a-zA-Z0-9_-]/g, "-")
-    .slice(0, 256) || fallback;
-
 const money = (value) => {
   const amount = Number(value);
   if (!Number.isFinite(amount) || amount <= 0) return "";
@@ -82,128 +77,36 @@ const prettyDate = (value) => {
   });
 };
 
-const appUrl = () => {
-  const configured = process.env.NOTIFICATION_APP_URL;
-  if (configured) return configured;
-  return process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "";
-};
-
 const notificationMeta = (kind) => ({
   task_assigned: {
     label: "New task assigned",
-    eyebrow: "Assignment",
-    accent: "#7C3AED",
-    tint: "#F5F3FF",
     intro: "A new task has been assigned to you.",
-    cta: "Open task",
   },
   project_assigned: {
     label: "New project assigned",
-    eyebrow: "Assignment",
-    accent: "#2563EB",
-    tint: "#EFF6FF",
     intro: "A new project has been assigned to you.",
-    cta: "Open project",
   },
   deadline_warning: {
     label: "Deadline warning",
-    eyebrow: "Due soon",
-    accent: "#D97706",
-    tint: "#FFFBEB",
     intro: "A task is approaching its deadline.",
-    cta: "Review task",
   },
   escalated: {
     label: "Overdue escalation",
-    eyebrow: "Action needed",
-    accent: "#DC2626",
-    tint: "#FEF2F2",
     intro: "A task is overdue and needs attention.",
-    cta: "Review task",
   },
   blocked: {
     label: "Blocked task alert",
-    eyebrow: "Blocked",
-    accent: "#B45309",
-    tint: "#FFFBEB",
     intro: "A task is blocked by unfinished work.",
-    cta: "Review blocker",
   },
 }[kind] || {
   label: "Workspace notification",
-  eyebrow: "Notification",
-  accent: "#4B5563",
-  tint: "#F9FAFB",
   intro: "There is a new workspace notification.",
-  cta: "Open Madre",
 });
 
 const row = (label, value) => {
   if (value === null || value === undefined || value === "") return null;
   return { label, value: String(value) };
 };
-
-function renderRows(rows) {
-  return rows.map((item) => `
-    <tr>
-      <td style="padding:10px 0;border-bottom:1px solid #E5E7EB;color:#6B7280;font-size:13px;width:38%">${escapeHtml(item.label)}</td>
-      <td style="padding:10px 0;border-bottom:1px solid #E5E7EB;color:#111827;font-size:13px;font-weight:600">${escapeHtml(item.value)}</td>
-    </tr>
-  `).join("");
-}
-
-function renderEmailHtml({ brand, meta, title, message, rows, description, ctaUrl }) {
-  const safeBrand = escapeHtml(brand);
-  const safeTitle = escapeHtml(title);
-  const safeMessage = escapeHtml(message || meta.intro);
-  const safeDescription = escapeHtml(description);
-  const safeUrl = escapeHtml(ctaUrl);
-
-  return `<!doctype html>
-<html>
-  <body style="margin:0;padding:0;background:#F3F4F6;font-family:Arial,sans-serif;color:#111827">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F3F4F6;padding:28px 12px">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#FFFFFF;border:1px solid #E5E7EB;border-radius:16px;overflow:hidden">
-            <tr>
-              <td style="padding:22px 28px;background:${meta.tint};border-bottom:1px solid #E5E7EB">
-                <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${meta.accent};margin-bottom:10px">${escapeHtml(meta.eyebrow)}</div>
-                <div style="font-size:24px;line-height:1.25;font-weight:800;color:#111827;margin-bottom:8px">${safeTitle}</div>
-                <div style="font-size:14px;line-height:1.6;color:#374151">${safeMessage}</div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:24px 28px">
-                <div style="display:inline-block;padding:6px 10px;border-radius:999px;background:${meta.tint};color:${meta.accent};font-size:12px;font-weight:700;margin-bottom:16px">${escapeHtml(meta.label)}</div>
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse">
-                  ${renderRows(rows)}
-                </table>
-                ${description ? `
-                  <div style="margin-top:20px;padding:16px;border-radius:12px;background:#F9FAFB;border:1px solid #E5E7EB">
-                    <div style="font-size:12px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Details</div>
-                    <div style="font-size:14px;line-height:1.6;color:#1F2937">${safeDescription}</div>
-                  </div>
-                ` : ""}
-                ${ctaUrl ? `
-                  <div style="margin-top:24px">
-                    <a href="${safeUrl}" style="display:inline-block;background:${meta.accent};color:#FFFFFF;text-decoration:none;border-radius:8px;padding:12px 18px;font-size:14px;font-weight:700">${escapeHtml(meta.cta)}</a>
-                  </div>
-                ` : ""}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:18px 28px;background:#F9FAFB;border-top:1px solid #E5E7EB;color:#6B7280;font-size:12px;line-height:1.5">
-                Sent by ${safeBrand}. You received this because this workspace notification is enabled.
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`;
-}
 
 function makeNotification(input) {
   const kind = input.kind || "notification";
@@ -226,23 +129,26 @@ function makeNotification(input) {
     row("Budget", money(project.budget)),
     row("Assigned to", task.assigned_to?.name || project.assigned_to?.name),
   ].filter(Boolean);
+  const detailLines = rows.map((item) => `${item.label}: ${item.value}`);
 
   const subject = truncate(`${brand}: ${meta.label} - ${title}`, 140);
   const text = truncate([
     `${meta.label}: ${title}`,
     input.message || meta.intro,
-    ...rows.map((item) => `${item.label}: ${item.value}`),
+    ...detailLines,
     description ? `Details: ${description}` : null,
   ].filter(Boolean).join("\n"));
-  const html = renderEmailHtml({
-    brand,
-    meta,
-    title,
-    message: input.message,
-    rows,
-    description,
-    ctaUrl: appUrl(),
-  });
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
+      <h2 style="margin:0 0 12px">${escapeHtml(meta.label)}</h2>
+      <p style="margin:0 0 12px"><strong>${escapeHtml(title)}</strong></p>
+      <p style="margin:0 0 12px">${escapeHtml(input.message || meta.intro)}</p>
+      <ul style="padding-left:18px;margin:0">
+        ${detailLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
+      </ul>
+      ${description ? `<p style="margin:12px 0 0">${escapeHtml(description)}</p>` : ""}
+    </div>
+  `;
 
   return { kind, subject, text, html, variables: { label: meta.label, title, project: project.title || "-", due: task.due_date || "-" } };
 }
@@ -276,15 +182,6 @@ async function sendEmail(notification, recipients, { includeFallbackRecipients =
     subject: notification.subject,
     html: notification.html,
     text: notification.text,
-    headers: {
-      "Auto-Submitted": "auto-generated",
-      "X-Auto-Response-Suppress": "All",
-      "X-Entity-Ref-ID": messageKey,
-    },
-    tags: [
-      { name: "app", value: "madre" },
-      { name: "kind", value: tagValue(notification.kind, "notification") },
-    ],
   };
   if (replyTo) payload.reply_to = replyTo;
 

@@ -68,15 +68,6 @@ const payload = {
   subject,
   text: bodyText,
   html: `<p>${bodyText}</p>`,
-  headers: {
-    "Auto-Submitted": "auto-generated",
-    "X-Auto-Response-Suppress": "All",
-    "X-Entity-Ref-ID": messageKey,
-  },
-  tags: [
-    { name: "app", value: "madre" },
-    { name: "kind", value: "smoke_test" },
-  ],
 };
 if (replyTo) payload.reply_to = replyTo;
 
