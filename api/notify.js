@@ -79,7 +79,7 @@ const prettyDate = (value) => {
 
 const appUrl = () => {
   const configured = process.env.NOTIFICATION_APP_URL;
-  const fallback = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "";
+  const fallback = "https://madre.com.ng";
   const url = configured || fallback;
   if (!url) return "";
   return /^https?:\/\//i.test(url) ? url : `https://${url}`;
