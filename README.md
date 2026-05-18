@@ -13,12 +13,7 @@ AgencyFlow is a Vite + React single-page app with a serverless API route for AI-
 
 ## Authentication
 
-Authentication is local to the browser and stored in `localStorage`, matching the app's mock data layer. You can sign up with a new account, sign in again later from the same browser, or use the demo account:
-
-```text
-Email: adaeze@agency.io
-Password: agencyflow
-```
+Authentication is local to the browser and stored in `localStorage`, matching the app's mock data layer. You can sign up with a new account, or sign in again later from the same browser.
 
 When `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are present, sign in and sign up use Supabase Auth instead.
 
@@ -139,6 +134,12 @@ Set these environment variables in Vercel before deploying:
 ```bash
 ANTHROPIC_API_KEY=your_anthropic_api_key
 ANTHROPIC_MODEL=claude-sonnet-4-20250514
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+RESEND_API_KEY=your_resend_api_key
+NOTIFICATION_EMAIL_FROM=Madre <notifications@your-domain.com>
+NOTIFICATION_BRAND_NAME=Madre
+NOTIFICATION_APP_URL=https://your-app-url.com
 ```
 
-`ANTHROPIC_MODEL` is optional. If omitted, the API route uses the model shown above.
+`ANTHROPIC_MODEL`, `NOTIFICATION_BRAND_NAME`, and `NOTIFICATION_APP_URL` are optional. Assignment emails require the Supabase and Resend variables above, followed by a Vercel redeploy.

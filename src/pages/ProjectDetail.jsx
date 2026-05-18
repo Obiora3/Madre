@@ -166,6 +166,8 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
       assignedEmail: directEmail || recipients[0],
       emailRecipients: recipients,
       actorName: currentUser?.name,
+    }).then((result) => {
+      toast({ message: "Assignment email sent", sub: `${result.recipientCount || recipients.length} recipient(s)`, type: "success" });
     }).catch((error) => {
       toast({ message: "Assignment email failed", sub: error.message, type: "warning" });
     });
@@ -227,6 +229,8 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
         project: { ...updatedProject, client_name: client?.name },
         assignedEmail: assignedTo.email,
         actorName: currentUser?.name,
+      }).then((result) => {
+        toast({ message: "Assignment email sent", sub: `${result.recipientCount || 1} recipient(s)`, type: "success" });
       }).catch((error) => {
         toast({ message: "Assignment email failed", sub: error.message, type: "warning" });
       });

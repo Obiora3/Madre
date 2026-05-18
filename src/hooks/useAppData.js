@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   MOCK_CLIENTS, MOCK_DEPARTMENTS, MOCK_KPIS,
-  MOCK_PITCHES, MOCK_PROJECTS, MOCK_TASKS, MOCK_USERS
+  MOCK_PITCHES, MOCK_PROJECTS, MOCK_TASKS
 } from "../data/mockData.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import { useLocalStorage } from "./useLocalStorage.js";

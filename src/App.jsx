@@ -187,7 +187,6 @@ export default function Madre() {
               brand={whiteLabelSettings}
               onSignIn={auth.signIn}
               onSignUp={auth.signUp}
-              onDemo={auth.continueAsDemo}
             />
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
           </>

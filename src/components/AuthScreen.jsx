@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTheme } from "../theme.js";
 
-export function AuthScreen({ brand, onSignIn, onSignUp, onDemo }) {
+export function AuthScreen({ brand, onSignIn, onSignUp }) {
   const { theme: t } = useTheme();
   const [mode, setMode] = useState("signin");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
@@ -198,19 +198,6 @@ export function AuthScreen({ brand, onSignIn, onSignUp, onDemo }) {
               {loading ? "Please wait…" : mode === "signin" ? "Sign In" : "Create Account"}
             </button>
           </form>
-
-          <button type="button" onClick={onDemo} style={{
-            width: "100%", background: "transparent",
-            border: `1px solid ${t.border2}`, borderRadius: 8,
-            color: t.textMuted, cursor: "pointer",
-            fontSize: 13, fontWeight: 700, marginTop: 12, padding: "10px 16px",
-          }}>
-            Continue with demo account
-          </button>
-
-          <div style={{ color: t.textFaint, fontSize: 11, lineHeight: 1.5, marginTop: 16 }}>
-            Demo sign in: adaeze@agency.io · password madre
-          </div>
         </div>
       </div>
     </div>

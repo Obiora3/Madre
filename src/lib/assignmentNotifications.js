@@ -59,9 +59,12 @@ export async function sendAssignmentEmail({ kind, task, project, assignedEmail, 
   }
 
   const result = body.results?.find((item) => item.channel === "email");
+  if (!result) {
+    throw new Error("Notification API did not return an email result.");
+  }
   if (result?.ok === false || result?.skipped) {
     throw new Error(result.error || result.reason || "Email notification was not sent.");
   }
 
-  return body;
+  return { ...body, recipientCount: recipients.length, emailId: result?.id || null };
 }

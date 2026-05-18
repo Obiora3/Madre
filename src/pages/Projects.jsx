@@ -63,6 +63,8 @@ export const Projects = React.memo(function Projects() {
         project: { ...np, client_name: client?.name },
         assignedEmail: np.assigned_to.email,
         actorName: currentUser?.name,
+      }).then((result) => {
+        toast({ message: "Assignment email sent", sub: `${result.recipientCount || 1} recipient(s)`, type: "success" });
       }).catch((error) => {
         toast({ message: "Assignment email failed", sub: error.message, type: "warning" });
       });

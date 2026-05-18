@@ -1,9 +1,6 @@
 import { useCallback, useEffect } from "react";
-import { MOCK_USERS } from "../data/mockData.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 import { useLocalStorage } from "./useLocalStorage.js";
-
-const DEMO_PASSWORD = "madre";
 
 const normalizeEmail = (email) => email.trim().toLowerCase();
 
@@ -248,11 +245,6 @@ export function useAuth() {
     const account = accounts.find((item) => normalizeEmail(item.email) === cleanEmail);
 
     if (!account) {
-      const demoUser = MOCK_USERS.find((user) => normalizeEmail(user.email) === cleanEmail);
-      if (demoUser && password === DEMO_PASSWORD) {
-        setCurrentUser(publicUser(demoUser));
-        return;
-      }
       throw new Error("No account found for that email.");
     }
 
@@ -260,10 +252,6 @@ export function useAuth() {
     if (hash !== account.password_hash) throw new Error("Incorrect password.");
     setCurrentUser(publicUser(account));
   }, [accounts, setCurrentUser, loadUserAgency]);
-
-  const continueAsDemo = useCallback(() => {
-    setCurrentUser(publicUser(MOCK_USERS[0]));
-  }, [setCurrentUser]);
 
   const signOut = useCallback(async () => {
     if (isSupabaseConfigured && supabase) {
@@ -316,7 +304,6 @@ export function useAuth() {
     currentUser,
     signIn,
     signUp,
-    continueAsDemo,
     signOut,
     updateProfile,
     setupAgency,
