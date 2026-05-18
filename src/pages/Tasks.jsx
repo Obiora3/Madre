@@ -9,8 +9,11 @@ import {
   useTheme,
   useToast,
   callClaude,
+  canDeleteTasksForRole,
+  calcProgress,
   fmtDate,
   priorityColor,
+  removeTaskAndReferences,
   stageColor,
   statusColor,
   AIBlock,
@@ -31,18 +34,20 @@ import {
 
 // ─── TASKS ────────────────────────────────────────────────────────────────────
 export const Tasks = React.memo(function Tasks() {
-  const { tasks, setTasks, projects, departments, comments, setComments, currentUser, users } = useApp();
+  const { tasks, setTasks, projects, setProjects, departments, comments, setComments, currentUser, users, logActivity } = useApp();
   const projectById = useMemo(() => Object.fromEntries((projects||[]).map(p => [p.id, p])), [projects]);
   const { theme: t } = useTheme();
   const toast = useToast();
   const bs = mkBtnSecondary(t);
   const [commentTask, setCommentTask] = useState(null);
+  const [taskToDelete, setTaskToDelete] = useState(null);
   const [viewMode, setViewMode]       = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
   const [deptFilter, setDeptFilter]   = useState("All");
   const statuses = ["All","To Do","In Progress","In Review","Done"];
   const KANBAN_STATUSES = ["To Do","In Progress","In Review","Done"];
   const KANBAN_COLORS   = { "To Do":"#6B7280","In Progress":"#3B82F6","In Review":"#F59E0B","Done":"#059669" };
+  const canDeleteTasks = canDeleteTasksForRole(currentUser?.role);
 
   const filtered = useMemo(() => {
     let result = statusFilter === "All" ? tasks : tasks.filter(t2 => t2.status === statusFilter);
@@ -76,8 +81,25 @@ export const Tasks = React.memo(function Tasks() {
     if (task) toast({ message: `"${task.title}" → ${newStatus}`, type: newStatus === "Done" ? "success" : "info" });
   };
 
-  const COLS = "32px 1fr 130px 110px 100px 90px 44px";
-  const ROW_HEADERS = ["","Task","Assigned To","Status","Priority","Due",""];
+  const deleteTask = (task) => {
+    if (!task) return;
+    if (!canDeleteTasks) {
+      toast({ message:"Task delete blocked", sub:"Only managers and above can delete tasks.", type:"warning" });
+      return;
+    }
+    const nextTasks = removeTaskAndReferences(tasks, task.id);
+    setTasks(nextTasks);
+    if (task.project_id) {
+      setProjects(projects.map(p => p.id === task.project_id ? { ...p, progress:calcProgress(p.id, nextTasks) } : p));
+    }
+    setComments((comments || []).filter(c => !(c.entity_type === "task" && c.entity_id === task.id)));
+    logActivity({ userName: currentUser?.name, eventType: "deleted", entityType: "task", entityId: task.id, entityTitle: task.title });
+    toast({ message:`"${task.title}" deleted`, sub:"Task removed permanently", type:"warning" });
+    if (commentTask?.id === task.id) setCommentTask(null);
+  };
+
+  const COLS = canDeleteTasks ? "32px 1fr 130px 110px 100px 90px 58px 44px" : "32px 1fr 130px 110px 100px 90px 44px";
+  const ROW_HEADERS = canDeleteTasks ? ["","Task","Assigned To","Status","Priority","Due","",""] : ["","Task","Assigned To","Status","Priority","Due",""];
 
   return (
     <div>
@@ -147,6 +169,9 @@ export const Tasks = React.memo(function Tasks() {
                             <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:4, marginBottom:5 }}>
                               <span style={{ fontSize:12, fontWeight:700, color:t2.status==="Done"?t.textFaint:t.text, lineHeight:1.35, textDecoration:t2.status==="Done"?"line-through":"none", flex:1 }}>{t2.title}</span>
                               {blocked && <span title="Blocked" style={{ fontSize:12, flexShrink:0 }}>🔒</span>}
+                              {canDeleteTasks && (
+                                <button onClick={()=>setTaskToDelete(t2)} title="Delete task" aria-label={`Delete ${t2.title}`} style={{ background:"transparent", border:"none", color:"#EF4444", cursor:"pointer", fontSize:15, lineHeight:1, padding:"0 2px", flexShrink:0 }}>x</button>
+                              )}
                             </div>
                             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
                               <div style={{ display:"flex", alignItems:"center", gap:4 }}>
@@ -244,6 +269,9 @@ export const Tasks = React.memo(function Tasks() {
                     <Badge label={t2.status} color={statusColor(t2.status)} />
                     <Badge label={t2.priority} color={priorityColor(t2.priority)} />
                     <div style={{ fontSize:11, color:t.textMuted }}>{fmtDate(t2.due_date)}</div>
+                    {canDeleteTasks && (
+                      <button onClick={()=>setTaskToDelete(t2)} title="Delete task" style={{ background:"transparent", border:"1px solid #EF444466", borderRadius:7, padding:"3px 7px", fontSize:11, color:"#EF4444", cursor:"pointer" }}>Delete</button>
+                    )}
                     <button onClick={()=>setCommentTask(t2)} style={{ display:"flex", alignItems:"center", gap:3, background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 8px", fontSize:11, color:cnt>0?t.accent:t.textMuted, cursor:"pointer", fontWeight:cnt>0?700:400 }}>
                       💬{cnt>0?` ${cnt}`:""}
                     </button>
@@ -260,6 +288,15 @@ export const Tasks = React.memo(function Tasks() {
       <Modal open={!!commentTask} onClose={()=>setCommentTask(null)} title={`Comments · ${commentTask?.title || ""}`}>
         {commentTask && <CommentsPanel entityType="task" entityId={commentTask.id} comments={comments||[]} setComments={setComments} currentUser={currentUser} users={users} />}
       </Modal>
+
+      <ConfirmModal
+        open={!!taskToDelete}
+        onClose={()=>setTaskToDelete(null)}
+        onConfirm={()=>deleteTask(taskToDelete)}
+        title={`Delete "${taskToDelete?.title || "this task"}"?`}
+        message="This will permanently remove the task, its comments, and any blocker references from other tasks."
+        confirmLabel="Delete Task"
+      />
     </div>
   );
 })

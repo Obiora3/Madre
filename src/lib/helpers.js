@@ -4,6 +4,14 @@ export const calcProgress = (projectId, tasks) => {
   if (!pt.length) return 0;
   return Math.round(pt.filter(t => t.status === "Done").length / pt.length * 100);
 };
+export const canDeleteTasksForRole = (role) =>
+  ["owner", "admin", "manager"].includes(String(role || "").toLowerCase());
+export const removeTaskAndReferences = (tasks, taskId) =>
+  (tasks || [])
+    .filter(t => t.id !== taskId)
+    .map(t => Array.isArray(t.blocked_by) && t.blocked_by.includes(taskId)
+      ? { ...t, blocked_by: t.blocked_by.filter(id => id !== taskId) }
+      : t);
 export const initials = (name) => name ? name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0,2) : "?";
 export const fmtDate = (d) => { if (!d) return "—"; const dt = new Date(d); return dt.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); };
 export const priorityColor = (p) => ({ Critical: "#EF4444", High: "#F97316", Medium: "#3B82F6", Low: "#6B7280" }[p] || "#6B7280");

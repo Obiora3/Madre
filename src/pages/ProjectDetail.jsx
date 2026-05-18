@@ -9,9 +9,11 @@ import {
   useTheme,
   useToast,
   callClaude,
+  canDeleteTasksForRole,
   calcProgress,
   fmtDate,
   priorityColor,
+  removeTaskAndReferences,
   stageColor,
   statusColor,
   AIBlock,
@@ -76,6 +78,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   const toast = useToast();
   const iS = mkInputStyle(t); const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);
   const project = projects.find(p => p.id === id);
+  const canDeleteTasks = canDeleteTasksForRole(currentUser?.role);
 
   // ── Task form state ─────────────────────────────────────────────────────────
   const [showTaskForm, setShowTaskForm] = useState(false);
@@ -97,6 +100,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   const [editTask, setEditTask] = useState(null);
   const [editTaskForm, setEditTaskForm] = useState(null);
   const [editTaskAssigneeKey, setEditTaskAssigneeKey] = useState("");
+  const [taskToDelete, setTaskToDelete] = useState(null);
 
   // ── Subtask / time / template state ────────────────────────────────────────
   const [expanded, setExpanded]       = useState(new Set());
@@ -289,6 +293,23 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     setEditTask(null); setEditTaskForm(null);
   };
 
+  const handleDeleteTask = (task) => {
+    if (!task) return;
+    if (!canDeleteTasks) {
+      toast({ message:"Task delete blocked", sub:"Only managers and above can delete tasks.", type:"warning" });
+      return;
+    }
+    const nextTasks = removeTaskAndReferences(tasks, task.id);
+    setTasks(nextTasks);
+    setProjects(projects.map(p => p.id === task.project_id ? { ...p, progress:calcProgress(p.id, nextTasks) } : p));
+    setComments((comments || []).filter(c => !(c.entity_type === "task" && c.entity_id === task.id)));
+    logActivity({ userName: currentUser?.name, eventType: "deleted", entityType: "task", entityId: task.id, entityTitle: task.title });
+    toast({ message:`"${task.title}" deleted`, sub:"Task removed permanently", type:"warning" });
+    if (editTask?.id === task.id) { setEditTask(null); setEditTaskForm(null); }
+    if (commentTask?.id === task.id) setCommentTask(null);
+    if (logTimeTask?.id === task.id) { setLogTimeTask(null); setLogHours(""); }
+  };
+
   const changeTaskStatus = (tid, newStatus) => {
     const task = tasks.find(t2 => t2.id === tid);
     if (!task) return;
@@ -353,6 +374,16 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
                       <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
                     </div>
                     <span style={{ fontSize:13, fontWeight:600, color:t2.status==="Done"?t.textFaint:t.textSub, textDecoration:t2.status==="Done"?"line-through":"none", lineHeight:1.4, flex:1 }}>{t2.title}</span>
+                    {canDeleteTasks && (
+                      <button
+                        onClick={e=>{ e.stopPropagation(); setTaskToDelete(t2); }}
+                        title="Delete task"
+                        aria-label={`Delete ${t2.title}`}
+                        style={{ background:"transparent", border:"none", color:"#EF4444", cursor:"pointer", fontSize:15, lineHeight:1, padding:"0 2px", flexShrink:0 }}
+                      >
+                        x
+                      </button>
+                    )}
                   </div>
                   <div style={{ display:"flex", flexWrap:"wrap", gap:4, alignItems:"center" }}>
                     <Badge label={t2.priority} color={priorityColor(t2.priority)} />
@@ -412,6 +443,9 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
               <button onClick={()=>{ setLogTimeTask(t2); setLogHours(""); }} title="Log time" style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 9px", fontSize:11, color:t2.actual_hours>0?t.accent:t.textMuted, cursor:"pointer" }}>⏱{t2.actual_hours>0?` ${t2.actual_hours}h`:""}</button>
               <button onClick={()=>setCommentTask(t2)} style={{ display:"flex", alignItems:"center", gap:4, background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 9px", fontSize:11, color:cnt>0?t.accent:t.textMuted, cursor:"pointer", fontWeight:cnt>0?700:400 }}>💬{cnt>0?` ${cnt}`:""}</button>
               <button onClick={()=>openEditTask(t2)} style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 9px", fontSize:11, color:t.textMuted, cursor:"pointer" }}>✏</button>
+              {canDeleteTasks && (
+                <button onClick={()=>setTaskToDelete(t2)} title="Delete task" style={{ background:"transparent", border:"1px solid #EF444466", borderRadius:7, padding:"3px 9px", fontSize:11, color:"#EF4444", cursor:"pointer" }}>Delete</button>
+              )}
             </div>
             {isExpanded && (
               <div style={{ paddingLeft:32, paddingBottom:10 }}>
@@ -603,6 +637,15 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
         {commentTask && <CommentsPanel entityType="task" entityId={commentTask.id} comments={comments||[]} setComments={setComments} currentUser={currentUser} users={users} />}
       </Modal>
 
+      <ConfirmModal
+        open={!!taskToDelete}
+        onClose={()=>setTaskToDelete(null)}
+        onConfirm={()=>handleDeleteTask(taskToDelete)}
+        title={`Delete "${taskToDelete?.title || "this task"}"?`}
+        message="This will permanently remove the task, its comments, and any blocker references from other tasks."
+        confirmLabel="Delete Task"
+      />
+
       {editTaskForm && (
         <Modal open={!!editTask} onClose={()=>{setEditTask(null);setEditTaskForm(null);}} title="Edit Task">
           <FormField label="Title"><input style={iS} value={editTaskForm.title} onChange={e=>setEditTaskForm({...editTaskForm,title:e.target.value})} /></FormField>
@@ -644,9 +687,14 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
               </div>
             </FormField>
           )}
-          <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
-            <button style={bs} onClick={()=>{setEditTask(null);setEditTaskForm(null);}}>Cancel</button>
-            <button style={btnPrimary} onClick={handleEditTaskSave} disabled={!editTaskForm.title}>Save Changes</button>
+          <div style={{ display:"flex", gap:10, justifyContent:canDeleteTasks?"space-between":"flex-end", alignItems:"center" }}>
+            {canDeleteTasks && (
+              <button style={{ ...bs, color:"#EF4444", borderColor:"#EF444466" }} onClick={()=>setTaskToDelete(editTask)}>Delete Task</button>
+            )}
+            <div style={{ display:"flex", gap:10 }}>
+              <button style={bs} onClick={()=>{setEditTask(null);setEditTaskForm(null);}}>Cancel</button>
+              <button style={btnPrimary} onClick={handleEditTaskSave} disabled={!editTaskForm.title}>Save Changes</button>
+            </div>
           </div>
         </Modal>
       )}

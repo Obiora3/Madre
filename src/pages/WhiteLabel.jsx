@@ -44,6 +44,7 @@ const ROLE_META = {
 const PERMISSIONS = [
   { label:"View projects & tasks",    owner:true,  admin:true,  manager:true,  member:true,  viewer:true  },
   { label:"Create & edit tasks",      owner:true,  admin:true,  manager:true,  member:true,  viewer:false },
+  { label:"Delete tasks",             owner:true,  admin:true,  manager:true,  member:false, viewer:false },
   { label:"Log time on tasks",        owner:true,  admin:true,  manager:true,  member:true,  viewer:false },
   { label:"Comment on projects",      owner:true,  admin:true,  manager:true,  member:true,  viewer:false },
   { label:"Create projects",          owner:true,  admin:true,  manager:true,  member:false, viewer:false },

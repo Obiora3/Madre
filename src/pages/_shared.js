@@ -6,9 +6,11 @@ export { useToast } from "../toast.jsx";
 export { DEFAULT_WHITE_LABEL_SETTINGS } from "../hooks/useWhiteLabelSettings.js";
 export { callClaude } from "../lib/ai.js";
 export {
+  canDeleteTasksForRole,
   calcProgress,
   fmtDate,
   priorityColor,
+  removeTaskAndReferences,
   stageColor,
   statusColor
 } from "../lib/helpers.js";
