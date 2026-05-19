@@ -35,7 +35,7 @@ import {
 
 // ─── TASKS ────────────────────────────────────────────────────────────────────
 export const Tasks = React.memo(function Tasks() {
-  const { tasks, setTasks, projects, setProjects, departments, comments, setComments, currentUser, users, logActivity } = useApp();
+  const { tasks, setTasks, projects, setProjects, departments, comments, setComments, currentUser, users, logActivity, nav } = useApp();
   const projectById = useMemo(() => Object.fromEntries((projects||[]).map(p => [p.id, p])), [projects]);
   const { theme: t } = useTheme();
   const toast = useToast();
@@ -159,7 +159,7 @@ export const Tasks = React.memo(function Tasks() {
               <div key={projectId||"__none__"} style={{ display:"grid", gridTemplateColumns:`180px repeat(${kanbanStatuses.length}, minmax(180px, 1fr))`, gap:8, marginBottom:16, minWidth:780, alignItems:"start" }}>
                 {/* Project label */}
                 <div style={{ paddingTop:4, paddingRight:8 }}>
-                  <div style={{ fontSize:12, fontWeight:800, color: proj ? t.text : t.textMuted, lineHeight:1.3 }}>{proj ? proj.title : "No Project"}</div>
+                  <div onClick={proj ? ()=>nav("project-detail", proj.id) : undefined} style={{ fontSize:12, fontWeight:800, color: proj ? t.accent : t.textMuted, lineHeight:1.3, cursor: proj ? "pointer" : "default", textDecoration: proj ? "underline" : "none", textDecorationColor: proj ? `${t.accent}66` : "transparent" }}>{proj ? proj.title : "No Project"}</div>
                   {proj && <div style={{ fontSize:10, color:t.textFaint, marginTop:2 }}>{proj.stage} · {proj.status}</div>}
                 </div>
                 {/* Status columns */}
@@ -231,7 +231,7 @@ export const Tasks = React.memo(function Tasks() {
               {/* Card header */}
               <div style={{ padding:"14px 18px", borderBottom:`1px solid ${t.border2}`, display:"flex", alignItems:"center", gap:12, background: proj ? proj.colour ? `${proj.colour}11` : `${t.accent}0d` : t.statBg }}>
                 <div style={{ flex:1 }}>
-                  <div style={{ fontSize:14, fontWeight:800, color: proj ? t.text : t.textMuted }}>
+                  <div onClick={proj ? ()=>nav("project-detail", proj.id) : undefined} style={{ fontSize:14, fontWeight:800, color: proj ? t.accent : t.textMuted, cursor: proj ? "pointer" : "default", textDecoration: proj ? "underline" : "none", textDecorationColor: proj ? `${t.accent}66` : "transparent" }}>
                     {proj ? proj.title : "No Project"}
                   </div>
                   {proj && (
