@@ -10,6 +10,8 @@ import {
   useToast,
   callClaude,
   fmtDate,
+  getTaskPipelines,
+  isTaskComplete,
   priorityColor,
   stageColor,
   statusColor,
@@ -30,8 +32,10 @@ import {
 
 // ─── TEAM ─────────────────────────────────────────────────────────────────────
 export const Team = React.memo(function Team() {
-  const { users, tasks, projects } = useApp();
+  const { users, tasks, projects, whiteLabelSettings } = useApp();
   const { theme: t } = useTheme();
+  const taskPipelines = useMemo(() => getTaskPipelines(whiteLabelSettings), [whiteLabelSettings]);
+  const projectById = useMemo(() => Object.fromEntries(projects.map(p => [p.id, p])), [projects]);
 
   const STATUS_ORDER = { "In Progress": 0, "In Review": 1, "To Do": 2 };
 
@@ -47,7 +51,7 @@ export const Team = React.memo(function Team() {
   const workloadMap = useMemo(() => {
     const map = {};
     users.forEach(u => {
-      const userTasks = tasks.filter(t2 => t2.assigned_to?.email === u.email && t2.status !== "Done");
+      const userTasks = tasks.filter(t2 => t2.assigned_to?.email === u.email && !isTaskComplete(t2, projectById[t2.project_id], taskPipelines));
       const hours = userTasks.reduce((s, t2) => s + taskHours(t2), 0);
       const pct = Math.min(100, Math.round((hours / 40) * 100));
       const sorted = [...userTasks].sort((a, b) =>
@@ -56,7 +60,7 @@ export const Team = React.memo(function Team() {
       map[u.email] = { hours, pct, count: userTasks.length, color: pct < 70 ? "#059669" : pct < 90 ? "#F59E0B" : "#EF4444", activeTasks: sorted };
     });
     return map;
-  }, [users, tasks]);
+  }, [users, tasks, projectById, taskPipelines]);
 
   // Active project counts per user
   const activeProjectMap = useMemo(() => {
@@ -67,7 +71,6 @@ export const Team = React.memo(function Team() {
     return map;
   }, [users, projects]);
 
-  const projectById = useMemo(() => Object.fromEntries(projects.map(p => [p.id, p])), [projects]);
   return (
     <div>
       <h1 style={{ margin:"0 0 24px", fontSize:26, fontWeight:800, color:t.text }}>Team</h1>

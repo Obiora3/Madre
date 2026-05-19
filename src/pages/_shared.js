@@ -8,11 +8,25 @@ export { callClaude } from "../lib/ai.js";
 export {
   canDeleteTasksForRole,
   calcProgress,
+  DEFAULT_PROJECT_PIPELINE_ID,
+  DEFAULT_PROJECT_PIPELINES,
+  completePipelineStatus,
+  firstPipelineStatus,
   fmtDate,
+  getProjectPipeline,
+  getPipelineStatuses,
+  getTaskPipelines,
+  getTaskStatusMeta,
+  isTaskActive,
+  isTaskComplete,
+  isTaskInProgress,
+  mapStatusToPipeline,
+  nextPipelineStatus,
   priorityColor,
   removeTaskAndReferences,
   stageColor,
-  statusColor
+  statusColor,
+  taskStatusColor
 } from "../lib/helpers.js";
 export {
   AIBlock,

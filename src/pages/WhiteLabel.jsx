@@ -3,6 +3,8 @@ import {
   useMemo,
   useState,
   DEFAULT_WHITE_LABEL_SETTINGS,
+  getTaskPipelines,
+  isTaskComplete,
   useApp,
   useTheme,
   Avatar,
@@ -73,6 +75,9 @@ export const WhiteLabel = React.memo(function Settings() {
   const [tab, setTab]       = useState("branding");
   const [saved, setSaved]   = useState(false);
   const [copied, setCopied] = useState(false);
+  const [pipelineDraft, setPipelineDraft] = useState({ name:"", description:"", statuses:"To Do\nIn Progress\nIn Review\nDone" });
+  const taskPipelines = useMemo(() => getTaskPipelines(s), [s]);
+  const projectById = useMemo(() => Object.fromEntries((projects || []).map(p => [p.id, p])), [projects]);
 
   // Activity filter / pagination
   const [actFilter, setActFilter]   = useState("all");
@@ -89,6 +94,29 @@ export const WhiteLabel = React.memo(function Settings() {
   const canResetData = currentRole === "owner";
 
   const set = (key, val) => setS(prev => ({ ...prev, [key]: val }));
+  const addPipeline = () => {
+    const labels = pipelineDraft.statuses.split(/\r?\n|,/).map(x => x.trim()).filter(Boolean);
+    if (!pipelineDraft.name.trim() || labels.length < 2) return;
+    const colors = ["#6B7280", "#3B82F6", "#F59E0B", "#059669", "#8B5CF6", "#0891B2"];
+    const pipeline = {
+      id: `custom-${Date.now()}`,
+      name: pipelineDraft.name.trim(),
+      description: pipelineDraft.description.trim(),
+      builtIn: false,
+      statuses: labels.map((label, idx) => ({
+        id: label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || `status_${idx + 1}`,
+        label,
+        color: colors[Math.min(idx, colors.length - 1)],
+        category: idx === labels.length - 1 ? "complete" : idx === 0 ? "todo" : idx >= labels.length - 2 ? "review" : "active",
+        isComplete: idx === labels.length - 1,
+      })),
+    };
+    setS(prev => ({ ...prev, project_pipelines:[...(prev.project_pipelines || prev.task_pipelines || []), pipeline] }));
+    setPipelineDraft({ name:"", description:"", statuses:"To Do\nIn Progress\nIn Review\nDone" });
+  };
+  const removePipeline = (pipelineId) => {
+    setS(prev => ({ ...prev, project_pipelines:(prev.project_pipelines || prev.task_pipelines || []).filter(p => p.id !== pipelineId) }));
+  };
 
   const save = () => {
     setWhiteLabelSettings(s);
@@ -147,7 +175,7 @@ export const WhiteLabel = React.memo(function Settings() {
       if (!t2.created_at) return;
       const proj = projects.find(p => p.id === t2.project_id);
       evts.push({ id:`tc-${t2.id}`, type:"task", icon:"✓", color:"#059669", user:t2.assigned_to?.name||"Unassigned", action:"created task", target:t2.title, targetSub:proj?`in ${proj.title}`:"", ts:t2.created_at });
-      if (t2.status === "Done") evts.push({ id:`td-${t2.id}`, type:"task", icon:"✅", color:"#059669", user:t2.assigned_to?.name||"Someone", action:"completed", target:t2.title, targetSub:proj?`in ${proj.title}`:"", ts:t2.due_date||t2.created_at });
+      if (isTaskComplete(t2, proj, taskPipelines)) evts.push({ id:`td-${t2.id}`, type:"task", icon:"✅", color:"#059669", user:t2.assigned_to?.name||"Someone", action:"completed", target:t2.title, targetSub:proj?`in ${proj.title}`:"", ts:t2.due_date||t2.created_at });
     });
     projects.forEach(p => {
       const ts = p.created_at || p.start_date;
@@ -156,7 +184,7 @@ export const WhiteLabel = React.memo(function Settings() {
       if (p.status === "Completed") evts.push({ id:`pf-${p.id}`, type:"project", icon:"🎉", color:"#7C3AED", user:p.assigned_to?.name||"Team", action:"delivered project", target:p.title, targetSub:"", ts:p.due_date||ts });
     });
     return evts.filter(e => e.ts).sort((a, b) => new Date(b.ts) - new Date(a.ts));
-  }, [activityEvents, comments, tasks, projects]);
+  }, [activityEvents, comments, tasks, projects, taskPipelines]);
 
   const filteredActivity = useMemo(() => {
     if (actFilter === "all") return activityFeed;
@@ -170,13 +198,13 @@ export const WhiteLabel = React.memo(function Settings() {
   const enrichedUsers = useMemo(() => {
     return users.map(u => {
       const userTasks    = tasks.filter(t2 => t2.assigned_to?.email === u.email);
-      const activeTasks  = userTasks.filter(t2 => t2.status !== "Done").length;
-      const completedTasks = userTasks.filter(t2 => t2.status === "Done").length;
+      const activeTasks  = userTasks.filter(t2 => !isTaskComplete(t2, projectById[t2.project_id], taskPipelines)).length;
+      const completedTasks = userTasks.filter(t2 => isTaskComplete(t2, projectById[t2.project_id], taskPipelines)).length;
       const dept = departments.find(d => d.name === u.department || d.id === u.department_id);
       const role = (pendingRoles[u.id] || u.role || "member").toLowerCase();
       return { ...u, role, activeTasks, completedTasks, deptLabel: dept?.name || u.department || "—" };
     });
-  }, [users, tasks, departments, pendingRoles]);
+  }, [users, tasks, departments, pendingRoles, projectById, taskPipelines]);
 
   const filteredUsers = useMemo(() => {
     if (roleFilter === "all") return enrichedUsers;
@@ -185,7 +213,7 @@ export const WhiteLabel = React.memo(function Settings() {
 
   const automationStats = useMemo(() => {
     const taskById = new Map((tasks || []).map(t2 => [t2.id, t2]));
-    const openTasks = (tasks || []).filter(t2 => t2.status !== "Done");
+    const openTasks = (tasks || []).filter(t2 => !isTaskComplete(t2, projectById[t2.project_id], taskPipelines));
     const deadlineWindow = Number(s.deadline_warning_hours || 24);
     const escalationHours = Number(s.overdue_escalation_hours || 24);
     let dueSoon = 0;
@@ -202,11 +230,14 @@ export const WhiteLabel = React.memo(function Settings() {
           if (diffHours < -escalationHours) escalated += 1;
         }
       }
-      if ((t2.blocked_by || []).some(depId => taskById.get(depId)?.status !== "Done")) blocked += 1;
+      if ((t2.blocked_by || []).some(depId => {
+        const dep = taskById.get(depId);
+        return dep && !isTaskComplete(dep, projectById[dep.project_id], taskPipelines);
+      })) blocked += 1;
     });
 
     return { dueSoon, overdue, escalated, blocked, openTasks: openTasks.length };
-  }, [tasks, s.deadline_warning_hours, s.overdue_escalation_hours]);
+  }, [tasks, s.deadline_warning_hours, s.overdue_escalation_hours, projectById, taskPipelines]);
 
   const CURRENCIES = [
     { code:"USD", symbol:"$",  label:"US Dollar" },
@@ -230,6 +261,7 @@ export const WhiteLabel = React.memo(function Settings() {
   const TABS = [
     { id:"branding",      label:"Branding",        icon:"🎨" },
     { id:"preferences",   label:"Preferences",     icon:"⚙️" },
+    { id:"pipelines",     label:"Pipelines",       icon:"Workflow" },
     { id:"notifications", label:"Notifications",   icon:"🔔" },
     { id:"automations",   label:"Automations",     icon:"⚡" },
     { id:"activity",      label:"Activity",        icon:"📋" },
@@ -242,7 +274,7 @@ export const WhiteLabel = React.memo(function Settings() {
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
         <h1 style={{ margin:0, fontSize:26, fontWeight:800, color:t.text }}>Settings</h1>
-        {["branding","preferences","notifications","automations"].includes(tab) && (
+        {["branding","preferences","pipelines","notifications","automations"].includes(tab) && (
           <div style={{ display:"flex", gap:10 }}>
             <button style={bs} onClick={reset}>Reset Defaults</button>
             <button style={{ ...btnPrimary, minWidth:120 }} onClick={save}>
@@ -386,6 +418,45 @@ export const WhiteLabel = React.memo(function Settings() {
       )}
 
       {/* ── NOTIFICATIONS ────────────────────────────────────────────────────── */}
+      {tab === "pipelines" && (
+        <div style={{ display:"grid", gridTemplateColumns:"1.3fr 0.9fr", gap:24 }}>
+          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+            {taskPipelines.map(pipeline => (
+              <div key={pipeline.id} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:18 }}>
+                <div style={{ display:"flex", alignItems:"flex-start", gap:12, marginBottom:12 }}>
+                  <div style={{ flex:1 }}>
+                    <h3 style={{ margin:"0 0 4px", fontSize:14, fontWeight:800, color:t.text }}>{pipeline.name}</h3>
+                    <p style={{ margin:0, fontSize:12, color:t.textFaint }}>{pipeline.description || "Custom workflow"}</p>
+                  </div>
+                  {pipeline.builtIn ? (
+                    <Badge label="Built in" color={s.primary_colour} />
+                  ) : (
+                    <button onClick={()=>removePipeline(pipeline.id)} style={{ ...bs, padding:"5px 10px", fontSize:11, color:"#EF4444", borderColor:"#EF444466" }}>Remove</button>
+                  )}
+                </div>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                  {pipeline.statuses.map(status => (
+                    <span key={status.id} style={{ fontSize:11, fontWeight:700, color:status.color, border:`1px solid ${status.color}44`, background:`${status.color}12`, borderRadius:99, padding:"4px 9px" }}>
+                      {status.label}{status.isComplete ? " complete" : ""}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, alignSelf:"start" }}>
+            <h3 style={{ margin:"0 0 4px", fontSize:14, fontWeight:800, color:t.text }}>Add Custom Pipeline</h3>
+            <p style={{ margin:"0 0 16px", fontSize:12, color:t.textFaint }}>The final stage is treated as delivered for the project board.</p>
+            <FormField label="Name"><input style={iS} value={pipelineDraft.name} onChange={e=>setPipelineDraft({...pipelineDraft,name:e.target.value})} placeholder="e.g. Event Production" /></FormField>
+            <FormField label="Description"><input style={iS} value={pipelineDraft.description} onChange={e=>setPipelineDraft({...pipelineDraft,description:e.target.value})} placeholder="Short workflow purpose" /></FormField>
+            <FormField label="Project Stages">
+              <textarea style={{ ...iS, height:120, resize:"vertical" }} value={pipelineDraft.statuses} onChange={e=>setPipelineDraft({...pipelineDraft,statuses:e.target.value})} placeholder="One stage per line" />
+            </FormField>
+            <button style={{ ...btnPrimary, width:"100%", opacity:pipelineDraft.name.trim()?1:0.6 }} disabled={!pipelineDraft.name.trim()} onClick={addPipeline}>Add Pipeline</button>
+          </div>
+        </div>
+      )}
+
       {tab === "notifications" && (
         <div style={{ maxWidth:600 }}>
           <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, marginBottom:16 }}>

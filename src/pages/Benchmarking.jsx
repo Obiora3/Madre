@@ -10,6 +10,8 @@ import {
   useToast,
   callClaude,
   fmtDate,
+  getTaskPipelines,
+  isTaskComplete,
   priorityColor,
   stageColor,
   statusColor,
@@ -44,6 +46,8 @@ export const Benchmarking = React.memo(function Benchmarking() {
   const { theme: t } = useTheme();
   const toast = useToast();
   const sS = mkSelectStyle(t); const iS = mkInputStyle(t); const bs = mkBtnSecondary(t);
+  const taskPipelines = useMemo(() => getTaskPipelines(whiteLabelSettings), [whiteLabelSettings]);
+  const projectById = useMemo(() => Object.fromEntries((projects || []).map(p => [p.id, p])), [projects]);
 
   const [industry,      setIndustry]      = useState("Technology");
   const [aiInsight,     setAiInsight]     = useState(null);
@@ -58,7 +62,7 @@ export const Benchmarking = React.memo(function Benchmarking() {
   const agencyStats = useMemo(() => {
     const completedProjects = projects.filter(p => p.stage === "Delivered").length;
     const totalProjects     = projects.length;
-    const completedTasks    = tasks.filter(t2 => t2.status === "Done").length;
+    const completedTasks    = tasks.filter(t2 => isTaskComplete(t2, projectById[t2.project_id], taskPipelines)).length;
     const totalTasks        = tasks.length;
     const kpiAchieved       = kpis.filter(k => k.status === "Achieved").length;
     const kpiTotal          = kpis.length;
@@ -68,7 +72,7 @@ export const Benchmarking = React.memo(function Benchmarking() {
       kpiAchievementRate:    kpiTotal      ? Math.round((kpiAchieved      / kpiTotal)       * 100) : 0,
       completedProjects, totalProjects, completedTasks, totalTasks, kpiAchieved, kpiTotal,
     };
-  }, [projects, tasks, kpis]);
+  }, [projects, tasks, kpis, projectById, taskPipelines]);
 
   const scoredBenchmarks = useMemo(() => benchmarks.map(b => {
     const isTop = b.agencyVal >= b.top;

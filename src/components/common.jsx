@@ -1,7 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../context/app-context.jsx";
 import { useTheme } from "../theme.js";
-import { fmtDate, initials, avatarBg } from "../lib/helpers.js";
+import {
+  fmtDate,
+  initials,
+  avatarBg,
+  getProjectPipeline,
+  getTaskPipelines,
+  isTaskComplete,
+  nextPipelineStatus,
+  statusColor,
+  taskStatusColor,
+} from "../lib/helpers.js";
 
 export function Badge({ label, color }) {
   return <span style={{ background: color + "22", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{label}</span>;
@@ -123,11 +133,15 @@ export const NotificationBell = React.memo(function NotificationBell() {
     Object.fromEntries((tasks || []).map(t2 => [t2.id, t2])),
     [tasks]
   );
+  const taskPipelines = useMemo(() => getTaskPipelines(whiteLabelSettings), [whiteLabelSettings]);
+  const isOpenTask = (task) => task && !isTaskComplete(task, projectById[task.project_id], taskPipelines);
+  const hasOpenDependencies = (task) =>
+    (task.blocked_by || []).some(depId => isOpenTask(taskById[depId]));
 
   const deadlineWindow = Number(whiteLabelSettings?.deadline_warning_hours || 24);
   const escalationHours = Number(whiteLabelSettings?.overdue_escalation_hours || 24);
   const now = new Date();
-  const urgent = whiteLabelSettings?.notify_deadlines === false ? [] : tasks.filter(t2 => t2.status !== "Done" && !dismissed.has(t2.id)).map(t2 => {
+  const urgent = whiteLabelSettings?.notify_deadlines === false ? [] : tasks.filter(t2 => isOpenTask(t2) && !dismissed.has(t2.id)).map(t2 => {
     const due = new Date(t2.due_date);
     if (Number.isNaN(due.getTime())) return null;
     const diff = (due - now) / 3600000;
@@ -140,8 +154,8 @@ export const NotificationBell = React.memo(function NotificationBell() {
   }).filter(Boolean);
 
   const blockedNotifs = whiteLabelSettings?.automation_blocked_alerts === false ? [] : tasks
-    .filter(t2 => t2.status !== "Done" && !dismissed.has(`blocked-${t2.id}`))
-    .filter(t2 => (t2.blocked_by || []).some(depId => taskById[depId]?.status !== "Done"))
+    .filter(t2 => isOpenTask(t2) && !dismissed.has(`blocked-${t2.id}`))
+    .filter(t2 => hasOpenDependencies(t2))
     .slice(0, 8)
     .map(t2 => ({ ...t2, id: `blocked-${t2.id}`, task_id: t2.id, urgency: "Blocked", urgencyColor: "#F59E0B" }));
 
@@ -568,13 +582,22 @@ const statusCircleStyle = (status) => ({
   "In Progress": { bg: "#3B82F644",    icon: "›", border: "#3B82F6" },
   "In Review":   { bg: "#F59E0B44",    icon: "…", border: "#F59E0B" },
   "Done":        { bg: "#059669",      icon: "✓", border: "#059669" },
-}[status] || { bg: "transparent", icon: "", border: "#888" });
+}[status] || { bg: `${statusColor(status)}22`, icon: "", border: statusColor(status) });
 
-export function TaskStatusButton({ task, onStatusChange }) {
+export function TaskStatusButton({ task, onStatusChange, statuses, project, pipelines }) {
   const { theme: t } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const ref = useRef(null);
-  const circle = statusCircleStyle(task.status);
+  const taskStatuses = useMemo(() => {
+    const source = Array.isArray(statuses) && statuses.length ? statuses : TASK_STATUSES;
+    return source.map(status => typeof status === "string" ? status : status.label).filter(Boolean);
+  }, [statuses, project, pipelines]);
+  const complete = isTaskComplete(task, project, pipelines);
+  const pipelineColor = taskStatusColor(task, project, pipelines);
+  const baseCircle = statusCircleStyle(task.status);
+  const circle = complete && !baseCircle.icon
+    ? { bg:pipelineColor, icon:"✓", border:pipelineColor }
+    : { ...baseCircle, border:pipelineColor || baseCircle.border };
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -585,7 +608,8 @@ export function TaskStatusButton({ task, onStatusChange }) {
 
   const handleClick = (e) => {
     e.stopPropagation();
-    onStatusChange(task.id, nextTaskStatus(task.status));
+    const idx = taskStatuses.indexOf(task.status);
+    onStatusChange(task.id, taskStatuses[(idx + 1) % taskStatuses.length] || nextPipelineStatus(task.status, project, pipelines));
   };
   const handleRightClick = (e) => {
     e.preventDefault();
@@ -610,7 +634,7 @@ export function TaskStatusButton({ task, onStatusChange }) {
           background: circle.bg,
           cursor: "pointer", flexShrink: 0,
           display: "flex", alignItems: "center", justifyContent: "center",
-          color: task.status === "Done" ? "#fff" : circle.border,
+          color: complete ? "#fff" : circle.border,
           fontSize: task.status === "In Review" ? 14 : 12,
           fontWeight: 700, transition: "all 0.15s", lineHeight: 1,
         }}
@@ -623,7 +647,7 @@ export function TaskStatusButton({ task, onStatusChange }) {
           background: t.card, border: `1px solid ${t.border2}`,
           borderRadius: 10, boxShadow: t.shadow, padding: 4, minWidth: 140,
         }}>
-          {TASK_STATUSES.map(s => {
+          {taskStatuses.map(s => {
             const sc = statusCircleStyle(s);
             const active = task.status === s;
             return (

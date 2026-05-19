@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { getTaskPipelines, isTaskComplete } from "../lib/helpers.js";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient.js";
 
 const RUNS_KEY = "af_automation_runs";
@@ -27,10 +28,10 @@ const hoursUntil = (dateValue) => {
   return (due - Date.now()) / 3600000;
 };
 
-const isTaskBlocked = (task, taskById) =>
+const isTaskBlocked = (task, taskById, projectById, taskPipelines) =>
   (task.blocked_by || []).some((depId) => {
     const dependency = taskById.get(depId);
-    return dependency && dependency.status !== "Done";
+    return dependency && !isTaskComplete(dependency, projectById.get(dependency.project_id), taskPipelines);
   });
 
 async function sendExternalNotification({ action, project, settings }) {
@@ -103,6 +104,7 @@ export function useOperationalAutomations({ tasks, projects, currentUser, settin
     const nextRuns = [...previousRuns];
     const taskById = new Map(tasks.map((task) => [task.id, task]));
     const projectById = new Map((projects || []).map((project) => [project.id, project]));
+    const taskPipelines = getTaskPipelines(settings);
     const actions = [];
 
     const markOnce = (kind, task) => {
@@ -131,7 +133,7 @@ export function useOperationalAutomations({ tasks, projects, currentUser, settin
     const escalationHours = Number(settings.overdue_escalation_hours || 24);
 
     for (const task of tasks) {
-      if (!task || task.status === "Done") continue;
+      if (!task || isTaskComplete(task, projectById.get(task.project_id), taskPipelines)) continue;
 
       const diffHours = task.due_date ? hoursUntil(task.due_date) : null;
       if (
@@ -152,7 +154,7 @@ export function useOperationalAutomations({ tasks, projects, currentUser, settin
         addAction("escalated", task, `"${task.title}" is overdue`, "error");
       }
 
-      if (settings.automation_blocked_alerts && isTaskBlocked(task, taskById)) {
+      if (settings.automation_blocked_alerts && isTaskBlocked(task, taskById, projectById, taskPipelines)) {
         addAction("blocked", task, `"${task.title}" is blocked`, "warning");
       }
     }

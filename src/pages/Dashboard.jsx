@@ -5,6 +5,9 @@ import {
   useTheme,
   calcProgress,
   fmtDate,
+  getProjectPipeline,
+  getTaskPipelines,
+  isTaskComplete,
   priorityColor,
   stageColor,
   statusColor,
@@ -19,6 +22,8 @@ export const Dashboard = React.memo(function Dashboard() {
   const { projects, tasks, clients, kpis, nav, whiteLabelSettings } = useApp();
   const CS = ({ USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" })[whiteLabelSettings?.currency] || "$";
   const { theme: t } = useTheme();
+  const taskPipelines = useMemo(() => getTaskPipelines(whiteLabelSettings), [whiteLabelSettings]);
+  const projectById = useMemo(() => Object.fromEntries((projects || []).map(p => [p.id, p])), [projects]);
 
   const todayLabel = useMemo(() => {
     return new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -31,21 +36,29 @@ export const Dashboard = React.memo(function Dashboard() {
     const budgetProjects = projects.filter(p => p.budget > 0);
     return {
       activeProjects,
-      doneTasks:     tasks.filter(t2 => t2.status === "Done"),
+      doneTasks:     tasks.filter(t2 => isTaskComplete(t2, projectById[t2.project_id], taskPipelines)),
       activeClients: clients.filter(c => c.status === "Active"),
       kpiOnTrack:    kpis.filter(k => ["On Track", "Achieved"].includes(k.status)),
-      overdueTasks:  tasks.filter(t2 => t2.status !== "Done" && new Date(t2.due_date) < now),
+      overdueTasks:  tasks.filter(t2 => !isTaskComplete(t2, projectById[t2.project_id], taskPipelines) && new Date(t2.due_date) < now),
       highPriority:  activeProjects.filter(p => ["Critical", "High"].includes(p.priority)),
       totalBudget:   budgetProjects.reduce((s, p) => s + (p.budget || 0), 0),
       totalSpent:    budgetProjects.reduce((s, p) => s + (p.budget_spent || 0), 0),
     };
-  }, [projects, tasks, clients, kpis]);
+  }, [projects, tasks, clients, kpis, projectById, taskPipelines]);
 
   // Pipeline stage counts — recompute only when projects change
   const stageCounts = useMemo(() => {
-    const stages = ["Brief", "Strategy", "Creative", "Review", "Delivered"];
-    return stages.map(s => ({ stage: s, count: projects.filter(p => p.stage === s && p.status === "Active").length }));
-  }, [projects]);
+    const byStage = new Map();
+    projects.filter(p => p.status === "Active").forEach(p => {
+      const pipeline = getProjectPipeline(p, taskPipelines);
+      const stage = pipeline.statuses.find(item => item.label === p.stage) || pipeline.statuses[0];
+      const key = stage?.label || p.stage || "Brief";
+      const item = byStage.get(key) || { stage:key, color:stage?.color || stageColor(key), count:0 };
+      item.count += 1;
+      byStage.set(key, item);
+    });
+    return [...byStage.values()];
+  }, [projects, taskPipelines]);
 
   // Real activity feed — includes creations AND edits (via updated_at from Supabase trigger)
   const recentActivity = useMemo(() => {
@@ -61,7 +74,7 @@ export const Dashboard = React.memo(function Dashboard() {
     for (const t2 of tasks) {
       entries.push({ id:`tc-${t2.id}`, description:`Task "${t2.title}" added`, user: t2.assigned_to?.name || "Team", timestamp: t2.created_at });
       if (t2.updated_at && t2.created_at && new Date(t2.updated_at) - new Date(t2.created_at) > GAP) {
-        const label = t2.status === "Done" ? `Task "${t2.title}" marked Done` : `Task "${t2.title}" → ${t2.status}`;
+        const label = isTaskComplete(t2, projectById[t2.project_id], taskPipelines) ? `Task "${t2.title}" marked complete` : `Task "${t2.title}" → ${t2.status}`;
         entries.push({ id:`tu-${t2.id}`, description: label, user: t2.assigned_to?.name || "Team", timestamp: t2.updated_at });
       }
     }
@@ -73,7 +86,7 @@ export const Dashboard = React.memo(function Dashboard() {
       .filter(e => e.timestamp)
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
       .slice(0, 10);
-  }, [projects, tasks, clients]);
+  }, [projects, tasks, clients, projectById, taskPipelines]);
 
   const bs = mkBtnSecondary(t);
 
@@ -98,10 +111,10 @@ export const Dashboard = React.memo(function Dashboard() {
             <button onClick={() => nav("projects")} style={{ ...bs, padding: "6px 14px", fontSize: 12 }}>View Board →</button>
           </div>
           <p style={{ margin: "0 0 14px", fontSize: 11, color: t.textGhost }}>Active projects by stage — spot where work is bottlenecking</p>
-          {stageCounts.map(({ stage, count }) => (
+          {stageCounts.map(({ stage, count, color }) => (
             <div key={stage} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
               <div style={{ width: 90, fontSize: 12, color: t.textMuted, fontWeight: 600 }}>{stage}</div>
-              <ProgressBar value={count} max={Math.max(...stageCounts.map(s=>s.count),1)} color={stageColor(stage)} height={8} />
+              <ProgressBar value={count} max={Math.max(...stageCounts.map(s=>s.count),1)} color={color || stageColor(stage)} height={8} />
               <div style={{ width: 24, textAlign: "right", fontSize: 13, fontWeight: 700, color: t.text }}>{count}</div>
             </div>
           ))}
@@ -142,8 +155,8 @@ export const Dashboard = React.memo(function Dashboard() {
                 <span style={{ fontSize: 13, fontWeight: 600, color: t.textSub }}>{p.title}</span>
                 <Badge label={p.priority} color={priorityColor(p.priority)} />
               </div>
-              <ProgressBar value={calcProgress(p.id, tasks)} color={priorityColor(p.priority)} />
-              <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4 }}>{calcProgress(p.id, tasks)}% complete · Due {fmtDate(p.due_date)}</div>
+              <ProgressBar value={calcProgress(p.id, tasks, p, taskPipelines)} color={priorityColor(p.priority)} />
+              <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4 }}>{calcProgress(p.id, tasks, p, taskPipelines)}% complete · Due {fmtDate(p.due_date)}</div>
             </div>
           ))}
         </div>

@@ -11,11 +11,18 @@ import {
   callClaude,
   canDeleteTasksForRole,
   calcProgress,
+  DEFAULT_PROJECT_PIPELINE_ID,
   fmtDate,
+  getProjectPipeline,
+  getPipelineStatuses,
+  getTaskPipelines,
+  isTaskComplete,
+  mapStatusToPipeline,
   priorityColor,
   removeTaskAndReferences,
   stageColor,
   statusColor,
+  taskStatusColor,
   AIBlock,
   Avatar,
   Badge,
@@ -78,11 +85,15 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   const toast = useToast();
   const iS = mkInputStyle(t); const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);
   const project = projects.find(p => p.id === id);
+  const taskPipelines = useMemo(() => getTaskPipelines(whiteLabelSettings), [whiteLabelSettings]);
+  const projectPipeline = getProjectPipeline(project, taskPipelines);
+  const projectStages = getPipelineStatuses(project, taskPipelines);
+  const defaultTaskStatus = "To Do";
   const canDeleteTasks = canDeleteTasksForRole(currentUser?.role);
 
   // ── Task form state ─────────────────────────────────────────────────────────
   const [showTaskForm, setShowTaskForm] = useState(false);
-  const BLANK_TASK = { title:"", description:"", status:"To Do", priority:"Medium", due_date:"", estimated_hours:0, actual_hours:0, subtasks:[], recurrence:"none", blocked_by:[] };
+  const BLANK_TASK = { title:"", description:"", status:defaultTaskStatus, priority:"Medium", due_date:"", estimated_hours:0, actual_hours:0, subtasks:[], recurrence:"none", blocked_by:[] };
   const [taskForm, setTaskForm] = useState(BLANK_TASK);
   const [taskAssigneeKey, setTaskAssigneeKey] = useState("");
 
@@ -139,7 +150,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   // ── Helpers ─────────────────────────────────────────────────────────────────
   const taskCommentCount = (tid) => (comments || []).filter(c => c.entity_type === "task" && c.entity_id === tid).length;
   const toggleExpand = (tid) => setExpanded(prev => { const n = new Set(prev); n.has(tid) ? n.delete(tid) : n.add(tid); return n; });
-  const isBlocked    = (task) => (task.blocked_by||[]).some(depId => { const dep = tasks.find(t2 => t2.id === depId); return dep && dep.status !== "Done"; });
+  const isBlocked    = (task) => (task.blocked_by||[]).some(depId => { const dep = tasks.find(t2 => t2.id === depId); return dep && !isTaskComplete(dep); });
   const departmentMemberEmails = (departmentName) => {
     const dept = departments.find(d => d.name === departmentName);
     if (!dept) return [];
@@ -188,10 +199,10 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
 
   const applyTemplate = (tmpl) => {
     const now = Date.now();
-    const newTasks = tmpl.tasks.map((tpl, i) => ({ id:`t${now+i}`, ...tpl, status:"To Do", project_id:id, assigned_to:{}, due_date:"", estimated_hours:0, actual_hours:0, subtasks:[], recurrence:"none", blocked_by:[], created_at:new Date().toISOString() }));
+    const newTasks = tmpl.tasks.map((tpl, i) => ({ id:`t${now+i}`, ...tpl, status:defaultTaskStatus, project_id:id, assigned_to:{}, due_date:"", estimated_hours:0, actual_hours:0, subtasks:[], recurrence:"none", blocked_by:[], created_at:new Date().toISOString() }));
     const all = [...tasks, ...newTasks];
     setTasks(all);
-    setProjects(projects.map(p => p.id === id ? { ...p, progress: calcProgress(id, all) } : p));
+    setProjects(projects.map(p => p.id === id ? { ...p, progress: calcProgress(id, all, p, taskPipelines) } : p));
     toast({ message:`${newTasks.length} tasks added from "${tmpl.name}"`, type:"success" });
   };
 
@@ -208,6 +219,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
       description: project.description || "",
       stage: project.stage || "Brief",
       priority: project.priority || "Medium",
+      pipeline_id: project.pipeline_id || DEFAULT_PROJECT_PIPELINE_ID,
       status: project.status || "Active",
       assigneeId: users.find(u => u.email === project.assigned_to?.email || u.name === project.assigned_to?.name)?.id || "",
       start_date: project.start_date || "",
@@ -226,7 +238,9 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     const assignee = assigneeId ? users.find(u => u.id === assigneeId) : null;
     const assignedTo = assignee ? { name:assignee.name, email:assignee.email } : {};
     const updatedProject = { ...project, ...rest, milestones, assigned_to: assignedTo };
-    setProjects(projects.map(p => p.id === id ? updatedProject : p));
+    const nextTasks = tasks;
+    updatedProject.stage = mapStatusToPipeline(updatedProject.stage, updatedProject, taskPipelines);
+    setProjects(projects.map(p => p.id === id ? { ...updatedProject, progress: calcProgress(id, nextTasks, updatedProject, taskPipelines) } : p));
     toast({ message:"Project updated." });
     if (
       whiteLabelSettings?.assignment_email_alerts !== false &&
@@ -258,10 +272,10 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
       const d = departments.find(x => x.id === taskAssigneeKey.slice(5));
       if (d) assignedTo = { name:d.name, email:"" };
     }
-    const newTask = { ...taskForm, id:"t"+Date.now(), project_id:id, assigned_to:assignedTo, created_at:new Date().toISOString() };
+    const newTask = { ...taskForm, status:taskForm.status || defaultTaskStatus, id:"t"+Date.now(), project_id:id, assigned_to:assignedTo, created_at:new Date().toISOString() };
     const newTasks = [...tasks, newTask];
     setTasks(newTasks);
-    setProjects(projects.map(p => p.id === id ? { ...p, progress:calcProgress(id, newTasks) } : p));
+    setProjects(projects.map(p => p.id === id ? { ...p, progress:calcProgress(id, newTasks, p, taskPipelines) } : p));
     logActivity({ userName: currentUser?.name, eventType: "task_added", entityType: "task", entityId: newTask.id, entityTitle: taskForm.title });
     toast({ message:`Task "${taskForm.title}" added`, sub:`${taskForm.priority} priority · Due ${fmtDate(taskForm.due_date)}`, type:"success" });
     emailTaskAssignment(newTask);
@@ -274,7 +288,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     if (assignee?.email) { const u = users.find(x => x.email === assignee.email); if (u) key = `user:${u.id}`; }
     else if (assignee?.name) { const d = departments.find(x => x.name === assignee.name); if (d) key = `dept:${d.id}`; }
     setEditTaskAssigneeKey(key);
-    setEditTaskForm({ title:task.title||"", description:task.description||"", status:task.status||"To Do", priority:task.priority||"Medium", due_date:task.due_date||"", estimated_hours:task.estimated_hours||0, actual_hours:task.actual_hours||0, recurrence:task.recurrence||"none", blocked_by:task.blocked_by||[] });
+    setEditTaskForm({ title:task.title||"", description:task.description||"", status:task.status||defaultTaskStatus, priority:task.priority||"Medium", due_date:task.due_date||"", estimated_hours:task.estimated_hours||0, actual_hours:task.actual_hours||0, recurrence:task.recurrence||"none", blocked_by:task.blocked_by||[] });
     setEditTask(task);
   };
 
@@ -287,7 +301,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     const newTasks = tasks.map(t2 => t2.id === editTask.id ? { ...t2, ...editTaskForm, assigned_to:assignedTo } : t2);
     const updatedTask = newTasks.find(t2 => t2.id === editTask.id);
     setTasks(newTasks);
-    setProjects(projects.map(p => p.id === id ? { ...p, progress:calcProgress(id, newTasks) } : p));
+    setProjects(projects.map(p => p.id === id ? { ...p, progress:calcProgress(id, newTasks, p, taskPipelines) } : p));
     toast({ message:`Task "${editTaskForm.title}" updated.` });
     emailTaskAssignment(updatedTask, editTask.assigned_to);
     setEditTask(null); setEditTaskForm(null);
@@ -301,7 +315,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     }
     const nextTasks = removeTaskAndReferences(tasks, task.id);
     setTasks(nextTasks);
-    setProjects(projects.map(p => p.id === task.project_id ? { ...p, progress:calcProgress(p.id, nextTasks) } : p));
+    setProjects(projects.map(p => p.id === task.project_id ? { ...p, progress:calcProgress(p.id, nextTasks, p, taskPipelines) } : p));
     setComments((comments || []).filter(c => !(c.entity_type === "task" && c.entity_id === task.id)));
     logActivity({ userName: currentUser?.name, eventType: "deleted", entityType: "task", entityId: task.id, entityTitle: task.title });
     toast({ message:`"${task.title}" deleted`, sub:"Task removed permanently", type:"warning" });
@@ -313,32 +327,33 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   const changeTaskStatus = (tid, newStatus) => {
     const task = tasks.find(t2 => t2.id === tid);
     if (!task) return;
-    if (newStatus === "Done" && isBlocked(task)) {
+    const completesTask = isTaskComplete({ ...task, status:newStatus }, project, taskPipelines);
+    if (completesTask && isBlocked(task)) {
       toast({ message:`"${task.title}" is blocked`, sub:"Complete all blocking tasks first", type:"error" });
       return;
     }
     let newTasks = tasks.map(t2 => t2.id === tid ? { ...t2, status:newStatus } : t2);
-    if (newStatus === "Done" && task.recurrence && task.recurrence !== "none") {
+    if (completesTask && task.recurrence && task.recurrence !== "none") {
       const nextDue = new Date(task.due_date || Date.now());
       if (task.recurrence === "daily")   nextDue.setDate(nextDue.getDate() + 1);
       if (task.recurrence === "weekly")  nextDue.setDate(nextDue.getDate() + 7);
       if (task.recurrence === "monthly") nextDue.setMonth(nextDue.getMonth() + 1);
       const hrs = Math.max(0, Math.round((nextDue - Date.now()) / 3600000));
-      newTasks = [...newTasks, { ...task, id:`t${Date.now()}`, status:"To Do", actual_hours:0, subtasks:(task.subtasks||[]).map(s=>({...s,done:false})), due_date:nextDue.toISOString().split("T")[0], estimated_hours:hrs, created_at:new Date().toISOString() }];
+      newTasks = [...newTasks, { ...task, id:`t${Date.now()}`, status:defaultTaskStatus, actual_hours:0, subtasks:(task.subtasks||[]).map(s=>({...s,done:false})), due_date:nextDue.toISOString().split("T")[0], estimated_hours:hrs, created_at:new Date().toISOString() }];
       toast({ message:`🔄 "${task.title}" recurred`, sub:`Next due ${fmtDate(nextDue.toISOString().split("T")[0])}`, type:"info" });
     } else {
-      toast({ message:`"${task.title}" → ${newStatus}`, type:newStatus==="Done"?"success":"info" });
+      toast({ message:`"${task.title}" → ${newStatus}`, type:completesTask?"success":"info" });
     }
     setTasks(newTasks);
-    setProjects(projects.map(p => p.id === id ? { ...p, progress:calcProgress(id, newTasks) } : p));
-    if (newStatus === "Done") logActivity({ userName: currentUser?.name, eventType: "task_completed", entityType: "task", entityId: tid, entityTitle: task.title });
+    setProjects(projects.map(p => p.id === id ? { ...p, progress:calcProgress(id, newTasks, p, taskPipelines) } : p));
+    if (completesTask) logActivity({ userName: currentUser?.name, eventType: "task_completed", entityType: "task", entityId: tid, entityTitle: task.title });
   };
 
   const simulateAI = async () => {
     setAiLoading(true); setAiResult(""); setAiError(null);
     try {
       const result = await callClaude(
-        `Analyze this project and provide a critical path delay simulation:\n\nProject: ${project.title}\nStage: ${project.stage}\nProgress: ${calcProgress(id, tasks)}%\nDue: ${project.due_date}\nTasks: ${projectTasks.map(t2=>`${t2.title} (${t2.status}, due ${t2.due_date})`).join("; ")}\n\nGive a brief risk assessment and 2-3 recommendations.`,
+        `Analyze this project and provide a critical path delay simulation:\n\nProject: ${project.title}\nStage: ${project.stage}\nProgress: ${calcProgress(id, tasks, project, taskPipelines)}%\nDue: ${project.due_date}\nProject pipeline: ${projectPipeline.name}\nTasks: ${projectTasks.map(t2=>`${t2.title} (${t2.status}, due ${t2.due_date})`).join("; ")}\n\nGive a brief risk assessment and 2-3 recommendations.`,
         "You are a project management AI. Be concise and specific."
       );
       setAiResult(result);
@@ -348,10 +363,10 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
 
   // ── Kanban view ───────────────────────────────────────────────────────────────
   const KanbanView = () => (
-    <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, alignItems:"start" }}>
+    <div style={{ display:"grid", gridTemplateColumns:`repeat(${KANBAN_COLS.length}, minmax(180px, 1fr))`, gap:12, alignItems:"start", overflowX:"auto" }}>
       {KANBAN_COLS.map(col => {
         const colTasks = projectTasks.filter(t2 => t2.status === col);
-        const colColor = statusColor(col);
+        const colColor = taskStatusColor(col);
         return (
           <div key={col}>
             <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:10, padding:"0 2px" }}>
@@ -373,7 +388,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
                     <div onClick={e=>e.stopPropagation()} style={{ flexShrink:0, marginTop:1 }}>
                       <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
                     </div>
-                    <span style={{ fontSize:13, fontWeight:600, color:t2.status==="Done"?t.textFaint:t.textSub, textDecoration:t2.status==="Done"?"line-through":"none", lineHeight:1.4, flex:1 }}>{t2.title}</span>
+                    <span style={{ fontSize:13, fontWeight:600, color:isTaskComplete(t2)?t.textFaint:t.textSub, textDecoration:isTaskComplete(t2)?"line-through":"none", lineHeight:1.4, flex:1 }}>{t2.title}</span>
                     {canDeleteTasks && (
                       <button
                         onClick={e=>{ e.stopPropagation(); setTaskToDelete(t2); }}
@@ -430,7 +445,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
               )}
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
-                  <span style={{ fontSize:13, fontWeight:600, color:t2.status==="Done"?t.textFaint:t.textSub, textDecoration:t2.status==="Done"?"line-through":"none" }}>{t2.title}</span>
+                  <span style={{ fontSize:13, fontWeight:600, color:isTaskComplete(t2)?t.textFaint:t.textSub, textDecoration:isTaskComplete(t2)?"line-through":"none" }}>{t2.title}</span>
                   {t2.recurrence && t2.recurrence!=="none" && <span title={`Repeats ${t2.recurrence}`} style={{fontSize:11}}>🔄</span>}
                   {blocked && <Badge label="🔒 Blocked" color="#EF4444" />}
                   {subs.length>0 && <span style={{fontSize:10,color:t.textFaint,background:t.statBg,borderRadius:99,padding:"1px 7px"}}>{subsDone}/{subs.length} ✓</span>}
@@ -493,6 +508,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
             <Badge label={project.stage} color={stageColor(project.stage)} />
             <Badge label={project.priority} color={priorityColor(project.priority)} />
             <Badge label={project.status} color={statusColor(project.status)} />
+            <Badge label={projectPipeline.name} color={projectStages[0]?.color || t.accent} />
           </div>
         </div>
         {(() => {
@@ -503,7 +519,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
             ["Assigned","👤", project.assigned_to?.name||"—", null],
             ["Start","📅", fmtDate(project.start_date), null],
             ["Due","🗓", fmtDate(project.due_date), null],
-            ["Progress","📈", `${calcProgress(id,tasks)}%`, null],
+            ["Progress","📈", `${calcProgress(id,tasks,project,taskPipelines)}%`, null],
             ...(hasBudget ? [
               ["Budget","💰", `${CS}${((project.budget||0)/1_000_000).toFixed(2)}M`, null],
               ["Spent","📤", `${CS}${((project.budget_spent||0)/1_000_000).toFixed(2)}M`, budgetOver ? "#EF4444" : (budgetUsedPct >= 80 ? "#F59E0B" : "#059669")],
@@ -531,7 +547,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
             </>
           );
         })()}
-        <ProgressBar value={calcProgress(id,tasks)} color="#7C3AED" height={8} />
+        <ProgressBar value={calcProgress(id,tasks,project,taskPipelines)} color="#7C3AED" height={8} />
       </div>
 
       {/* ── Milestones ─────────────────────────────────────────────────────────── */}
@@ -584,7 +600,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
           </div>
           <div style={{ display:"flex", gap:8 }}>
             <button onClick={()=>setShowTemplates(true)} style={{...bs, padding:"7px 14px", fontSize:12}}>📋 Templates</button>
-            <button onClick={()=>setShowTaskForm(true)} style={{...btnPrimary, padding:"7px 14px", fontSize:12}}>+ Add Task</button>
+            <button onClick={()=>{ setTaskForm({ ...BLANK_TASK, status:defaultTaskStatus }); setShowTaskForm(true); }} style={{...btnPrimary, padding:"7px 14px", fontSize:12}}>+ Add Task</button>
           </div>
         </div>
 
@@ -658,7 +674,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
           </FormField>
           <FormField label="Description"><input style={iS} value={editTaskForm.description} onChange={e=>setEditTaskForm({...editTaskForm,description:e.target.value})} /></FormField>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-            <FormField label="Status"><select style={sS} value={editTaskForm.status} onChange={e=>setEditTaskForm({...editTaskForm,status:e.target.value})}>{["To Do","In Progress","In Review","Done"].map(s=><option key={s}>{s}</option>)}</select></FormField>
+            <FormField label="Status"><select style={sS} value={editTaskForm.status} onChange={e=>setEditTaskForm({...editTaskForm,status:e.target.value})}>{KANBAN_COLS.map(s=><option key={s} value={s}>{s}</option>)}</select></FormField>
             <FormField label="Priority"><select style={sS} value={editTaskForm.priority} onChange={e=>setEditTaskForm({...editTaskForm,priority:e.target.value})}>{["Critical","High","Medium","Low"].map(s=><option key={s}>{s}</option>)}</select></FormField>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
@@ -709,7 +725,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
           </select>
         </FormField>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-          <FormField label="Status"><select style={sS} value={taskForm.status} onChange={e=>setTaskForm({...taskForm,status:e.target.value})}>{["To Do","In Progress","In Review","Done"].map(s=><option key={s}>{s}</option>)}</select></FormField>
+          <FormField label="Status"><select style={sS} value={taskForm.status} onChange={e=>setTaskForm({...taskForm,status:e.target.value})}>{KANBAN_COLS.map(s=><option key={s} value={s}>{s}</option>)}</select></FormField>
           <FormField label="Priority"><select style={sS} value={taskForm.priority} onChange={e=>setTaskForm({...taskForm,priority:e.target.value})}>{["Critical","High","Medium","Low"].map(s=><option key={s}>{s}</option>)}</select></FormField>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
@@ -752,7 +768,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
             <FormField label="Stage">
               <select style={sS} value={editForm.stage} onChange={e=>setEditForm({...editForm,stage:e.target.value})}>
-                {["Brief","Strategy","Creative","Review","Delivered"].map(s=><option key={s}>{s}</option>)}
+                {getProjectPipeline({ pipeline_id: editForm.pipeline_id }, taskPipelines).statuses.map(s=><option key={s.id} value={s.label}>{s.label}</option>)}
               </select>
             </FormField>
             <FormField label="Priority">
@@ -761,6 +777,19 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
               </select>
             </FormField>
           </div>
+          <FormField label="Project Pipeline">
+            <select style={sS} value={editForm.pipeline_id || DEFAULT_PROJECT_PIPELINE_ID} onChange={e=>{
+              const pipeline_id = e.target.value;
+              setEditForm({...editForm,pipeline_id,stage:mapStatusToPipeline(editForm.stage,{ pipeline_id },taskPipelines)});
+            }}>
+              {taskPipelines.map(pipeline => <option key={pipeline.id} value={pipeline.id}>{pipeline.name}</option>)}
+            </select>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:7 }}>
+              {getProjectPipeline({ pipeline_id: editForm.pipeline_id }, taskPipelines).statuses.map(status => (
+                <span key={status.id} style={{ fontSize:10, fontWeight:700, color:status.color, border:`1px solid ${status.color}44`, background:`${status.color}12`, borderRadius:99, padding:"2px 7px" }}>{status.label}</span>
+              ))}
+            </div>
+          </FormField>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
             <FormField label="Status">
               <select style={sS} value={editForm.status} onChange={e=>setEditForm({...editForm,status:e.target.value})}>
@@ -769,7 +798,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
             </FormField>
             <FormField label="Progress">
               <div style={{ ...iS, display:"flex", alignItems:"center", gap:8, cursor:"default" }}>
-                <span style={{ fontWeight:700 }}>{calcProgress(id,tasks)}%</span>
+                <span style={{ fontWeight:700 }}>{calcProgress(id,tasks,project,taskPipelines)}%</span>
                 <span style={{ fontSize:11, opacity:0.6 }}>auto · from tasks</span>
               </div>
             </FormField>

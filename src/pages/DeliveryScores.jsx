@@ -10,6 +10,8 @@ import {
   useToast,
   callClaude,
   fmtDate,
+  getTaskPipelines,
+  isTaskComplete,
   priorityColor,
   stageColor,
   statusColor,
@@ -48,7 +50,7 @@ function prevQuarter(q) {
   return idx > 0 ? QUARTERS[idx - 1] : null;
 }
 
-function scoreUsers(tasks, kpis, users, quarter) {
+function scoreUsers(tasks, kpis, users, quarter, projectById, taskPipelines) {
   const [start, end] = Q_RANGES[quarter] || [new Date(0), new Date()];
   const kpiAchieved  = kpis.filter(k => k.status === "Achieved").length;
   return users.map(u => {
@@ -58,7 +60,7 @@ function scoreUsers(tasks, kpis, users, quarter) {
       new Date(t2.due_date) >= start &&
       new Date(t2.due_date) <= end
     );
-    const done      = assigned.filter(t2 => t2.status === "Done");
+    const done      = assigned.filter(t2 => isTaskComplete(t2, projectById[t2.project_id], taskPipelines));
     const onTime    = done.filter(t2 => (t2.actual_hours || 0) <= (t2.estimated_hours || 99));
     const compRate  = assigned.length ? Math.round((done.length   / assigned.length) * 100) : 0;
     const timeRate  = done.length     ? Math.round((onTime.length / done.length)     * 100) : 0;
@@ -70,9 +72,11 @@ function scoreUsers(tasks, kpis, users, quarter) {
 }
 
 export const DeliveryScores = React.memo(function DeliveryScores() {
-  const { tasks, kpis, users, departments } = useApp();
+  const { tasks, kpis, users, departments, projects, whiteLabelSettings } = useApp();
   const { theme: t } = useTheme();
   const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);
+  const taskPipelines = useMemo(() => getTaskPipelines(whiteLabelSettings), [whiteLabelSettings]);
+  const projectById = useMemo(() => Object.fromEntries((projects || []).map(p => [p.id, p])), [projects]);
 
   const [quarter,      setQuarter]      = useState("Q2 2026");
   const [selectedUser, setSelectedUser] = useState(null);
@@ -81,9 +85,9 @@ export const DeliveryScores = React.memo(function DeliveryScores() {
   const [aiError,      setAiError]      = useState(null);
   const [tab,          setTab]          = useState("team");
 
-  const scores = useMemo(() => scoreUsers(tasks, kpis, users, quarter), [tasks, kpis, users, quarter]);
+  const scores = useMemo(() => scoreUsers(tasks, kpis, users, quarter, projectById, taskPipelines), [tasks, kpis, users, quarter, projectById, taskPipelines]);
   const prevQ  = prevQuarter(quarter);
-  const prevScores = useMemo(() => prevQ ? scoreUsers(tasks, kpis, users, prevQ) : [], [tasks, kpis, users, prevQ]);
+  const prevScores = useMemo(() => prevQ ? scoreUsers(tasks, kpis, users, prevQ, projectById, taskPipelines) : [], [tasks, kpis, users, prevQ, projectById, taskPipelines]);
 
   const { avgScore, highPerformers, meetCount, needCount, deptScores } = useMemo(() => {
     const avgScore        = scores.length ? Math.round(scores.reduce((s, r) => s + r.score, 0) / scores.length) : 0;

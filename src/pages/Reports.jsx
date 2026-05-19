@@ -5,6 +5,9 @@ import {
   useApp,
   useTheme,
   callClaude,
+  getTaskPipelines,
+  isTaskComplete,
+  isTaskInProgress,
   stageColor,
   statusColor,
   AIBlock,
@@ -85,6 +88,8 @@ export const Reports = React.memo(function Reports() {
   const RATE = whiteLabelSettings?.billing_rate || 150;
   const CURRENCY_SYMBOL = { USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" }[whiteLabelSettings?.currency] || "$";
   const iS = mkInputStyle(t); const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);
+  const taskPipelines = useMemo(() => getTaskPipelines(whiteLabelSettings), [whiteLabelSettings]);
+  const projectById = useMemo(() => Object.fromEntries((projects || []).map(p => [p.id, p])), [projects]);
 
   // ── Date range filter ────────────────────────────────────────────────────
   const [dateFrom, setDateFrom] = useState(() => {
@@ -130,24 +135,24 @@ export const Reports = React.memo(function Reports() {
   // ── Summary stats ────────────────────────────────────────────────────────
   const stats = useMemo(() => {
     const now = new Date();
-    const done     = filteredTasks.filter(t2 => t2.status === "Done").length;
-    const overdue  = filteredTasks.filter(t2 => t2.status !== "Done" && t2.due_date && new Date(t2.due_date) < now).length;
+    const done     = filteredTasks.filter(t2 => isTaskComplete(t2, projectById[t2.project_id], taskPipelines)).length;
+    const overdue  = filteredTasks.filter(t2 => !isTaskComplete(t2, projectById[t2.project_id], taskPipelines) && t2.due_date && new Date(t2.due_date) < now).length;
     const totalEst = Math.round(filteredTasks.reduce((s, t2) => s + (t2.estimated_hours || 0), 0));
     const totalAct = Math.round(filteredTasks.reduce((s, t2) => s + (t2.actual_hours    || 0), 0));
     const pct      = filteredTasks.length ? Math.round((done / filteredTasks.length) * 100) : 0;
     return { active: filteredProjects.filter(p => p.status === "Active").length, done, overdue, totalEst, totalAct, pct };
-  }, [filteredTasks, filteredProjects]);
+  }, [filteredTasks, filteredProjects, projectById, taskPipelines]);
 
   // ── Team utilisation ─────────────────────────────────────────────────────
   const teamLoad = useMemo(() => {
     return users.map(u => {
-      const uTasks = filteredTasks.filter(t2 => t2.assigned_to?.email === u.email && t2.status !== "Done");
+      const uTasks = filteredTasks.filter(t2 => t2.assigned_to?.email === u.email && !isTaskComplete(t2, projectById[t2.project_id], taskPipelines));
       const hours = Math.round(uTasks.reduce((s, t2) => s + (t2.estimated_hours || 0), 0));
       const pct   = Math.min(100, Math.round((hours / 40) * 100));
       const color = pct < 70 ? "#059669" : pct < 90 ? "#F59E0B" : "#EF4444";
       return { label: u.name, value: hours, max: 40, color, display: `${hours}h`, pct };
     }).filter(u => u.value > 0).sort((a, b) => b.value - a.value);
-  }, [users, filteredTasks]);
+  }, [users, filteredTasks, projectById, taskPipelines]);
 
   // ── Budget tracking ──────────────────────────────────────────────────────
   const budgetData = useMemo(() => {
@@ -176,12 +181,12 @@ export const Reports = React.memo(function Reports() {
       const key   = d.toISOString().split("T")[0];
       const label = d.toLocaleDateString("en", { month:"short", day:"numeric" });
       if (!weeks[key]) weeks[key] = { label, done:0, active:0, todo:0 };
-      if (t2.status === "Done") weeks[key].done++;
-      else if (["In Progress","In Review"].includes(t2.status)) weeks[key].active++;
+      if (isTaskComplete(t2, projectById[t2.project_id], taskPipelines)) weeks[key].done++;
+      else if (isTaskInProgress(t2, projectById[t2.project_id], taskPipelines)) weeks[key].active++;
       else weeks[key].todo++;
     });
     return Object.entries(weeks).sort(([a],[b]) => a.localeCompare(b)).map(([,v]) => v);
-  }, [burnProject, tasks]);
+  }, [burnProject, tasks, projectById, taskPipelines]);
 
   // ── AI Client Report ─────────────────────────────────────────────────────
   const [showReportModal, setShowReportModal] = useState(false);

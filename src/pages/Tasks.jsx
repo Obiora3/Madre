@@ -12,6 +12,7 @@ import {
   canDeleteTasksForRole,
   calcProgress,
   fmtDate,
+  isTaskComplete,
   priorityColor,
   removeTaskAndReferences,
   stageColor,
@@ -45,8 +46,7 @@ export const Tasks = React.memo(function Tasks() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [deptFilter, setDeptFilter]   = useState("All");
   const statuses = ["All","To Do","In Progress","In Review","Done"];
-  const KANBAN_STATUSES = ["To Do","In Progress","In Review","Done"];
-  const KANBAN_COLORS   = { "To Do":"#6B7280","In Progress":"#3B82F6","In Review":"#F59E0B","Done":"#059669" };
+  const kanbanStatuses = ["To Do","In Progress","In Review","Done"];
   const canDeleteTasks = canDeleteTasksForRole(currentUser?.role);
 
   const filtered = useMemo(() => {
@@ -77,8 +77,12 @@ export const Tasks = React.memo(function Tasks() {
 
   const changeTaskStatus = (id, newStatus) => {
     const task = tasks.find(t2 => t2.id === id);
-    setTasks(tasks.map(t2 => t2.id === id ? { ...t2, status: newStatus } : t2));
-    if (task) toast({ message: `"${task.title}" → ${newStatus}`, type: newStatus === "Done" ? "success" : "info" });
+    const nextTasks = tasks.map(t2 => t2.id === id ? { ...t2, status: newStatus } : t2);
+    setTasks(nextTasks);
+    if (task?.project_id) {
+      setProjects(projects.map(p => p.id === task.project_id ? { ...p, progress:calcProgress(p.id, nextTasks) } : p));
+    }
+    if (task) toast({ message: `"${task.title}" → ${newStatus}`, type: isTaskComplete({ ...task, status:newStatus }) ? "success" : "info" });
   };
 
   const deleteTask = (task) => {
@@ -135,12 +139,12 @@ export const Tasks = React.memo(function Tasks() {
         /* ── Kanban: swimlanes by project, columns by status ─────────────── */
         <div style={{ overflowX:"auto" }}>
           {/* Column headers */}
-          <div style={{ display:"grid", gridTemplateColumns:"180px repeat(4,1fr)", gap:8, marginBottom:8, minWidth:780 }}>
+          <div style={{ display:"grid", gridTemplateColumns:`180px repeat(${kanbanStatuses.length}, minmax(180px, 1fr))`, gap:8, marginBottom:8, minWidth:780 }}>
             <div />
-            {KANBAN_STATUSES.map(col => (
-              <div key={col} style={{ display:"flex", alignItems:"center", gap:6 }}>
-                <div style={{ width:8, height:8, borderRadius:"50%", background:KANBAN_COLORS[col], flexShrink:0 }} />
-                <span style={{ fontSize:11, fontWeight:700, color:t.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}>{col}</span>
+            {kanbanStatuses.map(status => (
+              <div key={status} style={{ display:"flex", alignItems:"center", gap:6 }}>
+                <div style={{ width:8, height:8, borderRadius:"50%", background:statusColor(status), flexShrink:0 }} />
+                <span style={{ fontSize:11, fontWeight:700, color:t.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}>{status}</span>
               </div>
             ))}
           </div>
@@ -148,26 +152,27 @@ export const Tasks = React.memo(function Tasks() {
           {groups.map(([projectId, groupTasks]) => {
             const proj = projectId ? projectById[projectId] : null;
             return (
-              <div key={projectId||"__none__"} style={{ display:"grid", gridTemplateColumns:"180px repeat(4,1fr)", gap:8, marginBottom:16, minWidth:780, alignItems:"start" }}>
+              <div key={projectId||"__none__"} style={{ display:"grid", gridTemplateColumns:`180px repeat(${kanbanStatuses.length}, minmax(180px, 1fr))`, gap:8, marginBottom:16, minWidth:780, alignItems:"start" }}>
                 {/* Project label */}
                 <div style={{ paddingTop:4, paddingRight:8 }}>
                   <div style={{ fontSize:12, fontWeight:800, color: proj ? t.text : t.textMuted, lineHeight:1.3 }}>{proj ? proj.title : "No Project"}</div>
                   {proj && <div style={{ fontSize:10, color:t.textFaint, marginTop:2 }}>{proj.stage} · {proj.status}</div>}
                 </div>
                 {/* Status columns */}
-                {KANBAN_STATUSES.map(col => {
-                  const cc = KANBAN_COLORS[col];
+                {kanbanStatuses.map(status => {
+                  const col = status;
+                  const cc = statusColor(status);
                   const colTasks = groupTasks.filter(t2 => t2.status === col);
                   return (
                     <div key={col} style={{ background:t.statBg, borderRadius:10, padding:8, minHeight:60 }}>
                       {colTasks.map(t2 => {
                         const subs    = t2.subtasks || [];
                         const cnt     = (comments||[]).filter(c=>c.entity_type==="task"&&c.entity_id===t2.id).length;
-                        const blocked = (t2.blocked_by||[]).some(depId => { const dep = tasks.find(x=>x.id===depId); return dep && dep.status!=="Done"; });
+                        const blocked = (t2.blocked_by||[]).some(depId => { const dep = tasks.find(x=>x.id===depId); return dep && !isTaskComplete(dep); });
                         return (
                           <div key={t2.id} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:8, padding:10, marginBottom:6 }}>
                             <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:4, marginBottom:5 }}>
-                              <span style={{ fontSize:12, fontWeight:700, color:t2.status==="Done"?t.textFaint:t.text, lineHeight:1.35, textDecoration:t2.status==="Done"?"line-through":"none", flex:1 }}>{t2.title}</span>
+                              <span style={{ fontSize:12, fontWeight:700, color:isTaskComplete(t2)?t.textFaint:t.text, lineHeight:1.35, textDecoration:isTaskComplete(t2)?"line-through":"none", flex:1 }}>{t2.title}</span>
                               {blocked && <span title="Blocked" style={{ fontSize:12, flexShrink:0 }}>🔒</span>}
                               {canDeleteTasks && (
                                 <button onClick={()=>setTaskToDelete(t2)} title="Delete task" aria-label={`Delete ${t2.title}`} style={{ background:"transparent", border:"none", color:"#EF4444", cursor:"pointer", fontSize:15, lineHeight:1, padding:"0 2px", flexShrink:0 }}>x</button>
@@ -216,7 +221,7 @@ export const Tasks = React.memo(function Tasks() {
           <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
         {groups.map(([projectId, groupTasks]) => {
           const proj = projectId ? projectById[projectId] : null;
-          const doneCount = groupTasks.filter(t2 => t2.status === "Done").length;
+          const doneCount = groupTasks.filter(t2 => isTaskComplete(t2)).length;
           return (
             <div key={projectId || "__none__"} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, overflow:"hidden" }}>
               {/* Card header */}
@@ -247,13 +252,13 @@ export const Tasks = React.memo(function Tasks() {
               {groupTasks.map(t2 => {
                 const cnt = (comments||[]).filter(c=>c.entity_type==="task"&&c.entity_id===t2.id).length;
                 const subs = t2.subtasks||[];
-                const blocked = (t2.blocked_by||[]).some(depId => { const dep = tasks.find(x=>x.id===depId); return dep && dep.status!=="Done"; });
+                const blocked = (t2.blocked_by||[]).some(depId => { const dep = tasks.find(x=>x.id===depId); return dep && !isTaskComplete(dep); });
                 return (
                   <div key={t2.id} style={{ display:"grid", gridTemplateColumns:COLS, gap:0, padding:"11px 16px", borderBottom:`1px solid ${t.divider}`, alignItems:"center" }}>
                     <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
                     <div>
                       <div style={{ display:"flex", alignItems:"center", gap:5, flexWrap:"wrap" }}>
-                        <span style={{ fontSize:13, fontWeight:600, color:t2.status==="Done"?t.textFaint:t.textSub, textDecoration:t2.status==="Done"?"line-through":"none" }}>{t2.title}</span>
+                        <span style={{ fontSize:13, fontWeight:600, color:isTaskComplete(t2)?t.textFaint:t.textSub, textDecoration:isTaskComplete(t2)?"line-through":"none" }}>{t2.title}</span>
                         {t2.recurrence && t2.recurrence !== "none" && <span title={`Repeats ${t2.recurrence}`} style={{ fontSize:11 }}>🔄</span>}
                         {blocked && <Badge label="🔒" color="#EF4444" />}
                       </div>
