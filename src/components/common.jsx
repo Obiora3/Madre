@@ -14,7 +14,7 @@ import {
 } from "../lib/helpers.js";
 
 export function Badge({ label, color }) {
-  return <span style={{ background: color + "22", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{label}</span>;
+  return <span style={{ display:"inline-flex", alignItems:"center", width:"fit-content", background: color + "22", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{label}</span>;
 }
 
 export function ThemeToggle() {

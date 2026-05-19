@@ -102,7 +102,11 @@ export const Tasks = React.memo(function Tasks() {
     if (commentTask?.id === task.id) setCommentTask(null);
   };
 
-  const COLS = canDeleteTasks ? "32px 1fr 130px 110px 100px 90px 58px 44px" : "32px 1fr 130px 110px 100px 90px 44px";
+  const TABLE_GAP = 14;
+  const TABLE_MIN_WIDTH = canDeleteTasks ? 880 : 810;
+  const COLS = canDeleteTasks
+    ? "32px minmax(220px, 1fr) 140px 130px 118px 110px 64px 54px"
+    : "32px minmax(220px, 1fr) 140px 130px 118px 110px 54px";
   const ROW_HEADERS = canDeleteTasks ? ["","Task","Assigned To","Status","Priority","Due","",""] : ["","Task","Assigned To","Status","Priority","Due",""];
 
   return (
@@ -223,7 +227,7 @@ export const Tasks = React.memo(function Tasks() {
           const proj = projectId ? projectById[projectId] : null;
           const doneCount = groupTasks.filter(t2 => isTaskComplete(t2)).length;
           return (
-            <div key={projectId || "__none__"} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, overflow:"hidden" }}>
+            <div key={projectId || "__none__"} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, overflowX:"auto", overflowY:"hidden" }}>
               {/* Card header */}
               <div style={{ padding:"14px 18px", borderBottom:`1px solid ${t.border2}`, display:"flex", alignItems:"center", gap:12, background: proj ? proj.colour ? `${proj.colour}11` : `${t.accent}0d` : t.statBg }}>
                 <div style={{ flex:1 }}>
@@ -242,7 +246,7 @@ export const Tasks = React.memo(function Tasks() {
               </div>
 
               {/* Column headers */}
-              <div style={{ display:"grid", gridTemplateColumns:COLS, gap:0, padding:"8px 16px", borderBottom:`1px solid ${t.divider}` }}>
+              <div style={{ display:"grid", gridTemplateColumns:COLS, columnGap:TABLE_GAP, minWidth:TABLE_MIN_WIDTH, padding:"8px 16px", borderBottom:`1px solid ${t.divider}` }}>
                 {ROW_HEADERS.map((h,i)=>(
                   <div key={i} style={{ fontSize:10, fontWeight:700, color:t.textGhost, letterSpacing:"0.07em", textTransform:"uppercase" }}>{h}</div>
                 ))}
@@ -254,7 +258,7 @@ export const Tasks = React.memo(function Tasks() {
                 const subs = t2.subtasks||[];
                 const blocked = (t2.blocked_by||[]).some(depId => { const dep = tasks.find(x=>x.id===depId); return dep && !isTaskComplete(dep); });
                 return (
-                  <div key={t2.id} style={{ display:"grid", gridTemplateColumns:COLS, gap:0, padding:"11px 16px", borderBottom:`1px solid ${t.divider}`, alignItems:"center" }}>
+                  <div key={t2.id} style={{ display:"grid", gridTemplateColumns:COLS, columnGap:TABLE_GAP, minWidth:TABLE_MIN_WIDTH, padding:"11px 16px", borderBottom:`1px solid ${t.divider}`, alignItems:"center" }}>
                     <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
                     <div>
                       <div style={{ display:"flex", alignItems:"center", gap:5, flexWrap:"wrap" }}>
