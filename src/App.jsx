@@ -196,7 +196,7 @@ export default function Madre() {
 
             {/* Sidebar */}
             <div style={{ width: sidebarOpen ? 220 : 0, minWidth: sidebarOpen ? 220 : 0, background:st.surface, display:"flex", flexDirection:"column", overflow:"hidden", transition:"width 0.25s ease, min-width 0.25s ease, background 0.3s ease", flexShrink:0 }}>
-              <div style={{ height:headerHeight, boxSizing:"border-box", padding:"0 16px", borderBottom:`1px solid ${st.border}`, display:"flex", alignItems:"center" }}>
+              <div style={{ height:headerHeight, boxSizing:"border-box", padding:"0 16px", display:"flex", alignItems:"center" }}>
                 <img src="/logo.png" alt="logo" style={{ width:70, height:70, objectFit:"contain" }} />
               </div>
               <div className="app-sidebar-scroll" style={{ flex:1, overflowY:"auto", padding:"14px 12px 10px" }}>
