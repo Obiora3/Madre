@@ -96,8 +96,12 @@ export default function Madre() {
   const nav = useCallback((p, param = null) => {
     setPage(p);
     setPageParam(param);
-    if (contentRef.current) contentRef.current.scrollTop = 0;
   }, []);
+
+  // Reset scroll to top after every page navigation
+  useEffect(() => {
+    if (contentRef.current) contentRef.current.scrollTop = 0;
+  }, [page, pageParam]);
 
   // Show a toast whenever a Supabase sync write fails
   useEffect(() => {
