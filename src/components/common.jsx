@@ -416,7 +416,7 @@ export function CommentsPanel({ entityType, entityId, comments, setComments, cur
   const [mentionQuery, setMentionQuery] = useState(null);
   const [mentionAnchorPos, setMentionAnchorPos] = useState(0);
   const [mentionIdx, setMentionIdx] = useState(0);
-  const bottomRef = useRef(null);
+  const listRef = useRef(null);
   const textareaRef = useRef(null);
 
   const entityComments = useMemo(() =>
@@ -427,7 +427,7 @@ export function CommentsPanel({ entityType, entityId, comments, setComments, cur
   );
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [entityComments.length]);
 
   const mentionSuggestions = useMemo(() => {
@@ -502,7 +502,7 @@ export function CommentsPanel({ entityType, entityId, comments, setComments, cur
 
   return (
     <div>
-      <div style={{ maxHeight: 320, overflowY: "auto", marginBottom: 12 }}>
+      <div ref={listRef} style={{ maxHeight: 320, overflowY: "auto", marginBottom: 12 }}>
         {entityComments.length === 0 ? (
           <div style={{ padding: "24px 0", textAlign: "center", color: t.textFaint, fontSize: 13 }}>
             No comments yet. Be the first to add one.
@@ -528,7 +528,6 @@ export function CommentsPanel({ entityType, entityId, comments, setComments, cur
             </div>
           </div>
         ))}
-        <div ref={bottomRef} />
       </div>
       <div style={{ position: "relative" }}>
         {mentionSuggestions.length > 0 && (
