@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../context/app-context.jsx";
 import { useTheme } from "../theme.js";
 import { createNotification } from "../lib/notificationHelpers.js";
+import { sendAssignmentEmail } from "../lib/assignmentNotifications.js";
 import {
   fmtDate,
   initials,
@@ -458,6 +459,7 @@ const timeAgo = (iso) => {
 
 export function CommentsPanel({ entityType, entityId, comments, setComments, currentUser, users }) {
   const { theme: t } = useTheme();
+  const { whiteLabelSettings } = useApp();
   const [body, setBody] = useState("");
   const [mentionQuery, setMentionQuery] = useState(null);
   const [mentionAnchorPos, setMentionAnchorPos] = useState(0);
@@ -543,21 +545,29 @@ export function CommentsPanel({ entityType, entityId, comments, setComments, cur
       body: text,
       created_at: new Date().toISOString(),
     }]);
-    // Notify mentioned teammates
+    // Notify mentioned teammates (in-app + email)
     if (currentUser.agency_id && users?.length) {
       const mentionedNames = [...text.matchAll(/@\[([^\]]+)\]/g)].map(m => m[1]);
+      const preview = text.replace(/@\[([^\]]+)\]/g, "@$1").slice(0, 120);
       mentionedNames.forEach(name => {
         const user = users.find(u => u.name === name && u.email !== currentUser.email);
-        if (user?.email) {
-          createNotification({
-            agencyId: currentUser.agency_id,
-            recipientEmail: user.email,
-            type: "mentioned",
-            title: `${currentUser.name} mentioned you`,
-            body: text.replace(/@\[([^\]]+)\]/g, "@$1").slice(0, 120),
-            entityType,
-            entityId,
-          });
+        if (!user?.email) return;
+        createNotification({
+          agencyId: currentUser.agency_id,
+          recipientEmail: user.email,
+          type: "mentioned",
+          title: `${currentUser.name} mentioned you`,
+          body: preview,
+          entityType,
+          entityId,
+        });
+        if (whiteLabelSettings?.automation_email !== false) {
+          sendAssignmentEmail({
+            kind: "mentioned",
+            assignedEmail: user.email,
+            recipientUsers: [user],
+            actorName: currentUser.name,
+          }).catch(() => {});
         }
       });
     }

@@ -51,7 +51,9 @@ export async function sendAssignmentEmail({ kind, task, project, assignedEmail, 
   const entity = task || project;
   const message = kind === "task_assigned"
     ? `${actorName || "Someone"} assigned you a new task.`
-    : `${actorName || "Someone"} assigned you a new project.`;
+    : kind === "mentioned"
+      ? `${actorName || "Someone"} mentioned you in a comment.`
+      : `${actorName || "Someone"} assigned you a new project.`;
 
   const resp = await fetch("/api/notify", {
     method: "POST",
