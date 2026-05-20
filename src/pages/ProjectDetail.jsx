@@ -123,30 +123,6 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   // ── View mode (list vs kanban) ──────────────────────────────────────────────
   const [taskView, setTaskView] = useState("list");
 
-  // ── Milestones ──────────────────────────────────────────────────────────────
-  const [milestones, setMilestones] = useState(() => project?.milestones || []);
-  const [newMsTitle, setNewMsTitle] = useState("");
-  const [newMsDate, setNewMsDate]   = useState("");
-
-  // Sync milestones if project changes (e.g. after save)
-  useEffect(() => {
-    setMilestones(project?.milestones || []);
-  }, [project?.id]);
-
-  const saveMilestones = (ms) => {
-    setMilestones(ms);
-    setProjects(projects.map(p => p.id === id ? { ...p, milestones: ms } : p));
-  };
-  const addMilestone = () => {
-    if (!newMsTitle.trim()) return;
-    const ms = { id:`ms${Date.now()}`, title:newMsTitle.trim(), date:newMsDate, done:false };
-    saveMilestones([...milestones, ms]);
-    logActivity({ userName: currentUser?.name, eventType: "milestone_added", entityType: "project", entityId: id, entityTitle: ms.title });
-    setNewMsTitle(""); setNewMsDate("");
-  };
-  const toggleMs   = (msId) => saveMilestones(milestones.map(m => m.id===msId ? {...m, done:!m.done} : m));
-  const deleteMs   = (msId) => saveMilestones(milestones.filter(m => m.id!==msId));
-
   // ── Helpers ─────────────────────────────────────────────────────────────────
   const taskCommentCount = (tid) => (comments || []).filter(c => c.entity_type === "task" && c.entity_id === tid).length;
   const toggleExpand = (tid) => setExpanded(prev => { const n = new Set(prev); n.has(tid) ? n.delete(tid) : n.add(tid); return n; });
@@ -237,7 +213,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     const { assigneeId, ...rest } = editForm;
     const assignee = assigneeId ? users.find(u => u.id === assigneeId) : null;
     const assignedTo = assignee ? { name:assignee.name, email:assignee.email } : {};
-    const updatedProject = { ...project, ...rest, milestones, assigned_to: assignedTo };
+    const updatedProject = { ...project, ...rest, assigned_to: assignedTo };
     const nextTasks = tasks;
     updatedProject.stage = mapStatusToPipeline(updatedProject.stage, updatedProject, taskPipelines);
     setProjects(projects.map(p => p.id === id ? { ...updatedProject, progress: calcProgress(id, nextTasks, updatedProject, taskPipelines) } : p));
@@ -548,40 +524,6 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
           );
         })()}
         <ProgressBar value={calcProgress(id,tasks,project,taskPipelines)} color="#7C3AED" height={8} />
-      </div>
-
-      {/* ── Milestones ─────────────────────────────────────────────────────────── */}
-      <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, marginBottom:20 }}>
-        <h3 style={{ margin:"0 0 14px", color:t.text, fontSize:15, fontWeight:700 }}>
-          🏁 Milestones
-          <span style={{ marginLeft:8, fontSize:12, fontWeight:500, color:t.textFaint }}>({milestones.length})</span>
-        </h3>
-
-        {milestones.length === 0 && (
-          <div style={{ fontSize:13, color:t.textFaint, marginBottom:12, padding:"8px 0" }}>No milestones yet. Add key checkpoints below.</div>
-        )}
-
-        {milestones.map(m => (
-          <div key={m.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom:`1px solid ${t.divider}` }}>
-            <input type="checkbox" checked={m.done} onChange={()=>toggleMs(m.id)} style={{ width:15, height:15, cursor:"pointer", accentColor:t.accent, flexShrink:0 }} />
-            <span style={{ flex:1, fontSize:13, fontWeight:600, color:m.done?t.textFaint:t.textSub, textDecoration:m.done?"line-through":"none" }}>{m.title}</span>
-            {m.date && <span style={{ fontSize:11, color:t.textFaint, flexShrink:0 }}>📅 {fmtDate(m.date)}</span>}
-            {m.done && <Badge label="Done" color="#059669" />}
-            <button onClick={()=>deleteMs(m.id)} style={{ background:"none", border:"none", cursor:"pointer", color:t.textGhost, fontSize:17, lineHeight:1, flexShrink:0 }}>×</button>
-          </div>
-        ))}
-
-        <div style={{ display:"flex", gap:8, marginTop:14 }}>
-          <input
-            placeholder="New milestone title…"
-            value={newMsTitle}
-            onChange={e => setNewMsTitle(e.target.value)}
-            onKeyDown={e => e.key==="Enter" && addMilestone()}
-            style={{ flex:1, ...iS, fontSize:12 }}
-          />
-          <input type="date" value={newMsDate} onChange={e=>setNewMsDate(e.target.value)} style={{ ...iS, width:148, fontSize:12, flexShrink:0 }} />
-          <button onClick={addMilestone} disabled={!newMsTitle.trim()} style={{ ...btnPrimary, padding:"7px 14px", fontSize:12, opacity:!newMsTitle.trim()?0.5:1 }}>+ Add</button>
-        </div>
       </div>
 
       {/* ── Tasks ─────────────────────────────────────────────────────────────── */}
