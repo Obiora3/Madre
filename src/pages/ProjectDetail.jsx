@@ -121,7 +121,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   const [showTemplates, setShowTemplates] = useState(false);
 
   // ── View mode (list vs kanban vs stage) ────────────────────────────────────
-  const [taskView, setTaskView] = useState("list");
+  const [taskView, setTaskView] = useState("stage");
   const [stageCollapsed, setStageCollapsed] = useState({});
   const toggleStageCollapse = (key) => setStageCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
 
