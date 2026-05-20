@@ -4,6 +4,7 @@ import { AuthScreen } from "./components/AuthScreen.jsx";
 import { useAppData } from "./hooks/useAppData.js";
 import { useAuth } from "./hooks/useAuth.js";
 import { useLocalStorage } from "./hooks/useLocalStorage.js";
+import { useNotifications } from "./hooks/useNotifications.js";
 import { useOperationalAutomations } from "./hooks/useOperationalAutomations.js";
 import { useWhiteLabelSettings } from "./hooks/useWhiteLabelSettings.js";
 import { DARK, LIGHT, ThemeContext } from "./theme.js";
@@ -131,6 +132,15 @@ export default function Madre() {
     toast: addToast,
   });
 
+  const {
+    notifications,
+    unreadCount: unreadNotifCount,
+    markRead:    markNotifRead,
+    markAllRead: markAllNotifsRead,
+    dismiss:     dismissNotif,
+    dismissAll:  dismissAllNotifs,
+  } = useNotifications(currentUser);
+
   const appUsers = useMemo(() => {
     if (!currentUser) return users;
     const found = users.some(u => u.email === currentUser.email);
@@ -154,11 +164,13 @@ export default function Madre() {
     setupAgency: auth.setupAgency, nav, page, pageParam, resetAllData,
     events, logActivity, updateMemberRole,
     whiteLabelSettings, setWhiteLabelSettings, resetWhiteLabelSettings,
+    notifications, unreadNotifCount, markNotifRead, markAllNotifsRead, dismissNotif, dismissAllNotifs,
   }), [
     projects, tasks, clients, kpis, departments, pitches, comments, appUsers, currentUser,
     auth.signOut, auth.updateProfile, auth.setupAgency, nav, page, pageParam, resetAllData,
     events, logActivity, updateMemberRole,
-    whiteLabelSettings, setWhiteLabelSettings, resetWhiteLabelSettings, setComments
+    whiteLabelSettings, setWhiteLabelSettings, resetWhiteLabelSettings, setComments,
+    notifications, unreadNotifCount, markNotifRead, markAllNotifsRead, dismissNotif, dismissAllNotifs,
   ]);
 
   const navItems = [

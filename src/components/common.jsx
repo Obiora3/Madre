@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../context/app-context.jsx";
 import { useTheme } from "../theme.js";
+import { createNotification } from "../lib/notificationHelpers.js";
 import {
   fmtDate,
   initials,
@@ -104,13 +105,21 @@ export function AIBlock({ loading, error, result, placeholder, onRetry, prose = 
 
 
 export const NotificationBell = React.memo(function NotificationBell() {
-  const { tasks, comments, projects, currentUser, nav, whiteLabelSettings } = useApp();
+  const { tasks, comments, projects, currentUser, nav, whiteLabelSettings,
+          notifications: dbNotifs = [], unreadNotifCount = 0,
+          markNotifRead, dismissNotif, dismissAllNotifs, markAllNotifsRead } = useApp();
   const { theme: t } = useTheme();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const [dismissed, setDismissed] = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem("af_dismissed") || "[]")); } catch { return new Set(); }
   });
+
+  // Unread DB notifications (task_assigned, project_assigned, mentioned)
+  const activityNotifs = useMemo(() =>
+    dbNotifs.filter(n => !n.read).slice(0, 10),
+    [dbNotifs]
+  );
 
   // Close on outside click or Escape
   useEffect(() => {
@@ -183,7 +192,7 @@ export const NotificationBell = React.memo(function NotificationBell() {
     [comments, dismissed, currentUser, mentionTag, whiteLabelSettings?.notify_comments]
   );
 
-  const totalCount = urgent.length + blockedNotifs.length + mentionNotifs.length + commentNotifs.length;
+  const totalCount = urgent.length + blockedNotifs.length + mentionNotifs.length + commentNotifs.length + activityNotifs.length;
 
   const dismiss = (id) => {
     const next = new Set([...dismissed, id]);
@@ -194,6 +203,7 @@ export const NotificationBell = React.memo(function NotificationBell() {
     const next = new Set([...dismissed, ...urgent.map(x => x.id), ...blockedNotifs.map(x => x.id), ...commentNotifs.map(c => c.id), ...mentionNotifs.map(c => c.id)]);
     setDismissed(next);
     localStorage.setItem("af_dismissed", JSON.stringify([...next]));
+    markAllNotifsRead?.();
   };
 
   return (
@@ -213,6 +223,42 @@ export const NotificationBell = React.memo(function NotificationBell() {
             {totalCount > 0 && <button onClick={dismissAll} style={{ background: "none", border: "none", color: t.textMuted, fontSize: 12, cursor: "pointer" }}>Clear all</button>}
           </div>
           <div style={{ maxHeight: 400, overflowY: "auto" }}>
+
+            {/* DB activity notifications (task/project assigned, mentions) */}
+            {activityNotifs.length > 0 && (
+              <>
+                <div style={{ padding: "8px 16px 4px", fontSize: 10, fontWeight: 700, color: t.textGhost, letterSpacing: "0.07em", textTransform: "uppercase" }}>📬 Activity</div>
+                {activityNotifs.map(n => {
+                  const typeIcon = n.type === "task_assigned" ? "✓" : n.type === "project_assigned" ? "📁" : n.type === "mentioned" ? "@" : "•";
+                  const handleClick = () => {
+                    if (n.entity_type === "project" && n.entity_id) nav("project-detail", n.entity_id);
+                    else if (n.entity_type === "task") nav("tasks");
+                    markNotifRead?.(n.id);
+                    setOpen(false);
+                  };
+                  return (
+                    <div
+                      key={n.id}
+                      onClick={handleClick}
+                      style={{ padding: "10px 16px", borderBottom: `1px solid ${t.divider}`, display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer", background: `${t.accent}08` }}
+                    >
+                      <div style={{ width: 28, height: 28, borderRadius: "50%", background: `${t.accent}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0, color: t.accent, fontWeight: 700 }}>
+                        {typeIcon}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>{n.title}</div>
+                        {n.body && <div style={{ fontSize: 12, color: t.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{n.body}</div>}
+                        <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>{timeAgo(n.created_at)}</div>
+                      </div>
+                      <button
+                        onClick={e => { e.stopPropagation(); dismissNotif?.(n.id); }}
+                        style={{ background: "none", border: "none", color: t.textFaint, cursor: "pointer", fontSize: 16, flexShrink: 0 }}
+                      >×</button>
+                    </div>
+                  );
+                })}
+              </>
+            )}
 
             {/* Mention notifications */}
             {mentionNotifs.length > 0 && (
@@ -497,6 +543,24 @@ export function CommentsPanel({ entityType, entityId, comments, setComments, cur
       body: text,
       created_at: new Date().toISOString(),
     }]);
+    // Notify mentioned teammates
+    if (currentUser.agency_id && users?.length) {
+      const mentionedNames = [...text.matchAll(/@\[([^\]]+)\]/g)].map(m => m[1]);
+      mentionedNames.forEach(name => {
+        const user = users.find(u => u.name === name && u.email !== currentUser.email);
+        if (user?.email) {
+          createNotification({
+            agencyId: currentUser.agency_id,
+            recipientEmail: user.email,
+            type: "mentioned",
+            title: `${currentUser.name} mentioned you`,
+            body: text.replace(/@\[([^\]]+)\]/g, "@$1").slice(0, 120),
+            entityType,
+            entityId,
+          });
+        }
+      });
+    }
     setBody("");
   };
 

@@ -41,6 +41,7 @@ import {
 import { sendAssignmentEmail } from "../lib/assignmentNotifications.js";
 import { fetchFiles, uploadFiles, deleteFile, getSignedUrl, formatFileSize, fileIcon } from "../lib/fileStorage.js";
 import { isSupabaseConfigured } from "../lib/supabaseClient.js";
+import { createNotification } from "../lib/notificationHelpers.js";
 
 // ─── TASK TEMPLATES ───────────────────────────────────────────────────────────
 const TASK_TEMPLATES = [
@@ -288,6 +289,9 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
       }).catch((error) => {
         toast({ message: "Assignment email failed", sub: error.message, type: "warning" });
       });
+      if (assignedTo.email !== currentUser?.email && currentUser?.agency_id) {
+        createNotification({ agencyId: currentUser.agency_id, recipientEmail: assignedTo.email, type: "project_assigned", title: `Project assigned: ${updatedProject.title}`, body: `Assigned by ${currentUser.name}`, entityType: "project", entityId: updatedProject.id });
+      }
     }
     setShowEditForm(false);
   };
@@ -309,6 +313,9 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     logActivity({ userName: currentUser?.name, eventType: "task_added", entityType: "task", entityId: newTask.id, entityTitle: taskForm.title });
     toast({ message:`Task "${taskForm.title}" added`, sub:`${taskForm.priority} priority · Due ${fmtDate(taskForm.due_date)}`, type:"success" });
     emailTaskAssignment(newTask);
+    if (assignedTo.email && assignedTo.email !== currentUser?.email && currentUser?.agency_id) {
+      createNotification({ agencyId: currentUser.agency_id, recipientEmail: assignedTo.email, type: "task_assigned", title: `Task assigned: ${taskForm.title}`, body: `Assigned by ${currentUser.name} · ${project?.title || ""}`, entityType: "task", entityId: newTask.id });
+    }
     setShowTaskForm(false); setTaskForm(BLANK_TASK); setTaskAssigneeKey("");
   };
 
@@ -334,6 +341,9 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     setProjects(projects.map(p => p.id === id ? { ...p, progress:calcProgress(id, newTasks, p, taskPipelines) } : p));
     toast({ message:`Task "${editTaskForm.title}" updated.` });
     emailTaskAssignment(updatedTask, editTask.assigned_to);
+    if (assignedTo.email && assignedTo.email !== editTask.assigned_to?.email && assignedTo.email !== currentUser?.email && currentUser?.agency_id) {
+      createNotification({ agencyId: currentUser.agency_id, recipientEmail: assignedTo.email, type: "task_assigned", title: `Task assigned: ${editTaskForm.title}`, body: `Assigned by ${currentUser.name} · ${project?.title || ""}`, entityType: "task", entityId: editTask.id });
+    }
     setEditTask(null); setEditTaskForm(null);
   };
 
