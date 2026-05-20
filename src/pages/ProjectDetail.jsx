@@ -406,95 +406,67 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   // ── Stage view ────────────────────────────────────────────────────────────────
   const StageView = () => {
     const unassigned = projectTasks.filter(t2 => !projectStages.some(s => s.label === t2.project_stage));
+    const colCount = projectStages.length + (unassigned.length > 0 ? 1 : 0);
+    const StageTaskCard = ({ t2 }) => {
+      const cnt = taskCommentCount(t2.id);
+      const blocked = isBlocked(t2);
+      const subs = t2.subtasks || [];
+      const subsDone = subs.filter(s => s.done).length;
+      return (
+        <div
+          style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:10, padding:"11px 13px", marginBottom:8, cursor:"pointer", transition:"box-shadow 0.15s" }}
+          onClick={() => openEditTask(t2)}
+        >
+          <div style={{ display:"flex", alignItems:"flex-start", gap:7, marginBottom:6 }}>
+            <div onClick={e => e.stopPropagation()} style={{ flexShrink:0, marginTop:1 }}>
+              <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
+            </div>
+            <span style={{ fontSize:13, fontWeight:600, color:isTaskComplete(t2)?t.textFaint:t.textSub, textDecoration:isTaskComplete(t2)?"line-through":"none", lineHeight:1.4, flex:1 }}>{t2.title}</span>
+            {canDeleteTasks && (
+              <button onClick={e=>{ e.stopPropagation(); setTaskToDelete(t2); }} style={{ background:"transparent", border:"none", color:"#EF4444", cursor:"pointer", fontSize:15, lineHeight:1, padding:"0 2px", flexShrink:0 }}>×</button>
+            )}
+          </div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:4, alignItems:"center" }}>
+            <Badge label={t2.priority} color={priorityColor(t2.priority)} />
+            {t2.recurrence && t2.recurrence!=="none" && <span title={`Repeats ${t2.recurrence}`} style={{fontSize:10}}>🔄</span>}
+            {blocked && <Badge label="🔒" color="#EF4444" />}
+            {subs.length > 0 && <span style={{fontSize:10,color:t.textFaint,background:t.statBg,borderRadius:99,padding:"1px 6px"}}>{subsDone}/{subs.length} ✓</span>}
+            {t2.assigned_to?.name && <div style={{ marginLeft:"auto" }}><Avatar name={t2.assigned_to.name} size={16} /></div>}
+          </div>
+          {t2.due_date && <div style={{ fontSize:10, color:t.textFaint, marginTop:6 }}>📅 {fmtDate(t2.due_date)}</div>}
+          {cnt > 0 && <div style={{ fontSize:10, color:t.accent, marginTop:4 }}>💬 {cnt}</div>}
+        </div>
+      );
+    };
     return (
-      <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+      <div style={{ display:"grid", gridTemplateColumns:`repeat(${colCount}, minmax(200px, 1fr))`, gap:12, alignItems:"start", overflowX:"auto" }}>
         {projectStages.map(stage => {
           const stageTasks = projectTasks.filter(t2 => t2.project_stage === stage.label);
           return (
             <div key={stage.id}>
-              <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 0 6px", borderBottom:`2px solid ${stage.color}44` }}>
-                <span style={{ width:8, height:8, borderRadius:"50%", background:stage.color, flexShrink:0 }} />
-                <span style={{ fontSize:12, fontWeight:700, color:t.textSub, flex:1 }}>{stage.label}</span>
-                <span style={{ fontSize:11, color:t.textGhost, background:t.statBg, borderRadius:99, padding:"1px 8px", fontWeight:600 }}>{stageTasks.length}</span>
+              <div style={{ borderRadius:"10px 10px 0 0", background:`${stage.color}14`, border:`1px solid ${stage.color}44`, borderBottom:`2.5px solid ${stage.color}`, padding:"10px 13px", marginBottom:8 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+                  <span style={{ width:8, height:8, borderRadius:"50%", background:stage.color, flexShrink:0 }} />
+                  <span style={{ fontSize:12, fontWeight:700, color:t.textSub, flex:1 }}>{stage.label}</span>
+                  <span style={{ fontSize:11, color:stage.color, background:`${stage.color}18`, borderRadius:99, padding:"1px 8px", fontWeight:700 }}>{stageTasks.length}</span>
+                </div>
               </div>
-              {stageTasks.length === 0 ? (
-                <div style={{ fontSize:12, color:t.textGhost, padding:"10px 0 10px 20px", fontStyle:"italic" }}>No tasks in this stage</div>
-              ) : (
-                stageTasks.map(t2 => {
-                  const cnt = taskCommentCount(t2.id);
-                  const blocked = isBlocked(t2);
-                  const subs = t2.subtasks || [];
-                  const subsDone = subs.filter(s=>s.done).length;
-                  const isExpanded = expanded.has(t2.id);
-                  return (
-                    <div key={t2.id} style={{ borderBottom:`1px solid ${t.divider}` }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0 10px 16px" }}>
-                        <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
-                        {subs.length > 0 && (
-                          <button onClick={()=>toggleExpand(t2.id)} style={{ background:"none", border:"none", cursor:"pointer", color:t.textFaint, fontSize:11, padding:0, lineHeight:1 }}>{isExpanded?"▼":"▶"}</button>
-                        )}
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
-                            <span style={{ fontSize:13, fontWeight:600, color:isTaskComplete(t2)?t.textFaint:t.textSub, textDecoration:isTaskComplete(t2)?"line-through":"none" }}>{t2.title}</span>
-                            {t2.recurrence && t2.recurrence!=="none" && <span title={`Repeats ${t2.recurrence}`} style={{fontSize:11}}>🔄</span>}
-                            {blocked && <Badge label="🔒 Blocked" color="#EF4444" />}
-                            {subs.length>0 && <span style={{fontSize:10,color:t.textFaint,background:t.statBg,borderRadius:99,padding:"1px 7px"}}>{subsDone}/{subs.length} ✓</span>}
-                          </div>
-                          <div style={{ fontSize:11, color:t.textFaint, marginTop:2 }}>
-                            Due {fmtDate(t2.due_date)} · {t2.estimated_hours}h est{t2.actual_hours>0?` · ${t2.actual_hours}h logged`:""}
-                          </div>
-                        </div>
-                        <Badge label={t2.priority} color={priorityColor(t2.priority)} />
-                        <button onClick={()=>{ setLogTimeTask(t2); setLogHours(""); }} title="Log time" style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 9px", fontSize:11, color:t2.actual_hours>0?t.accent:t.textMuted, cursor:"pointer" }}>⏱{t2.actual_hours>0?` ${t2.actual_hours}h`:""}</button>
-                        <button onClick={()=>setCommentTask(t2)} style={{ display:"flex", alignItems:"center", gap:4, background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 9px", fontSize:11, color:cnt>0?t.accent:t.textMuted, cursor:"pointer", fontWeight:cnt>0?700:400 }}>💬{cnt>0?` ${cnt}`:""}</button>
-                        <button onClick={()=>openEditTask(t2)} style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 9px", fontSize:11, color:t.textMuted, cursor:"pointer" }}>✏</button>
-                        {canDeleteTasks && (
-                          <button onClick={()=>setTaskToDelete(t2)} title="Delete task" style={{ background:"transparent", border:"1px solid #EF444466", borderRadius:7, padding:"3px 9px", fontSize:11, color:"#EF4444", cursor:"pointer" }}>Delete</button>
-                        )}
-                      </div>
-                      {isExpanded && (
-                        <div style={{ paddingLeft:48, paddingBottom:10 }}>
-                          {subs.map(st=>(
-                            <div key={st.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"3px 0" }}>
-                              <input type="checkbox" checked={st.done} onChange={()=>toggleSubtask(t2.id,st.id)} style={{ width:14, height:14, cursor:"pointer", accentColor:t.accent }} />
-                              <span style={{ fontSize:12, flex:1, color:st.done?t.textFaint:t.textSub, textDecoration:st.done?"line-through":"none" }}>{st.title}</span>
-                              <button onClick={()=>deleteSubtask(t2.id,st.id)} style={{ background:"none", border:"none", cursor:"pointer", color:t.textGhost, fontSize:14, lineHeight:1 }}>×</button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
+              {stageTasks.map(t2 => <StageTaskCard key={t2.id} t2={t2} />)}
+              {stageTasks.length === 0 && (
+                <div style={{ border:`1px dashed ${stage.color}44`, borderRadius:10, padding:"20px 12px", textAlign:"center", color:t.textGhost, fontSize:12 }}>No tasks</div>
               )}
             </div>
           );
         })}
         {unassigned.length > 0 && (
           <div>
-            <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 0 6px", borderBottom:`2px solid ${t.border2}` }}>
-              <span style={{ width:8, height:8, borderRadius:"50%", background:t.textGhost, flexShrink:0 }} />
-              <span style={{ fontSize:12, fontWeight:700, color:t.textSub, flex:1 }}>No Stage</span>
-              <span style={{ fontSize:11, color:t.textGhost, background:t.statBg, borderRadius:99, padding:"1px 8px", fontWeight:600 }}>{unassigned.length}</span>
+            <div style={{ borderRadius:"10px 10px 0 0", background:t.statBg, border:`1px solid ${t.border2}`, borderBottom:`2.5px solid ${t.border2}`, padding:"10px 13px", marginBottom:8 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+                <span style={{ fontSize:12, fontWeight:700, color:t.textMuted, flex:1 }}>No Stage</span>
+                <span style={{ fontSize:11, color:t.textGhost, background:t.card, borderRadius:99, padding:"1px 8px", fontWeight:700 }}>{unassigned.length}</span>
+              </div>
             </div>
-            {unassigned.map(t2 => {
-              const cnt = taskCommentCount(t2.id);
-              const blocked = isBlocked(t2);
-              return (
-                <div key={t2.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0 10px 16px", borderBottom:`1px solid ${t.divider}` }}>
-                  <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <span style={{ fontSize:13, fontWeight:600, color:isTaskComplete(t2)?t.textFaint:t.textSub, textDecoration:isTaskComplete(t2)?"line-through":"none" }}>{t2.title}</span>
-                    {blocked && <Badge label="🔒 Blocked" color="#EF4444" />}
-                  </div>
-                  <Badge label={t2.priority} color={priorityColor(t2.priority)} />
-                  <button onClick={()=>openEditTask(t2)} style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 9px", fontSize:11, color:t.textMuted, cursor:"pointer" }}>✏</button>
-                  {canDeleteTasks && (
-                    <button onClick={()=>setTaskToDelete(t2)} style={{ background:"transparent", border:"1px solid #EF444466", borderRadius:7, padding:"3px 9px", fontSize:11, color:"#EF4444", cursor:"pointer" }}>Delete</button>
-                  )}
-                </div>
-              );
-            })}
+            {unassigned.map(t2 => <StageTaskCard key={t2.id} t2={t2} />)}
           </div>
         )}
       </div>
