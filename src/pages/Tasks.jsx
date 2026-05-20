@@ -120,11 +120,11 @@ export const Tasks = React.memo(function Tasks() {
   };
 
   const TABLE_GAP = 14;
-  const TABLE_MIN_WIDTH = canDeleteTasks ? 880 : 810;
+  const TABLE_MIN_WIDTH = canDeleteTasks ? 920 : 850;
   const COLS = canDeleteTasks
-    ? "32px minmax(220px, 1fr) 140px 130px 118px 110px 64px 54px"
-    : "32px minmax(220px, 1fr) 140px 130px 118px 110px 54px";
-  const ROW_HEADERS = canDeleteTasks ? ["","Task","Assigned To","Status","Priority","Due","",""] : ["","Task","Assigned To","Status","Priority","Due",""];
+    ? "32px minmax(220px, 1fr) 140px 130px 118px 110px 40px 64px 54px"
+    : "32px minmax(220px, 1fr) 140px 130px 118px 110px 40px 54px";
+  const ROW_HEADERS = canDeleteTasks ? ["","Task","Assigned To","Status","Priority","Due","","",""] : ["","Task","Assigned To","Status","Priority","Due","",""];
 
   return (
     <div>
@@ -260,8 +260,8 @@ export const Tasks = React.memo(function Tasks() {
               return ai - bi;
             });
 
-            const SCOLS = "32px 1fr 150px 120px 110px 110px" + (canDeleteTasks ? " 72px" : "");
-            const SHEADERS = ["", "Task", "Assigned To", "Status", "Priority", "Due Date", ...(canDeleteTasks ? [""] : [])];
+            const SCOLS = "32px 1fr 150px 120px 110px 110px 40px" + (canDeleteTasks ? " 72px" : "");
+            const SHEADERS = ["", "Task", "Assigned To", "Status", "Priority", "Due Date", "", ...(canDeleteTasks ? [""] : [])];
 
             return (
               <div key={projectId || "__none__"} style={{ marginBottom:24 }}>
@@ -318,7 +318,6 @@ export const Tasks = React.memo(function Tasks() {
                                         <span style={{ fontSize:13, fontWeight:600, color:done?t.textFaint:t.textSub, textDecoration:done?"line-through":"none" }}>{t2.title}</span>
                                         {blocked && <Badge label="🔒" color="#EF4444" />}
                                         {cnt > 0 && <span style={{ fontSize:10, color:t.accent, fontWeight:700 }}>💬 {cnt}</span>}
-                                        <button onClick={() => setEditingTask({...t2})} title="Edit" style={{ background:"transparent", border:"none", color:t.textGhost, cursor:"pointer", fontSize:12, padding:"0 2px", lineHeight:1 }}>✏</button>
                                       </div>
                                     </div>
                                     <div style={{ display:"flex", alignItems:"center", gap:6, minWidth:0 }}>
@@ -329,6 +328,7 @@ export const Tasks = React.memo(function Tasks() {
                                     <Badge label={t2.status} color={statusColor(t2.status)} />
                                     <Badge label={t2.priority} color={priorityColor(t2.priority)} />
                                     <span style={{ fontSize:12, color:t.textFaint }}>{t2.due_date ? fmtDate(t2.due_date) : "—"}</span>
+                                    <button onClick={() => setEditingTask({...t2})} title="Edit task" style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:6, padding:"3px 7px", fontSize:11, color:t.textMuted, cursor:"pointer" }}>✏</button>
                                     {canDeleteTasks && (
                                       <button onClick={() => setTaskToDelete(t2)} style={{ background:"transparent", border:"1px solid #EF444466", borderRadius:6, padding:"3px 8px", fontSize:11, color:"#EF4444", cursor:"pointer" }}>Delete</button>
                                     )}
@@ -395,7 +395,6 @@ export const Tasks = React.memo(function Tasks() {
                         <span style={{ fontSize:13, fontWeight:600, color:isTaskComplete(t2)?t.textFaint:t.textSub, textDecoration:isTaskComplete(t2)?"line-through":"none" }}>{t2.title}</span>
                         {t2.recurrence && t2.recurrence !== "none" && <span title={`Repeats ${t2.recurrence}`} style={{ fontSize:11 }}>🔄</span>}
                         {blocked && <Badge label="🔒" color="#EF4444" />}
-                        <button onClick={() => setEditingTask({...t2})} title="Edit" style={{ background:"transparent", border:"none", color:t.textGhost, cursor:"pointer", fontSize:12, padding:"0 2px", lineHeight:1 }}>✏</button>
                       </div>
                       <div style={{ fontSize:11, color:t.textGhost }}>
                         {t2.estimated_hours}h est.{t2.actual_hours ? ` · ${t2.actual_hours}h logged` : ""}
@@ -409,6 +408,7 @@ export const Tasks = React.memo(function Tasks() {
                     <Badge label={t2.status} color={statusColor(t2.status)} />
                     <Badge label={t2.priority} color={priorityColor(t2.priority)} />
                     <div style={{ fontSize:11, color:t.textMuted }}>{fmtDate(t2.due_date)}</div>
+                    <button onClick={() => setEditingTask({...t2})} title="Edit task" style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 7px", fontSize:11, color:t.textMuted, cursor:"pointer" }}>✏</button>
                     {canDeleteTasks && (
                       <button onClick={()=>setTaskToDelete(t2)} title="Delete task" style={{ background:"transparent", border:"1px solid #EF444466", borderRadius:7, padding:"3px 7px", fontSize:11, color:"#EF4444", cursor:"pointer" }}>Delete</button>
                     )}
