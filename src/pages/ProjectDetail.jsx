@@ -93,7 +93,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
 
   // ── Task form state ─────────────────────────────────────────────────────────
   const [showTaskForm, setShowTaskForm] = useState(false);
-  const BLANK_TASK = { title:"", description:"", status:defaultTaskStatus, priority:"Medium", due_date:"", estimated_hours:0, actual_hours:0, subtasks:[], recurrence:"none", blocked_by:[] };
+  const BLANK_TASK = { title:"", description:"", status:defaultTaskStatus, priority:"Medium", due_date:"", estimated_hours:0, actual_hours:0, subtasks:[], recurrence:"none", blocked_by:[], project_stage: project.stage || "" };
   const [taskForm, setTaskForm] = useState(BLANK_TASK);
   const [taskAssigneeKey, setTaskAssigneeKey] = useState("");
 
@@ -264,7 +264,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     if (assignee?.email) { const u = users.find(x => x.email === assignee.email); if (u) key = `user:${u.id}`; }
     else if (assignee?.name) { const d = departments.find(x => x.name === assignee.name); if (d) key = `dept:${d.id}`; }
     setEditTaskAssigneeKey(key);
-    setEditTaskForm({ title:task.title||"", description:task.description||"", status:task.status||defaultTaskStatus, priority:task.priority||"Medium", due_date:task.due_date||"", estimated_hours:task.estimated_hours||0, actual_hours:task.actual_hours||0, recurrence:task.recurrence||"none", blocked_by:task.blocked_by||[] });
+    setEditTaskForm({ title:task.title||"", description:task.description||"", status:task.status||defaultTaskStatus, priority:task.priority||"Medium", due_date:task.due_date||"", estimated_hours:task.estimated_hours||0, actual_hours:task.actual_hours||0, recurrence:task.recurrence||"none", blocked_by:task.blocked_by||[], project_stage:task.project_stage||"" });
     setEditTask(task);
   };
 
@@ -403,6 +403,104 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     </div>
   );
 
+  // ── Stage view ────────────────────────────────────────────────────────────────
+  const StageView = () => {
+    const unassigned = projectTasks.filter(t2 => !projectStages.some(s => s.label === t2.project_stage));
+    return (
+      <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+        {projectStages.map(stage => {
+          const stageTasks = projectTasks.filter(t2 => t2.project_stage === stage.label);
+          return (
+            <div key={stage.id}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 0 6px", borderBottom:`2px solid ${stage.color}44` }}>
+                <span style={{ width:8, height:8, borderRadius:"50%", background:stage.color, flexShrink:0 }} />
+                <span style={{ fontSize:12, fontWeight:700, color:t.textSub, flex:1 }}>{stage.label}</span>
+                <span style={{ fontSize:11, color:t.textGhost, background:t.statBg, borderRadius:99, padding:"1px 8px", fontWeight:600 }}>{stageTasks.length}</span>
+              </div>
+              {stageTasks.length === 0 ? (
+                <div style={{ fontSize:12, color:t.textGhost, padding:"10px 0 10px 20px", fontStyle:"italic" }}>No tasks in this stage</div>
+              ) : (
+                stageTasks.map(t2 => {
+                  const cnt = taskCommentCount(t2.id);
+                  const blocked = isBlocked(t2);
+                  const subs = t2.subtasks || [];
+                  const subsDone = subs.filter(s=>s.done).length;
+                  const isExpanded = expanded.has(t2.id);
+                  return (
+                    <div key={t2.id} style={{ borderBottom:`1px solid ${t.divider}` }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0 10px 16px" }}>
+                        <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
+                        {subs.length > 0 && (
+                          <button onClick={()=>toggleExpand(t2.id)} style={{ background:"none", border:"none", cursor:"pointer", color:t.textFaint, fontSize:11, padding:0, lineHeight:1 }}>{isExpanded?"▼":"▶"}</button>
+                        )}
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+                            <span style={{ fontSize:13, fontWeight:600, color:isTaskComplete(t2)?t.textFaint:t.textSub, textDecoration:isTaskComplete(t2)?"line-through":"none" }}>{t2.title}</span>
+                            {t2.recurrence && t2.recurrence!=="none" && <span title={`Repeats ${t2.recurrence}`} style={{fontSize:11}}>🔄</span>}
+                            {blocked && <Badge label="🔒 Blocked" color="#EF4444" />}
+                            {subs.length>0 && <span style={{fontSize:10,color:t.textFaint,background:t.statBg,borderRadius:99,padding:"1px 7px"}}>{subsDone}/{subs.length} ✓</span>}
+                          </div>
+                          <div style={{ fontSize:11, color:t.textFaint, marginTop:2 }}>
+                            Due {fmtDate(t2.due_date)} · {t2.estimated_hours}h est{t2.actual_hours>0?` · ${t2.actual_hours}h logged`:""}
+                          </div>
+                        </div>
+                        <Badge label={t2.priority} color={priorityColor(t2.priority)} />
+                        <button onClick={()=>{ setLogTimeTask(t2); setLogHours(""); }} title="Log time" style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 9px", fontSize:11, color:t2.actual_hours>0?t.accent:t.textMuted, cursor:"pointer" }}>⏱{t2.actual_hours>0?` ${t2.actual_hours}h`:""}</button>
+                        <button onClick={()=>setCommentTask(t2)} style={{ display:"flex", alignItems:"center", gap:4, background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 9px", fontSize:11, color:cnt>0?t.accent:t.textMuted, cursor:"pointer", fontWeight:cnt>0?700:400 }}>💬{cnt>0?` ${cnt}`:""}</button>
+                        <button onClick={()=>openEditTask(t2)} style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 9px", fontSize:11, color:t.textMuted, cursor:"pointer" }}>✏</button>
+                        {canDeleteTasks && (
+                          <button onClick={()=>setTaskToDelete(t2)} title="Delete task" style={{ background:"transparent", border:"1px solid #EF444466", borderRadius:7, padding:"3px 9px", fontSize:11, color:"#EF4444", cursor:"pointer" }}>Delete</button>
+                        )}
+                      </div>
+                      {isExpanded && (
+                        <div style={{ paddingLeft:48, paddingBottom:10 }}>
+                          {subs.map(st=>(
+                            <div key={st.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"3px 0" }}>
+                              <input type="checkbox" checked={st.done} onChange={()=>toggleSubtask(t2.id,st.id)} style={{ width:14, height:14, cursor:"pointer", accentColor:t.accent }} />
+                              <span style={{ fontSize:12, flex:1, color:st.done?t.textFaint:t.textSub, textDecoration:st.done?"line-through":"none" }}>{st.title}</span>
+                              <button onClick={()=>deleteSubtask(t2.id,st.id)} style={{ background:"none", border:"none", cursor:"pointer", color:t.textGhost, fontSize:14, lineHeight:1 }}>×</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          );
+        })}
+        {unassigned.length > 0 && (
+          <div>
+            <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 0 6px", borderBottom:`2px solid ${t.border2}` }}>
+              <span style={{ width:8, height:8, borderRadius:"50%", background:t.textGhost, flexShrink:0 }} />
+              <span style={{ fontSize:12, fontWeight:700, color:t.textSub, flex:1 }}>No Stage</span>
+              <span style={{ fontSize:11, color:t.textGhost, background:t.statBg, borderRadius:99, padding:"1px 8px", fontWeight:600 }}>{unassigned.length}</span>
+            </div>
+            {unassigned.map(t2 => {
+              const cnt = taskCommentCount(t2.id);
+              const blocked = isBlocked(t2);
+              return (
+                <div key={t2.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0 10px 16px", borderBottom:`1px solid ${t.divider}` }}>
+                  <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <span style={{ fontSize:13, fontWeight:600, color:isTaskComplete(t2)?t.textFaint:t.textSub, textDecoration:isTaskComplete(t2)?"line-through":"none" }}>{t2.title}</span>
+                    {blocked && <Badge label="🔒 Blocked" color="#EF4444" />}
+                  </div>
+                  <Badge label={t2.priority} color={priorityColor(t2.priority)} />
+                  <button onClick={()=>openEditTask(t2)} style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:7, padding:"3px 9px", fontSize:11, color:t.textMuted, cursor:"pointer" }}>✏</button>
+                  {canDeleteTasks && (
+                    <button onClick={()=>setTaskToDelete(t2)} style={{ background:"transparent", border:"1px solid #EF444466", borderRadius:7, padding:"3px 9px", fontSize:11, color:"#EF4444", cursor:"pointer" }}>Delete</button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // ── List view task rows ────────────────────────────────────────────────────────
   const ListView = () => (
     <>
@@ -533,7 +631,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
             <h3 style={{ margin:0, color:t.text, fontSize:15, fontWeight:700 }}>Tasks ({projectTasks.length})</h3>
             {/* List / Kanban toggle */}
             <div style={{ display:"flex", gap:4, background:t.statBg, borderRadius:8, padding:3 }}>
-              {[["list","☰ List"],["kanban","⊞ Kanban"]].map(([mode, label]) => (
+              {[["list","☰ List"],["kanban","⊞ Kanban"],["stage","⬡ Stage"]].map(([mode, label]) => (
                 <button key={mode} onClick={()=>setTaskView(mode)} style={{ ...bs, padding:"4px 12px", fontSize:11, fontWeight:700, background:taskView===mode?t.card:"transparent", color:taskView===mode?t.text:t.textMuted, border:`1px solid ${taskView===mode?t.border2:"transparent"}`, borderRadius:6, boxShadow:taskView===mode?"0 1px 4px rgba(0,0,0,0.08)":"none" }}>
                   {label}
                 </button>
@@ -554,7 +652,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
           </div>
         )}
 
-        {taskView === "kanban" ? <KanbanView /> : <ListView />}
+        {taskView === "kanban" ? <KanbanView /> : taskView === "stage" ? <StageView /> : <ListView />}
       </div>
 
       {/* ── KPI Performance ──────────────────────────────────────────────────── */}
@@ -615,7 +713,13 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
             </select>
           </FormField>
           <FormField label="Description"><input style={iS} value={editTaskForm.description} onChange={e=>setEditTaskForm({...editTaskForm,description:e.target.value})} /></FormField>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 }}>
+            <FormField label="Stage">
+              <select style={sS} value={editTaskForm.project_stage||""} onChange={e=>setEditTaskForm({...editTaskForm,project_stage:e.target.value})}>
+                <option value="">No Stage</option>
+                {projectStages.map(s=><option key={s.id} value={s.label}>{s.label}</option>)}
+              </select>
+            </FormField>
             <FormField label="Status"><select style={sS} value={editTaskForm.status} onChange={e=>setEditTaskForm({...editTaskForm,status:e.target.value})}>{KANBAN_COLS.map(s=><option key={s} value={s}>{s}</option>)}</select></FormField>
             <FormField label="Priority"><select style={sS} value={editTaskForm.priority} onChange={e=>setEditTaskForm({...editTaskForm,priority:e.target.value})}>{["Critical","High","Medium","Low"].map(s=><option key={s}>{s}</option>)}</select></FormField>
           </div>
@@ -666,7 +770,13 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
             {departments.length>0 && <optgroup label="Departments">{departments.map(d=><option key={d.id} value={`dept:${d.id}`}>{d.name}</option>)}</optgroup>}
           </select>
         </FormField>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 }}>
+          <FormField label="Stage">
+            <select style={sS} value={taskForm.project_stage||""} onChange={e=>setTaskForm({...taskForm,project_stage:e.target.value})}>
+              <option value="">No Stage</option>
+              {projectStages.map(s=><option key={s.id} value={s.label}>{s.label}</option>)}
+            </select>
+          </FormField>
           <FormField label="Status"><select style={sS} value={taskForm.status} onChange={e=>setTaskForm({...taskForm,status:e.target.value})}>{KANBAN_COLS.map(s=><option key={s} value={s}>{s}</option>)}</select></FormField>
           <FormField label="Priority"><select style={sS} value={taskForm.priority} onChange={e=>setTaskForm({...taskForm,priority:e.target.value})}>{["Critical","High","Medium","Low"].map(s=><option key={s}>{s}</option>)}</select></FormField>
         </div>
