@@ -60,25 +60,7 @@ export const Tasks = React.memo(function Tasks() {
     return result;
   }, [tasks, statusFilter, viewMode, deptFilter, departments]);
 
-  // Group filtered tasks by their project's current stage
   const STAGE_ORDER = ["Brief","Strategy","Creative","Concept","Design","Development","Production","Review","Delivery","Delivered"];
-  const stageGroups = useMemo(() => {
-    const map = new Map();
-    filtered.forEach(t2 => {
-      const proj = t2.project_id ? projectById[t2.project_id] : null;
-      const stage = proj?.stage || "No Stage";
-      if (!map.has(stage)) map.set(stage, []);
-      map.get(stage).push(t2);
-    });
-    return [...map.entries()].sort(([a], [b]) => {
-      const ai = STAGE_ORDER.indexOf(a);
-      const bi = STAGE_ORDER.indexOf(b);
-      if (ai === -1 && bi === -1) return a.localeCompare(b);
-      if (ai === -1) return 1;
-      if (bi === -1) return -1;
-      return ai - bi;
-    });
-  }, [filtered, projectById]);
 
   // Group filtered tasks by project; unlinked tasks go under null key
   const groups = useMemo(() => {
@@ -239,68 +221,106 @@ export const Tasks = React.memo(function Tasks() {
           })}
         </div>
       ) : viewMode === "By Stage" ? (
-        /* ── By Stage: collapsible grouped table ───────────────────────────── */
+        /* ── By Stage: grouped by project, then stage within each project ─── */
         <div>
-          {stageGroups.length === 0 && (
+          {groups.length === 0 && (
             <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:40, textAlign:"center", color:t.textFaint, fontSize:13 }}>No tasks match these filters.</div>
           )}
-          {stageGroups.map(([stage, stageTasks]) => {
-            const color = stageColor(stage) || t.border2;
-            const collapsed = stageCollapsed[stage];
-            const COLS = "32px 1fr 160px 150px 120px 110px 110px" + (canDeleteTasks ? " 72px" : "");
-            const headers = ["", "Task", "Project", "Assigned To", "Status", "Priority", "Due Date", ...(canDeleteTasks ? [""] : [])];
+          {groups.map(([projectId, groupTasks]) => {
+            const proj = projectId ? projectById[projectId] : null;
+            const doneCount = groupTasks.filter(t2 => isTaskComplete(t2)).length;
+            const projCollapseKey = `proj__${projectId || "none"}`;
+            const projCollapsed = stageCollapsed[projCollapseKey];
+
+            // Sub-group by project_stage
+            const stageMap = new Map();
+            groupTasks.forEach(t2 => {
+              const s = t2.project_stage || "No Stage";
+              if (!stageMap.has(s)) stageMap.set(s, []);
+              stageMap.get(s).push(t2);
+            });
+            const projectStageGroups = [...stageMap.entries()].sort(([a], [b]) => {
+              const ai = STAGE_ORDER.indexOf(a), bi = STAGE_ORDER.indexOf(b);
+              if (ai === -1 && bi === -1) return a.localeCompare(b);
+              if (ai === -1) return 1; if (bi === -1) return -1;
+              return ai - bi;
+            });
+
+            const SCOLS = "32px 1fr 150px 120px 110px 110px" + (canDeleteTasks ? " 72px" : "");
+            const SHEADERS = ["", "Task", "Assigned To", "Status", "Priority", "Due Date", ...(canDeleteTasks ? [""] : [])];
+
             return (
-              <div key={stage} style={{ marginBottom:18 }}>
-                {/* Group header */}
+              <div key={projectId || "__none__"} style={{ marginBottom:24 }}>
+                {/* Project header */}
                 <div
-                  onClick={() => toggleStageCollapse(stage)}
-                  style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 10px", cursor:"pointer", borderLeft:`4px solid ${color}`, borderRadius:"4px 0 0 4px", userSelect:"none" }}
+                  onClick={() => toggleStageCollapse(projCollapseKey)}
+                  style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 16px", cursor:"pointer", background: proj ? (proj.colour ? `${proj.colour}14` : `${t.accent}0d`) : t.statBg, borderRadius:10, marginBottom:projCollapsed ? 0 : 10, userSelect:"none", border:`1px solid ${t.border2}` }}
                 >
-                  <span style={{ fontSize:10, color:t.textGhost, width:10, flexShrink:0 }}>{collapsed ? "▶" : "▼"}</span>
-                  <span style={{ fontSize:14, fontWeight:800, color }}>{stage}</span>
-                  <span style={{ fontSize:12, color:t.textFaint, fontWeight:500 }}>{stageTasks.length} task{stageTasks.length !== 1 ? "s" : ""}</span>
+                  <span style={{ fontSize:11, color:t.textGhost, width:12, flexShrink:0 }}>{projCollapsed ? "▶" : "▼"}</span>
+                  <span
+                    onClick={e => { if (proj) { e.stopPropagation(); nav("project-detail", proj.id); } }}
+                    style={{ fontSize:15, fontWeight:800, color: proj ? t.accent : t.textMuted, cursor: proj ? "pointer" : "default", textDecoration: proj ? "underline" : "none", textDecorationColor: proj ? `${t.accent}55` : "transparent" }}
+                  >
+                    {proj ? proj.title : "No Project"}
+                  </span>
+                  {proj && <span style={{ fontSize:11, color:t.textFaint }}>{proj.stage} · {proj.status}</span>}
+                  <span style={{ marginLeft:"auto", fontSize:12, color:t.textFaint }}>{doneCount}/{groupTasks.length} done</span>
                 </div>
 
-                {!collapsed && (
-                  <div style={{ borderLeft:`4px solid ${color}`, overflowX:"auto" }}>
-                    {/* Column headers */}
-                    <div style={{ display:"grid", gridTemplateColumns:COLS, columnGap:12, padding:"7px 14px", background:t.statBg, borderBottom:`1px solid ${t.border2}`, minWidth:820 }}>
-                      {headers.map((h, i) => (
-                        <div key={i} style={{ fontSize:10, fontWeight:700, color:t.textGhost, textTransform:"uppercase", letterSpacing:"0.06em" }}>{h}</div>
-                      ))}
-                    </div>
-
-                    {/* Task rows */}
-                    {stageTasks.map(t2 => {
-                      const proj = t2.project_id ? projectById[t2.project_id] : null;
-                      const cnt = (comments||[]).filter(c => c.entity_type==="task" && c.entity_id===t2.id).length;
-                      const blocked = (t2.blocked_by||[]).some(depId => { const dep = tasks.find(x => x.id===depId); return dep && !isTaskComplete(dep); });
-                      const done = isTaskComplete(t2);
+                {!projCollapsed && (
+                  <div style={{ paddingLeft:12, display:"flex", flexDirection:"column", gap:10 }}>
+                    {projectStageGroups.map(([stage, stageTasks]) => {
+                      const color = stageColor(stage) || t.border2;
+                      const collapseKey = `${projectId}__${stage}`;
+                      const collapsed = stageCollapsed[collapseKey];
                       return (
-                        <div key={t2.id} style={{ display:"grid", gridTemplateColumns:COLS, columnGap:12, padding:"10px 14px", borderBottom:`1px solid ${t.divider}`, alignItems:"center", minWidth:820, background:t.card }}>
-                          <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
-                          <div style={{ minWidth:0 }}>
-                            <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
-                              <span style={{ fontSize:13, fontWeight:600, color:done?t.textFaint:t.textSub, textDecoration:done?"line-through":"none" }}>{t2.title}</span>
-                              {blocked && <Badge label="🔒" color="#EF4444" />}
-                              {cnt > 0 && <span style={{ fontSize:10, color:t.accent, fontWeight:700 }}>💬 {cnt}</span>}
+                        <div key={stage}>
+                          {/* Stage sub-group header */}
+                          <div
+                            onClick={() => toggleStageCollapse(collapseKey)}
+                            style={{ display:"flex", alignItems:"center", gap:10, padding:"6px 12px", cursor:"pointer", borderLeft:`4px solid ${color}`, borderRadius:"4px 0 0 4px", userSelect:"none" }}
+                          >
+                            <span style={{ fontSize:10, color:t.textGhost, width:10, flexShrink:0 }}>{collapsed ? "▶" : "▼"}</span>
+                            <span style={{ fontSize:13, fontWeight:800, color }}>{stage}</span>
+                            <span style={{ fontSize:12, color:t.textFaint }}>{stageTasks.length} task{stageTasks.length !== 1 ? "s" : ""}</span>
+                          </div>
+
+                          {!collapsed && (
+                            <div style={{ borderLeft:`4px solid ${color}`, overflowX:"auto" }}>
+                              <div style={{ display:"grid", gridTemplateColumns:SCOLS, columnGap:12, padding:"7px 14px", background:t.statBg, borderBottom:`1px solid ${t.border2}`, minWidth:720 }}>
+                                {SHEADERS.map((h, i) => (
+                                  <div key={i} style={{ fontSize:10, fontWeight:700, color:t.textGhost, textTransform:"uppercase", letterSpacing:"0.06em" }}>{h}</div>
+                                ))}
+                              </div>
+                              {stageTasks.map(t2 => {
+                                const cnt = (comments||[]).filter(c => c.entity_type==="task" && c.entity_id===t2.id).length;
+                                const blocked = (t2.blocked_by||[]).some(depId => { const dep = tasks.find(x => x.id===depId); return dep && !isTaskComplete(dep); });
+                                const done = isTaskComplete(t2);
+                                return (
+                                  <div key={t2.id} style={{ display:"grid", gridTemplateColumns:SCOLS, columnGap:12, padding:"10px 14px", borderBottom:`1px solid ${t.divider}`, alignItems:"center", minWidth:720, background:t.card }}>
+                                    <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
+                                    <div style={{ minWidth:0 }}>
+                                      <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+                                        <span style={{ fontSize:13, fontWeight:600, color:done?t.textFaint:t.textSub, textDecoration:done?"line-through":"none" }}>{t2.title}</span>
+                                        {blocked && <Badge label="🔒" color="#EF4444" />}
+                                        {cnt > 0 && <span style={{ fontSize:10, color:t.accent, fontWeight:700 }}>💬 {cnt}</span>}
+                                      </div>
+                                    </div>
+                                    <div style={{ display:"flex", alignItems:"center", gap:6, minWidth:0 }}>
+                                      {t2.assigned_to?.name
+                                        ? <><Avatar name={t2.assigned_to.name} size={20} /><span style={{ fontSize:12, color:t.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t2.assigned_to.name.split(" ")[0]}</span></>
+                                        : <span style={{ fontSize:12, color:t.textGhost }}>—</span>}
+                                    </div>
+                                    <Badge label={t2.status} color={statusColor(t2.status)} />
+                                    <Badge label={t2.priority} color={priorityColor(t2.priority)} />
+                                    <span style={{ fontSize:12, color:t.textFaint }}>{t2.due_date ? fmtDate(t2.due_date) : "—"}</span>
+                                    {canDeleteTasks && (
+                                      <button onClick={() => setTaskToDelete(t2)} style={{ background:"transparent", border:"1px solid #EF444466", borderRadius:6, padding:"3px 8px", fontSize:11, color:"#EF4444", cursor:"pointer" }}>Delete</button>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
-                          </div>
-                          <div style={{ minWidth:0 }}>
-                            {proj
-                              ? <span onClick={() => nav("project-detail", proj.id)} style={{ fontSize:12, color:t.accent, fontWeight:600, cursor:"pointer", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"block" }}>{proj.title}</span>
-                              : <span style={{ fontSize:12, color:t.textGhost }}>—</span>}
-                          </div>
-                          <div style={{ display:"flex", alignItems:"center", gap:6, minWidth:0 }}>
-                            {t2.assigned_to?.name
-                              ? <><Avatar name={t2.assigned_to.name} size={20} /><span style={{ fontSize:12, color:t.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t2.assigned_to.name.split(" ")[0]}</span></>
-                              : <span style={{ fontSize:12, color:t.textGhost }}>—</span>}
-                          </div>
-                          <Badge label={t2.status} color={statusColor(t2.status)} />
-                          <Badge label={t2.priority} color={priorityColor(t2.priority)} />
-                          <span style={{ fontSize:12, color:t.textFaint }}>{t2.due_date ? fmtDate(t2.due_date) : "—"}</span>
-                          {canDeleteTasks && (
-                            <button onClick={() => setTaskToDelete(t2)} style={{ background:"transparent", border:"1px solid #EF444466", borderRadius:6, padding:"3px 8px", fontSize:11, color:"#EF4444", cursor:"pointer" }}>Delete</button>
                           )}
                         </div>
                       );
