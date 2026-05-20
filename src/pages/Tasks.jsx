@@ -58,6 +58,26 @@ export const Tasks = React.memo(function Tasks() {
     return result;
   }, [tasks, statusFilter, viewMode, deptFilter, departments]);
 
+  // Group filtered tasks by their project's current stage
+  const STAGE_ORDER = ["Brief","Strategy","Creative","Concept","Design","Development","Production","Review","Delivery","Delivered"];
+  const stageGroups = useMemo(() => {
+    const map = new Map();
+    filtered.forEach(t2 => {
+      const proj = t2.project_id ? projectById[t2.project_id] : null;
+      const stage = proj?.stage || "No Stage";
+      if (!map.has(stage)) map.set(stage, []);
+      map.get(stage).push(t2);
+    });
+    return [...map.entries()].sort(([a], [b]) => {
+      const ai = STAGE_ORDER.indexOf(a);
+      const bi = STAGE_ORDER.indexOf(b);
+      if (ai === -1 && bi === -1) return a.localeCompare(b);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+  }, [filtered, projectById]);
+
   // Group filtered tasks by project; unlinked tasks go under null key
   const groups = useMemo(() => {
     const map = new Map();
@@ -117,13 +137,13 @@ export const Tasks = React.memo(function Tasks() {
           <span style={{ marginLeft:10, fontSize:14, fontWeight:500, color:t.textFaint }}>({filtered.length})</span>
         </h1>
         <div style={{ display:"flex", gap:8 }}>
-          {["All","Kanban","By Department"].map(m=>(
+          {["All","Kanban","By Stage","By Department"].map(m=>(
             <button key={m} onClick={()=>setViewMode(m)} style={{...bs, background:viewMode===m?"#7C3AED":t.toggleBg, color:viewMode===m?"#fff":t.textSub, border:`1px solid ${viewMode===m?"#7C3AED":t.border2}`, padding:"7px 14px", fontSize:12}}>{m}</button>
           ))}
         </div>
       </div>
 
-      {viewMode !== "Kanban" && (
+      {viewMode !== "Kanban" && viewMode !== "By Stage" && (
         <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
           {statuses.map(s=>(
             <button key={s} onClick={()=>setStatusFilter(s)} style={{...bs, background:statusFilter===s?t.navActive:t.toggleBg, color:statusFilter===s?t.navActiveText:t.textMuted, border:`1px solid ${statusFilter===s?t.accent:t.border}`, padding:"5px 12px", fontSize:12}}>{s}</button>
@@ -215,6 +235,60 @@ export const Tasks = React.memo(function Tasks() {
               </div>
             );
           })}
+        </div>
+      ) : viewMode === "By Stage" ? (
+        /* ── By Stage: task cards grouped into stage columns ───────────────── */
+        <div style={{ display:"grid", gridTemplateColumns:`repeat(${Math.max(1, stageGroups.length)}, minmax(220px, 1fr))`, gap:12, alignItems:"start", overflowX:"auto" }}>
+          {stageGroups.map(([stage, stageTasks]) => {
+            const color = stageColor(stage) || t.textMuted;
+            return (
+              <div key={stage}>
+                <div style={{ borderRadius:"10px 10px 0 0", background:`${color}14`, border:`1px solid ${color}44`, borderBottom:`2.5px solid ${color}`, padding:"10px 13px", marginBottom:8 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+                    <span style={{ width:8, height:8, borderRadius:"50%", background:color, flexShrink:0 }} />
+                    <span style={{ fontSize:12, fontWeight:700, color:t.textSub, flex:1 }}>{stage}</span>
+                    <span style={{ fontSize:11, color:color, background:`${color}18`, borderRadius:99, padding:"1px 8px", fontWeight:700 }}>{stageTasks.length}</span>
+                  </div>
+                </div>
+                {stageTasks.map(t2 => {
+                  const proj = t2.project_id ? projectById[t2.project_id] : null;
+                  const cnt = (comments||[]).filter(c=>c.entity_type==="task"&&c.entity_id===t2.id).length;
+                  const blocked = (t2.blocked_by||[]).some(depId => { const dep = tasks.find(x=>x.id===depId); return dep && !isTaskComplete(dep); });
+                  return (
+                    <div key={t2.id} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:10, padding:"11px 13px", marginBottom:8 }}>
+                      <div style={{ display:"flex", alignItems:"flex-start", gap:7, marginBottom:6 }}>
+                        <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:13, fontWeight:600, color:isTaskComplete(t2)?t.textFaint:t.textSub, textDecoration:isTaskComplete(t2)?"line-through":"none", lineHeight:1.4 }}>{t2.title}</div>
+                          {proj && <div onClick={()=>nav("project-detail", proj.id)} style={{ fontSize:10, color:t.accent, marginTop:2, fontWeight:600, cursor:"pointer" }}>{proj.title}</div>}
+                        </div>
+                        {canDeleteTasks && (
+                          <button onClick={()=>setTaskToDelete(t2)} style={{ background:"transparent", border:"none", color:"#EF4444", cursor:"pointer", fontSize:15, lineHeight:1, padding:"0 2px", flexShrink:0 }}>×</button>
+                        )}
+                      </div>
+                      <div style={{ display:"flex", flexWrap:"wrap", gap:4, alignItems:"center" }}>
+                        <Badge label={t2.priority} color={priorityColor(t2.priority)} />
+                        {blocked && <Badge label="🔒" color="#EF4444" />}
+                        {t2.assigned_to?.name && <div style={{ marginLeft:"auto" }}><Avatar name={t2.assigned_to.name} size={16} /></div>}
+                      </div>
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:6 }}>
+                        <span style={{ fontSize:10, color:t.textGhost }}>{fmtDate(t2.due_date)}</span>
+                        {cnt > 0 && (
+                          <button onClick={()=>setCommentTask(t2)} style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:5, padding:"1px 6px", fontSize:10, color:t.accent, cursor:"pointer", fontWeight:700 }}>💬 {cnt}</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {stageTasks.length === 0 && (
+                  <div style={{ border:`1px dashed ${color}44`, borderRadius:10, padding:"20px 12px", textAlign:"center", color:t.textGhost, fontSize:12 }}>No tasks</div>
+                )}
+              </div>
+            );
+          })}
+          {stageGroups.length === 0 && (
+            <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:40, textAlign:"center", color:t.textFaint, fontSize:13 }}>No tasks match these filters.</div>
+          )}
         </div>
       ) : (
         /* ── Global / By Department: grouped by project ────────────────────── */
