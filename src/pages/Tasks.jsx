@@ -43,6 +43,8 @@ export const Tasks = React.memo(function Tasks() {
   const [commentTask, setCommentTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
   const [viewMode, setViewMode]       = useState("All");
+  const [stageCollapsed, setStageCollapsed] = useState({});
+  const toggleStageCollapse = (key) => setStageCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
   const [statusFilter, setStatusFilter] = useState("All");
   const [deptFilter, setDeptFilter]   = useState("All");
   const statuses = ["All","To Do","In Progress","In Review","Done"];
@@ -237,58 +239,77 @@ export const Tasks = React.memo(function Tasks() {
           })}
         </div>
       ) : viewMode === "By Stage" ? (
-        /* ── By Stage: task cards grouped into stage columns ───────────────── */
-        <div style={{ display:"grid", gridTemplateColumns:`repeat(${Math.max(1, stageGroups.length)}, minmax(220px, 1fr))`, gap:12, alignItems:"start", overflowX:"auto" }}>
+        /* ── By Stage: collapsible grouped table ───────────────────────────── */
+        <div>
+          {stageGroups.length === 0 && (
+            <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:40, textAlign:"center", color:t.textFaint, fontSize:13 }}>No tasks match these filters.</div>
+          )}
           {stageGroups.map(([stage, stageTasks]) => {
-            const color = stageColor(stage) || t.textMuted;
+            const color = stageColor(stage) || t.border2;
+            const collapsed = stageCollapsed[stage];
+            const COLS = "32px 1fr 160px 150px 120px 110px 110px" + (canDeleteTasks ? " 72px" : "");
+            const headers = ["", "Task", "Project", "Assigned To", "Status", "Priority", "Due Date", ...(canDeleteTasks ? [""] : [])];
             return (
-              <div key={stage}>
-                <div style={{ borderRadius:"10px 10px 0 0", background:`${color}14`, border:`1px solid ${color}44`, borderBottom:`2.5px solid ${color}`, padding:"10px 13px", marginBottom:8 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:7 }}>
-                    <span style={{ width:8, height:8, borderRadius:"50%", background:color, flexShrink:0 }} />
-                    <span style={{ fontSize:12, fontWeight:700, color:t.textSub, flex:1 }}>{stage}</span>
-                    <span style={{ fontSize:11, color:color, background:`${color}18`, borderRadius:99, padding:"1px 8px", fontWeight:700 }}>{stageTasks.length}</span>
-                  </div>
+              <div key={stage} style={{ marginBottom:18 }}>
+                {/* Group header */}
+                <div
+                  onClick={() => toggleStageCollapse(stage)}
+                  style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 10px", cursor:"pointer", borderLeft:`4px solid ${color}`, borderRadius:"4px 0 0 4px", userSelect:"none" }}
+                >
+                  <span style={{ fontSize:10, color:t.textGhost, width:10, flexShrink:0 }}>{collapsed ? "▶" : "▼"}</span>
+                  <span style={{ fontSize:14, fontWeight:800, color }}>{stage}</span>
+                  <span style={{ fontSize:12, color:t.textFaint, fontWeight:500 }}>{stageTasks.length} task{stageTasks.length !== 1 ? "s" : ""}</span>
                 </div>
-                {stageTasks.map(t2 => {
-                  const proj = t2.project_id ? projectById[t2.project_id] : null;
-                  const cnt = (comments||[]).filter(c=>c.entity_type==="task"&&c.entity_id===t2.id).length;
-                  const blocked = (t2.blocked_by||[]).some(depId => { const dep = tasks.find(x=>x.id===depId); return dep && !isTaskComplete(dep); });
-                  return (
-                    <div key={t2.id} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:10, padding:"11px 13px", marginBottom:8 }}>
-                      <div style={{ display:"flex", alignItems:"flex-start", gap:7, marginBottom:6 }}>
-                        <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontSize:13, fontWeight:600, color:isTaskComplete(t2)?t.textFaint:t.textSub, textDecoration:isTaskComplete(t2)?"line-through":"none", lineHeight:1.4 }}>{t2.title}</div>
-                          {proj && <div onClick={()=>nav("project-detail", proj.id)} style={{ fontSize:10, color:t.accent, marginTop:2, fontWeight:600, cursor:"pointer" }}>{proj.title}</div>}
-                        </div>
-                        {canDeleteTasks && (
-                          <button onClick={()=>setTaskToDelete(t2)} style={{ background:"transparent", border:"none", color:"#EF4444", cursor:"pointer", fontSize:15, lineHeight:1, padding:"0 2px", flexShrink:0 }}>×</button>
-                        )}
-                      </div>
-                      <div style={{ display:"flex", flexWrap:"wrap", gap:4, alignItems:"center" }}>
-                        <Badge label={t2.priority} color={priorityColor(t2.priority)} />
-                        {blocked && <Badge label="🔒" color="#EF4444" />}
-                        {t2.assigned_to?.name && <div style={{ marginLeft:"auto" }}><Avatar name={t2.assigned_to.name} size={16} /></div>}
-                      </div>
-                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:6 }}>
-                        <span style={{ fontSize:10, color:t.textGhost }}>{fmtDate(t2.due_date)}</span>
-                        {cnt > 0 && (
-                          <button onClick={()=>setCommentTask(t2)} style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:5, padding:"1px 6px", fontSize:10, color:t.accent, cursor:"pointer", fontWeight:700 }}>💬 {cnt}</button>
-                        )}
-                      </div>
+
+                {!collapsed && (
+                  <div style={{ borderLeft:`4px solid ${color}`, overflowX:"auto" }}>
+                    {/* Column headers */}
+                    <div style={{ display:"grid", gridTemplateColumns:COLS, columnGap:12, padding:"7px 14px", background:t.statBg, borderBottom:`1px solid ${t.border2}`, minWidth:820 }}>
+                      {headers.map((h, i) => (
+                        <div key={i} style={{ fontSize:10, fontWeight:700, color:t.textGhost, textTransform:"uppercase", letterSpacing:"0.06em" }}>{h}</div>
+                      ))}
                     </div>
-                  );
-                })}
-                {stageTasks.length === 0 && (
-                  <div style={{ border:`1px dashed ${color}44`, borderRadius:10, padding:"20px 12px", textAlign:"center", color:t.textGhost, fontSize:12 }}>No tasks</div>
+
+                    {/* Task rows */}
+                    {stageTasks.map(t2 => {
+                      const proj = t2.project_id ? projectById[t2.project_id] : null;
+                      const cnt = (comments||[]).filter(c => c.entity_type==="task" && c.entity_id===t2.id).length;
+                      const blocked = (t2.blocked_by||[]).some(depId => { const dep = tasks.find(x => x.id===depId); return dep && !isTaskComplete(dep); });
+                      const done = isTaskComplete(t2);
+                      return (
+                        <div key={t2.id} style={{ display:"grid", gridTemplateColumns:COLS, columnGap:12, padding:"10px 14px", borderBottom:`1px solid ${t.divider}`, alignItems:"center", minWidth:820, background:t.card }}>
+                          <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
+                          <div style={{ minWidth:0 }}>
+                            <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+                              <span style={{ fontSize:13, fontWeight:600, color:done?t.textFaint:t.textSub, textDecoration:done?"line-through":"none" }}>{t2.title}</span>
+                              {blocked && <Badge label="🔒" color="#EF4444" />}
+                              {cnt > 0 && <span style={{ fontSize:10, color:t.accent, fontWeight:700 }}>💬 {cnt}</span>}
+                            </div>
+                          </div>
+                          <div style={{ minWidth:0 }}>
+                            {proj
+                              ? <span onClick={() => nav("project-detail", proj.id)} style={{ fontSize:12, color:t.accent, fontWeight:600, cursor:"pointer", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"block" }}>{proj.title}</span>
+                              : <span style={{ fontSize:12, color:t.textGhost }}>—</span>}
+                          </div>
+                          <div style={{ display:"flex", alignItems:"center", gap:6, minWidth:0 }}>
+                            {t2.assigned_to?.name
+                              ? <><Avatar name={t2.assigned_to.name} size={20} /><span style={{ fontSize:12, color:t.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t2.assigned_to.name.split(" ")[0]}</span></>
+                              : <span style={{ fontSize:12, color:t.textGhost }}>—</span>}
+                          </div>
+                          <Badge label={t2.status} color={statusColor(t2.status)} />
+                          <Badge label={t2.priority} color={priorityColor(t2.priority)} />
+                          <span style={{ fontSize:12, color:t.textFaint }}>{t2.due_date ? fmtDate(t2.due_date) : "—"}</span>
+                          {canDeleteTasks && (
+                            <button onClick={() => setTaskToDelete(t2)} style={{ background:"transparent", border:"1px solid #EF444466", borderRadius:6, padding:"3px 8px", fontSize:11, color:"#EF4444", cursor:"pointer" }}>Delete</button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             );
           })}
-          {stageGroups.length === 0 && (
-            <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:40, textAlign:"center", color:t.textFaint, fontSize:13 }}>No tasks match these filters.</div>
-          )}
         </div>
       ) : (
         /* ── Global / By Department: grouped by project ────────────────────── */
