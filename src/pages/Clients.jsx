@@ -29,7 +29,7 @@ import {
 } from "./_shared.js";
 
 export const Clients = React.memo(function Clients() {
-  const { clients, setClients, projects, currentUser, logActivity } = useApp();
+  const { clients, setClients, projects, currentUser, logActivity, isMobile } = useApp();
   const { theme: t } = useTheme();
   const toast = useToast();
   const iS = mkInputStyle(t); const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);
@@ -57,7 +57,7 @@ export const Clients = React.memo(function Clients() {
         <h1 style={{ margin:0, fontSize:26, fontWeight:800, color:t.text }}>Clients</h1>
         <button style={btnPrimary} onClick={()=>{setEditClient(null);setForm({name:"",brand:"",industry:"Technology",primary_contact:{name:"",email:"",phone:""},status:"Active",health_score:70,notes:""});setShowForm(true);}}>+ New Client</button>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16 }}>
+      <div style={{ display:"grid", gridTemplateColumns:`repeat(${isMobile ? 1 : 3},1fr)`, gap:16 }}>
         {clients.map(c=>{
           const proj = projects.filter(p=>p.client_id===c.id && p.status==="Active").length;
           const hc = c.health_score >= 80 ? "#059669" : c.health_score >= 60 ? "#F59E0B" : "#EF4444";

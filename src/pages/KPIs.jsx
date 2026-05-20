@@ -31,7 +31,7 @@ import {
 const BLANK_KPI = { name:"", project_id:"", category:"Brand Awareness", target_value:100, current_value:0, unit:"%", status:"Not Started", notes:"" };
 
 export const KPIs = React.memo(function KPIs() {
-  const { kpis, setKpis, projects } = useApp();
+  const { kpis, setKpis, projects, isMobile } = useApp();
   const projectById = useMemo(() => Object.fromEntries((projects||[]).map(p => [p.id, p])), [projects]);
   const { theme: t } = useTheme();
   const toast = useToast();
@@ -70,7 +70,7 @@ export const KPIs = React.memo(function KPIs() {
           <button key={s} onClick={()=>setFilter(s)} style={{...bs, background:filter===s?t.navActive:t.toggleBg, color:filter===s?t.navActiveText:t.textMuted, border:`1px solid ${filter===s?t.accent:t.border}`, padding:"6px 14px", fontSize:12}}>{s}</button>
         ))}
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16 }}>
+      <div style={{ display:"grid", gridTemplateColumns:`repeat(${isMobile ? 1 : 3},1fr)`, gap:16 }}>
         {filtered.map(k=>{
           const pct = k.target_value > 0 ? Math.min(100, Math.round((k.current_value/k.target_value)*100)) : 0;
           const proj = projectById[k.project_id];

@@ -73,7 +73,7 @@ function MemberModal({ user, tasks, projects, projectById, taskPipelines, theme:
       </div>
 
       {/* Stats */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:8, marginBottom:20 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(80px,1fr))", gap:8, marginBottom:20 }}>
         {[
           { label:"Active Projects",    value:activeProjects.length,    color:"#3B82F6" },
           { label:"Completed Projects", value:completedProjects.length, color:"#059669" },
@@ -144,9 +144,9 @@ function MemberModal({ user, tasks, projects, projectById, taskPipelines, theme:
           {sortedTasks.length === 0 ? (
             <div style={{ padding:"24px 0", textAlign:"center", color:t.textFaint, fontSize:13 }}>No tasks.</div>
           ) : (
-            <div style={{ maxHeight:340, overflowY:"auto" }}>
+            <div style={{ maxHeight:340, overflowY:"auto", overflowX:"auto" }}>
               {/* Column headers */}
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 130px 80px 60px 50px", gap:8, padding:"4px 8px", marginBottom:4 }}>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 130px 80px 60px 50px", gap:8, padding:"4px 8px", marginBottom:4, minWidth:400 }}>
                 {["Task","Project","Status","Due","Hours"].map(h => (
                   <span key={h} style={{ fontSize:10, fontWeight:700, color:t.textGhost, letterSpacing:"0.06em" }}>{h.toUpperCase()}</span>
                 ))}
@@ -156,7 +156,7 @@ function MemberModal({ user, tasks, projects, projectById, taskPipelines, theme:
                 const done = isTaskComplete(task, proj, taskPipelines);
                 const sc   = statusColor(task.status);
                 return (
-                  <div key={task.id} style={{ display:"grid", gridTemplateColumns:"1fr 130px 80px 60px 50px", gap:8, padding:"8px 8px", borderRadius:8, background:t.statBg, marginBottom:5, alignItems:"center", opacity:done?0.7:1 }}>
+                  <div key={task.id} style={{ display:"grid", gridTemplateColumns:"1fr 130px 80px 60px 50px", gap:8, padding:"8px 8px", borderRadius:8, background:t.statBg, marginBottom:5, alignItems:"center", opacity:done?0.7:1, minWidth:400 }}>
                     <div style={{ minWidth:0 }}>
                       <div style={{ fontSize:12, fontWeight:600, color:t.textSub, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
                         {done && <span style={{ color:"#059669", marginRight:4 }}>✓</span>}
@@ -202,7 +202,7 @@ function ProjectRow({ project: p, tasks, theme: t }) {
 
 // ─── TEAM ─────────────────────────────────────────────────────────────────────
 export const Team = React.memo(function Team() {
-  const { users, tasks, projects, whiteLabelSettings } = useApp();
+  const { users, tasks, projects, whiteLabelSettings, isMobile } = useApp();
   const { theme: t } = useTheme();
   const taskPipelines = useMemo(() => getTaskPipelines(whiteLabelSettings), [whiteLabelSettings]);
   const projectById   = useMemo(() => Object.fromEntries(projects.map(p => [p.id, p])), [projects]);
@@ -247,7 +247,7 @@ export const Team = React.memo(function Team() {
   return (
     <div>
       <h1 style={{ margin:"0 0 24px", fontSize:26, fontWeight:800, color:t.text }}>Team</h1>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16 }}>
+      <div style={{ display:"grid", gridTemplateColumns:`repeat(${isMobile ? 1 : 3},1fr)`, gap:16 }}>
         {users.map(u => {
           const m = memberMap[u.email] || { hours:0, pct:0, color:"#6B7280", activeTasks:[], activeTaskCount:0, doneTaskCount:0, activeProjectCount:0, completedProjectCount:0, totalLogged:0 };
           return (

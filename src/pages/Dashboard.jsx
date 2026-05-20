@@ -19,7 +19,7 @@ import {
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 export const Dashboard = React.memo(function Dashboard() {
-  const { projects, tasks, clients, kpis, nav, whiteLabelSettings } = useApp();
+  const { projects, tasks, clients, kpis, nav, whiteLabelSettings, isMobile } = useApp();
   const CS = ({ USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" })[whiteLabelSettings?.currency] || "$";
   const { theme: t } = useTheme();
   const taskPipelines = useMemo(() => getTaskPipelines(whiteLabelSettings), [whiteLabelSettings]);
@@ -96,7 +96,7 @@ export const Dashboard = React.memo(function Dashboard() {
         <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: t.text }}>Agency Overview</h1>
         <p style={{ margin: "4px 0 0", color: t.textFaint, fontSize: 14 }}>{todayLabel}</p>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 16, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${isMobile ? 2 : 6},1fr)`, gap: isMobile ? 10 : 16, marginBottom: 28 }}>
         <StatCard icon="🚀" label="Active Projects" value={activeProjects.length} sub="across all clients" />
         <StatCard icon="✅" label="Tasks Completed" value={doneTasks.length} sub="total done" />
         <StatCard icon="👥" label="Active Clients" value={activeClients.length} sub="under management" />
@@ -104,7 +104,7 @@ export const Dashboard = React.memo(function Dashboard() {
         <StatCard icon="💰" label="Total Budget" value={totalBudget > 0 ? `${CS}${(totalBudget/1_000_000).toFixed(2)}M` : "—"} sub="across all projects" />
         <StatCard icon="📤" label="Budget Spent" value={totalBudget > 0 ? `${Math.round((totalSpent/Math.max(totalBudget,1))*100)}%` : "—"} sub={totalBudget > 0 ? `${CS}${(totalSpent/1_000_000).toFixed(2)}M spent` : "Set budget on projects"} />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20, marginBottom: 20 }}>
         <div style={{ background: t.card, border: `1px solid ${t.border2}`, borderRadius: 14, padding: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
             <h3 style={{ margin: 0, color: t.text, fontSize: 15, fontWeight: 700 }}>Project Pipeline</h3>

@@ -372,10 +372,20 @@ export const NotificationBell = React.memo(function NotificationBell() {
 // ─── MODAL ────────────────────────────────────────────────────────────────────
 export function Modal({ open, onClose, title, children, width = 560 }) {
   const { theme: t } = useTheme();
+  const { isMobile } = useApp();
   if (!open) return null;
+  const mobileSheet = isMobile ? {
+    alignItems: "flex-end",
+    padding: 0,
+  } : {};
+  const mobileInner = isMobile ? {
+    borderRadius: "16px 16px 0 0",
+    maxWidth: "100%",
+    maxHeight: "92vh",
+  } : {};
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#00000099", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: t.card, border: `1px solid ${t.border2}`, borderRadius: 16, width: "100%", maxWidth: width, maxHeight: "90vh", overflowY: "auto", boxShadow: t.shadow }} onClick={e => e.stopPropagation()}>
+    <div style={{ position: "fixed", inset: 0, background: "#00000099", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, ...mobileSheet }} onClick={onClose}>
+      <div style={{ background: t.card, border: `1px solid ${t.border2}`, borderRadius: 16, width: "100%", maxWidth: width, maxHeight: "90vh", overflowY: "auto", boxShadow: t.shadow, ...mobileInner }} onClick={e => e.stopPropagation()}>
         <div style={{ padding: "20px 24px 16px", borderBottom: `1px solid ${t.border2}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h3 style={{ margin: 0, color: t.text, fontSize: 18, fontWeight: 700 }}>{title}</h3>
           <button onClick={onClose} style={{ background: "none", border: "none", color: t.textMuted, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>

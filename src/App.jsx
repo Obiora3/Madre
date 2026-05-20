@@ -4,6 +4,7 @@ import { AuthScreen } from "./components/AuthScreen.jsx";
 import { useAppData } from "./hooks/useAppData.js";
 import { useAuth } from "./hooks/useAuth.js";
 import { useLocalStorage } from "./hooks/useLocalStorage.js";
+import { useIsMobile } from "./hooks/useIsMobile.js";
 import { useNotifications } from "./hooks/useNotifications.js";
 import { useOperationalAutomations } from "./hooks/useOperationalAutomations.js";
 import { useWhiteLabelSettings } from "./hooks/useWhiteLabelSettings.js";
@@ -49,6 +50,7 @@ function Breadcrumbs({ page, pageParam, projects, nav, theme: t }) {
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function Madre() {
+  const isMobile = useIsMobile();
   const [darkMode, setDarkMode] = useLocalStorage("af_dark_mode", false);
   const toggleTheme = () => setDarkMode(d => !d);
   const {
@@ -79,7 +81,7 @@ export default function Madre() {
   // ── Navigation & UI state ────────────────────────────────────────────────
   const [page, setPage]               = useState("dashboard");
   const [pageParam, setPageParam]     = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const contentRef = useRef(null);
 
   // ── Auth must come before data so agency_id is available ────────────────
@@ -97,7 +99,8 @@ export default function Madre() {
   const nav = useCallback((p, param = null) => {
     setPage(p);
     setPageParam(param);
-  }, []);
+    if (isMobile) setSidebarOpen(false);
+  }, [isMobile]);
 
   // Reset scroll to top synchronously before paint on every page navigation
   useLayoutEffect(() => {
@@ -165,12 +168,14 @@ export default function Madre() {
     events, logActivity, updateMemberRole,
     whiteLabelSettings, setWhiteLabelSettings, resetWhiteLabelSettings,
     notifications, unreadNotifCount, markNotifRead, markAllNotifsRead, dismissNotif, dismissAllNotifs,
+    isMobile,
   }), [
     projects, tasks, clients, kpis, departments, pitches, comments, appUsers, currentUser,
     auth.signOut, auth.updateProfile, auth.setupAgency, nav, page, pageParam, resetAllData,
     events, logActivity, updateMemberRole,
     whiteLabelSettings, setWhiteLabelSettings, resetWhiteLabelSettings, setComments,
     notifications, unreadNotifCount, markNotifRead, markAllNotifsRead, dismissNotif, dismissAllNotifs,
+    isMobile,
   ]);
 
   const navItems = [
@@ -216,8 +221,23 @@ export default function Madre() {
         <AppContext.Provider value={appValue}>
           <div style={{ display:"flex", height:"100vh", background:shellBg, fontFamily:"\'DM Sans\', \'Outfit\', system-ui, sans-serif", color:t.textSub, overflow:"hidden", transition:"background 0.3s ease, color 0.3s ease" }}>
 
+            {/* Mobile sidebar backdrop */}
+            {isMobile && sidebarOpen && (
+              <div onClick={() => setSidebarOpen(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:190, backdropFilter:"blur(2px)" }} />
+            )}
+
             {/* Sidebar */}
-            <div style={{ width: sidebarOpen ? 220 : 0, minWidth: sidebarOpen ? 220 : 0, background:st.surface, display:"flex", flexDirection:"column", overflow:"hidden", transition:"width 0.25s ease, min-width 0.25s ease, background 0.3s ease", flexShrink:0 }}>
+            <div style={isMobile ? {
+              position:"fixed", top:0, left:0, height:"100vh", width:260,
+              transform: sidebarOpen ? "translateX(0)" : "translateX(-270px)",
+              zIndex:200, transition:"transform 0.25s ease, background 0.3s ease",
+              background:st.surface, display:"flex", flexDirection:"column", overflow:"hidden",
+              boxShadow: sidebarOpen ? "4px 0 24px rgba(0,0,0,0.18)" : "none",
+            } : {
+              width: sidebarOpen ? 220 : 0, minWidth: sidebarOpen ? 220 : 0,
+              background:st.surface, display:"flex", flexDirection:"column", overflow:"hidden",
+              transition:"width 0.25s ease, min-width 0.25s ease, background 0.3s ease", flexShrink:0,
+            }}>
               <div style={{ height:headerHeight, boxSizing:"border-box", padding:"0 16px", display:"flex", alignItems:"center" }}>
                 <img src="/logo.png" alt="logo" style={{ width:70, height:70, objectFit:"contain" }} />
               </div>
@@ -258,21 +278,21 @@ export default function Madre() {
             {/* Main */}
             <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", background:shellBg }}>
               {/* Topbar */}
-              <div style={{ height:headerHeight, background:shellBg, display:"grid", gridTemplateColumns:"1fr auto 1fr", alignItems:"center", padding:"0 20px", flexShrink:0, transition:"background 0.3s ease" }}>
-                <div style={{ display:"flex", alignItems:"center" }}>
+              <div style={{ height:headerHeight, background:shellBg, display:"flex", alignItems:"center", padding:isMobile ? "0 12px" : "0 20px", flexShrink:0, gap:8, transition:"background 0.3s ease" }}>
+                <div style={{ display:"flex", alignItems:"center", flex:isMobile ? 1 : "none" }}>
                   <button
                     aria-label={sidebarOpen ? "Collapse sidebar" : "Open sidebar"}
                     title={sidebarOpen ? "Collapse sidebar" : "Open sidebar"}
                     onClick={() => setSidebarOpen(o => !o)}
-                    style={{ width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center", background:"transparent", border:`1px solid ${t.border2}`, borderRadius:8, color:t.textMuted, cursor:"pointer", fontSize:18, padding:0, lineHeight:1 }}
+                    style={{ width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center", background:"transparent", border:`1px solid ${t.border2}`, borderRadius:8, color:t.textMuted, cursor:"pointer", fontSize:18, padding:0, lineHeight:1, flexShrink:0 }}
                   >
                     {"\u2630"}
                   </button>
                   <Breadcrumbs page={page} pageParam={pageParam} projects={projects} nav={nav} theme={t} />
                 </div>
-                <GlobalSearch />
-                <div style={{ display:"flex", alignItems:"center", gap:12, justifyContent:"flex-end" }}>
-                  <ThemeToggle />
+                {!isMobile && <div style={{ flex:1, display:"flex", justifyContent:"center" }}><GlobalSearch /></div>}
+                <div style={{ display:"flex", alignItems:"center", gap:isMobile ? 8 : 12, justifyContent:"flex-end", flexShrink:0 }}>
+                  {!isMobile && <ThemeToggle />}
                   <NotificationBell />
                   <button onClick={() => nav("profile")} title="Edit profile" style={{ background:"none", border:"none", cursor:"pointer", padding:0, borderRadius:"50%" }}>
                     <Avatar name={currentUser.name} size={34} />
@@ -280,7 +300,7 @@ export default function Madre() {
                 </div>
               </div>
               {/* Content */}
-              <div ref={contentRef} style={{ flex:1, overflowY:"auto", padding:"28px 28px 40px", background:t.bg, borderTop:`1px solid ${t.border}`, borderLeft:sidebarOpen ? `1px solid ${t.border}` : "none", borderTopLeftRadius:sidebarOpen ? contentCurve : 0, transition:"background 0.3s ease, border-radius 0.25s ease, border-color 0.3s ease" }}>
+              <div ref={contentRef} style={{ flex:1, overflowY:"auto", padding:isMobile ? "16px 14px 32px" : "28px 28px 40px", background:t.bg, borderTop:`1px solid ${t.border}`, borderLeft:(!isMobile && sidebarOpen) ? `1px solid ${t.border}` : "none", borderTopLeftRadius:(!isMobile && sidebarOpen) ? contentCurve : 0, transition:"background 0.3s ease, border-radius 0.25s ease, border-color 0.3s ease" }}>
                 {dataLoading ? (
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100%", gap:12, color:t.textMuted, fontSize:14 }}>
                     <div style={{ width:20, height:20, border:`2px solid ${t.border2}`, borderTopColor:t.accent, borderRadius:"50%", animation:"spin 0.7s linear infinite" }} />
