@@ -119,6 +119,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   const [logTimeTask, setLogTimeTask] = useState(null);
   const [logHours, setLogHours]       = useState("");
   const [showTemplates, setShowTemplates] = useState(false);
+  const [stageForTemplate, setStageForTemplate] = useState("");
 
   // ── View mode (list vs kanban vs stage) ────────────────────────────────────
   const [taskView, setTaskView] = useState("stage");
@@ -175,9 +176,9 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   const toggleSubtask = (taskId, stId) => setTasks(tasks.map(t2 => t2.id === taskId ? { ...t2, subtasks:(t2.subtasks||[]).map(s=>s.id===stId?{...s,done:!s.done}:s) } : t2));
   const deleteSubtask = (taskId, stId) => setTasks(tasks.map(t2 => t2.id === taskId ? { ...t2, subtasks:(t2.subtasks||[]).filter(s=>s.id!==stId) } : t2));
 
-  const applyTemplate = (tmpl) => {
+  const applyTemplate = (tmpl, projectStage = "") => {
     const now = Date.now();
-    const newTasks = tmpl.tasks.map((tpl, i) => ({ id:`t${now+i}`, ...tpl, status:defaultTaskStatus, project_id:id, assigned_to:{}, due_date:"", estimated_hours:0, actual_hours:0, subtasks:[], recurrence:"none", blocked_by:[], created_at:new Date().toISOString() }));
+    const newTasks = tmpl.tasks.map((tpl, i) => ({ id:`t${now+i}`, ...tpl, status:defaultTaskStatus, project_id:id, assigned_to:{}, due_date:"", estimated_hours:0, actual_hours:0, subtasks:[], recurrence:"none", blocked_by:[], created_at:new Date().toISOString(), ...(projectStage ? { project_stage:projectStage } : {}) }));
     const all = [...tasks, ...newTasks];
     setTasks(all);
     setProjects(projects.map(p => p.id === id ? { ...p, progress: calcProgress(id, all, p, taskPipelines) } : p));
@@ -473,12 +474,18 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
               })}
 
               {/* Add task row */}
-              <div style={{ padding:"8px 14px", background:t.card, borderTop:`1px solid ${t.divider}` }}>
+              <div style={{ padding:"10px 14px", background:t.card, borderTop:`1px solid ${t.divider}`, display:"flex", gap:8 }}>
                 <button
                   onClick={() => { setTaskForm({ ...BLANK_TASK, project_stage: label === "No Stage" ? "" : label }); setShowTaskForm(true); }}
-                  style={{ display:"flex", alignItems:"center", gap:6, background:"none", border:`1px dashed ${color}88`, borderRadius:7, cursor:"pointer", color, fontSize:12, padding:"5px 12px", fontWeight:600, transition:"background 0.15s" }}
+                  style={{ display:"flex", alignItems:"center", gap:6, background:`${color}14`, border:`1px solid ${color}55`, borderRadius:7, cursor:"pointer", color, fontSize:12, padding:"6px 14px", fontWeight:700 }}
                 >
-                  <span style={{ fontSize:15, lineHeight:1 }}>+</span> Add Task to {label}
+                  + New Task
+                </button>
+                <button
+                  onClick={() => { setStageForTemplate(label === "No Stage" ? "" : label); setShowTemplates(true); }}
+                  style={{ display:"flex", alignItems:"center", gap:6, background:t.statBg, border:`1px solid ${t.border2}`, borderRadius:7, cursor:"pointer", color:t.textMuted, fontSize:12, padding:"6px 14px", fontWeight:600 }}
+                >
+                  📋 From Template
                 </button>
               </div>
             </div>
@@ -884,7 +891,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
         <div style={{ fontSize:13, color:t.textMuted, marginBottom:16 }}>Pick a template to bulk-add tasks to this project. You can edit them after.</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           {TASK_TEMPLATES.map(tmpl=>(
-            <button key={tmpl.name} onClick={()=>{ applyTemplate(tmpl); setShowTemplates(false); }} style={{ textAlign:"left", background:t.statBg, border:`1px solid ${t.border2}`, borderRadius:12, padding:"16px", cursor:"pointer" }}>
+            <button key={tmpl.name} onClick={()=>{ applyTemplate(tmpl, stageForTemplate); setShowTemplates(false); setStageForTemplate(""); }} style={{ textAlign:"left", background:t.statBg, border:`1px solid ${t.border2}`, borderRadius:12, padding:"16px", cursor:"pointer" }}>
               <div style={{ fontSize:22, marginBottom:8 }}>{tmpl.icon}</div>
               <div style={{ fontSize:13, fontWeight:700, color:t.text, marginBottom:4 }}>{tmpl.name}</div>
               <div style={{ fontSize:11, color:t.textFaint }}>{tmpl.tasks.length} tasks</div>
