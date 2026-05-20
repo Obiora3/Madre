@@ -28,8 +28,10 @@ async function fetchTable(table) {
 // Convert empty strings to null — required for date, FK, and other typed columns
 // that reject "" but accept null. Safe because all required fields are validated
 // non-empty in the UI before calling setXxx.
+// project_stage must stay as "" (not null) — the tasks table has a NOT NULL constraint on it
+const KEEP_EMPTY_STRING = new Set(["project_stage"]);
 const sanitize = obj => Object.fromEntries(
-  Object.entries(obj).map(([k, v]) => [k, v === "" ? null : v])
+  Object.entries(obj).map(([k, v]) => [k, v === "" && !KEEP_EMPTY_STRING.has(k) ? null : v])
 );
 
 const isTransient = (msg) => !msg || msg.includes("fetch") || msg.includes("network") || msg.includes("timeout");
