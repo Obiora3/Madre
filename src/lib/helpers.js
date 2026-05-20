@@ -75,6 +75,66 @@ export const DEFAULT_PROJECT_PIPELINES = [
 export const DEFAULT_TASK_PIPELINE_ID = DEFAULT_PROJECT_PIPELINE_ID;
 export const DEFAULT_TASK_PIPELINES = DEFAULT_PROJECT_PIPELINES;
 
+export const DEFAULT_TASK_TEMPLATES = [
+  {
+    id: "social-media-campaign",
+    name: "Social Media Campaign",
+    icon: "\uD83D\uDCF1",
+    description: "Core delivery tasks for a social media campaign.",
+    builtIn: true,
+    tasks: [
+      { title: "Brief & Strategy", priority: "High", description: "Define campaign goals and target audience" },
+      { title: "Content Calendar", priority: "High", description: "Plan post schedule and themes" },
+      { title: "Creative Assets", priority: "Medium", description: "Design graphics and write copy" },
+      { title: "Scheduling & Publishing", priority: "Medium", description: "Schedule posts across platforms" },
+      { title: "Performance Review", priority: "Low", description: "Analyse engagement and results" },
+    ],
+  },
+  {
+    id: "brand-identity",
+    name: "Brand Identity",
+    icon: "\uD83C\uDFA8",
+    description: "Discovery, concept, and final brand handover tasks.",
+    builtIn: true,
+    tasks: [
+      { title: "Discovery & Research", priority: "High", description: "Competitive analysis and brand audit" },
+      { title: "Concept Development", priority: "High", description: "Create brand concepts and moodboards" },
+      { title: "Logo Design", priority: "High", description: "Design primary and secondary logo variants" },
+      { title: "Brand Guidelines", priority: "Medium", description: "Document colors, fonts and usage rules" },
+      { title: "Asset Delivery", priority: "Low", description: "Export final files in all required formats" },
+    ],
+  },
+  {
+    id: "website-launch",
+    name: "Website Launch",
+    icon: "\uD83C\uDF10",
+    description: "Website production tasks from sitemap to handover.",
+    builtIn: true,
+    tasks: [
+      { title: "Sitemap & Wireframes", priority: "High", description: "Plan site structure and page layouts" },
+      { title: "Design Mockups", priority: "High", description: "Design key pages in high fidelity" },
+      { title: "Development", priority: "High", description: "Build and code the website" },
+      { title: "Content Population", priority: "Medium", description: "Add all copy, images and media" },
+      { title: "QA & Testing", priority: "Medium", description: "Test across devices and browsers" },
+      { title: "Launch & Handover", priority: "Low", description: "Deploy and hand over to client" },
+    ],
+  },
+  {
+    id: "content-strategy",
+    name: "Content Strategy",
+    icon: "\uD83D\uDCDD",
+    description: "Research, planning, production, and distribution tasks.",
+    builtIn: true,
+    tasks: [
+      { title: "Audience Research", priority: "High", description: "Define audience personas and pain points" },
+      { title: "Content Audit", priority: "Medium", description: "Review existing content performance" },
+      { title: "Editorial Plan", priority: "High", description: "Define topics, formats and cadence" },
+      { title: "Content Production", priority: "Medium", description: "Write and design content pieces" },
+      { title: "Distribution Plan", priority: "Low", description: "Define channels and promotion strategy" },
+    ],
+  },
+];
+
 export const priorityColor = (p) => ({
   Critical: "#EF4444",
   High: "#F97316",
@@ -182,6 +242,45 @@ export const getTaskPipelines = (settingsOrPipelines) => {
   const byId = new Map();
   [...DEFAULT_PROJECT_PIPELINES, ...custom].forEach((pipeline, idx) => {
     const normalized = normalizePipeline(pipeline, idx);
+    byId.set(normalized.id, normalized);
+  });
+  return [...byId.values()];
+};
+
+const normalizeTaskTemplateItem = (task, idx) => {
+  const title = typeof task === "string" ? task : task?.title;
+  const priority = ["Critical", "High", "Medium", "Low"].includes(task?.priority) ? task.priority : "Medium";
+  return {
+    title: String(title || `Task ${idx + 1}`).trim() || `Task ${idx + 1}`,
+    priority,
+    description: typeof task === "object" ? String(task?.description || "").trim() : "",
+  };
+};
+
+const normalizeTaskTemplate = (template, idx) => {
+  const tasks = Array.isArray(template?.tasks) && template.tasks.length
+    ? template.tasks.map((task, taskIdx) => normalizeTaskTemplateItem(task, taskIdx))
+    : [{ title: "New task", priority: "Medium", description: "" }];
+
+  return {
+    id: template?.id || normalizeStatusId(template?.name || "template", idx),
+    name: template?.name || `Template ${idx + 1}`,
+    icon: template?.icon || "\uD83D\uDCCB",
+    description: template?.description || "",
+    builtIn: Boolean(template?.builtIn),
+    tasks,
+  };
+};
+
+export const getTaskTemplates = (settingsOrTemplates) => {
+  const custom = Array.isArray(settingsOrTemplates)
+    ? settingsOrTemplates
+    : Array.isArray(settingsOrTemplates?.task_templates)
+      ? settingsOrTemplates.task_templates
+      : [];
+  const byId = new Map();
+  [...DEFAULT_TASK_TEMPLATES, ...custom].forEach((template, idx) => {
+    const normalized = normalizeTaskTemplate(template, idx);
     byId.set(normalized.id, normalized);
   });
   return [...byId.values()];

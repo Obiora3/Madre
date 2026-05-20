@@ -92,11 +92,9 @@ export const Reports = React.memo(function Reports() {
   const projectById = useMemo(() => Object.fromEntries((projects || []).map(p => [p.id, p])), [projects]);
 
   // ── Date range filter ────────────────────────────────────────────────────
-  const [dateFrom, setDateFrom] = useState(() => {
-    const d = new Date(); d.setDate(1); return d.toISOString().split("T")[0];
-  });
-  const [dateTo, setDateTo] = useState(new Date().toISOString().split("T")[0]);
-  const [activePreset, setActivePreset] = useState("This Month");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [activePreset, setActivePreset] = useState("All Time");
 
   const setPreset = (label) => {
     const now = new Date();

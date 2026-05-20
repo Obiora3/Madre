@@ -79,6 +79,7 @@ export default function Madre() {
   const [page, setPage]               = useState("dashboard");
   const [pageParam, setPageParam]     = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const contentRef = useRef(null);
 
   // ── Auth must come before data so agency_id is available ────────────────
   const auth = useAuth();
@@ -92,7 +93,11 @@ export default function Madre() {
     resetAllData, loading: dataLoading,
   } = useAppData(auth.currentUser?.agency_id);
 
-  const nav = useCallback((p, param = null) => { setPage(p); setPageParam(param); }, []);
+  const nav = useCallback((p, param = null) => {
+    setPage(p);
+    setPageParam(param);
+    if (contentRef.current) contentRef.current.scrollTop = 0;
+  }, []);
 
   // Show a toast whenever a Supabase sync write fails
   useEffect(() => {
@@ -258,7 +263,7 @@ export default function Madre() {
                 </div>
               </div>
               {/* Content */}
-              <div style={{ flex:1, overflowY:"auto", padding:"28px 28px 40px", background:t.bg, borderTop:`1px solid ${t.border}`, borderLeft:sidebarOpen ? `1px solid ${t.border}` : "none", borderTopLeftRadius:sidebarOpen ? contentCurve : 0, transition:"background 0.3s ease, border-radius 0.25s ease, border-color 0.3s ease" }}>
+              <div ref={contentRef} style={{ flex:1, overflowY:"auto", padding:"28px 28px 40px", background:t.bg, borderTop:`1px solid ${t.border}`, borderLeft:sidebarOpen ? `1px solid ${t.border}` : "none", borderTopLeftRadius:sidebarOpen ? contentCurve : 0, transition:"background 0.3s ease, border-radius 0.25s ease, border-color 0.3s ease" }}>
                 {dataLoading ? (
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100%", gap:12, color:t.textMuted, fontSize:14 }}>
                     <div style={{ width:20, height:20, border:`2px solid ${t.border2}`, borderTopColor:t.accent, borderRadius:"50%", animation:"spin 0.7s linear infinite" }} />

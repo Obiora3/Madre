@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useLocalStorage } from "./useLocalStorage.js";
-import { DEFAULT_PROJECT_PIPELINES } from "../lib/helpers.js";
+import { DEFAULT_PROJECT_PIPELINES, DEFAULT_TASK_TEMPLATES, getTaskTemplates } from "../lib/helpers.js";
 
 export const DEFAULT_WHITE_LABEL_SETTINGS = {
   // Branding
@@ -17,6 +17,7 @@ export const DEFAULT_WHITE_LABEL_SETTINGS = {
   default_task_priority: "Medium",
   week_starts_on:        "monday", // "monday" | "sunday"
   project_pipelines:     DEFAULT_PROJECT_PIPELINES,
+  task_templates:        DEFAULT_TASK_TEMPLATES,
 
   // Notifications
   notify_deadlines:       true,
@@ -52,7 +53,8 @@ export function useWhiteLabelSettings() {
 
   const normalizedSettings = useMemo(() => {
     const projectPipelines = settings?.project_pipelines || settings?.task_pipelines || DEFAULT_WHITE_LABEL_SETTINGS.project_pipelines;
-    return { ...DEFAULT_WHITE_LABEL_SETTINGS, ...settings, project_pipelines: projectPipelines };
+    const taskTemplates = getTaskTemplates(settings?.task_templates || DEFAULT_WHITE_LABEL_SETTINGS.task_templates);
+    return { ...DEFAULT_WHITE_LABEL_SETTINGS, ...settings, project_pipelines: projectPipelines, task_templates: taskTemplates };
   }, [settings]);
 
   return { settings: normalizedSettings, setSettings, resetSettings };
