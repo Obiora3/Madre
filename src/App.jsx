@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AppContext } from "./context/app-context.jsx";
 import { AuthScreen } from "./components/AuthScreen.jsx";
 import { useAppData } from "./hooks/useAppData.js";
@@ -98,8 +98,8 @@ export default function Madre() {
     setPageParam(param);
   }, []);
 
-  // Reset scroll to top after every page navigation
-  useEffect(() => {
+  // Reset scroll to top synchronously before paint on every page navigation
+  useLayoutEffect(() => {
     if (contentRef.current) contentRef.current.scrollTop = 0;
   }, [page, pageParam]);
 

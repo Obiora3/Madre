@@ -42,6 +42,7 @@ export const Tasks = React.memo(function Tasks() {
   const bs = mkBtnSecondary(t);
   const [commentTask, setCommentTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
+  const [editingTask, setEditingTask] = useState(null);
   const [viewMode, setViewMode]       = useState("All");
   const [stageCollapsed, setStageCollapsed] = useState({});
   const toggleStageCollapse = (key) => setStageCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
@@ -104,6 +105,18 @@ export const Tasks = React.memo(function Tasks() {
     logActivity({ userName: currentUser?.name, eventType: "deleted", entityType: "task", entityId: task.id, entityTitle: task.title });
     toast({ message:`"${task.title}" deleted`, sub:"Task removed permanently", type:"warning" });
     if (commentTask?.id === task.id) setCommentTask(null);
+  };
+
+  const saveEditTask = () => {
+    if (!editingTask) return;
+    const nextTasks = tasks.map(t2 => t2.id === editingTask.id ? { ...t2, ...editingTask } : t2);
+    setTasks(nextTasks);
+    if (editingTask.project_id) {
+      setProjects(projects.map(p => p.id === editingTask.project_id ? { ...p, progress: calcProgress(p.id, nextTasks) } : p));
+    }
+    logActivity({ userName: currentUser?.name, eventType: "updated", entityType: "task", entityId: editingTask.id, entityTitle: editingTask.title });
+    toast({ message: `"${editingTask.title}" updated`, type: "success" });
+    setEditingTask(null);
   };
 
   const TABLE_GAP = 14;
@@ -182,6 +195,7 @@ export const Tasks = React.memo(function Tasks() {
                             <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:4, marginBottom:5 }}>
                               <span style={{ fontSize:12, fontWeight:700, color:isTaskComplete(t2)?t.textFaint:t.text, lineHeight:1.35, textDecoration:isTaskComplete(t2)?"line-through":"none", flex:1 }}>{t2.title}</span>
                               {blocked && <span title="Blocked" style={{ fontSize:12, flexShrink:0 }}>🔒</span>}
+                              <button onClick={() => setEditingTask({...t2})} title="Edit task" style={{ background:"transparent", border:"none", color:t.textMuted, cursor:"pointer", fontSize:13, lineHeight:1, padding:"0 2px", flexShrink:0 }}>✏</button>
                               {canDeleteTasks && (
                                 <button onClick={()=>setTaskToDelete(t2)} title="Delete task" aria-label={`Delete ${t2.title}`} style={{ background:"transparent", border:"none", color:"#EF4444", cursor:"pointer", fontSize:15, lineHeight:1, padding:"0 2px", flexShrink:0 }}>x</button>
                               )}
@@ -304,6 +318,7 @@ export const Tasks = React.memo(function Tasks() {
                                         <span style={{ fontSize:13, fontWeight:600, color:done?t.textFaint:t.textSub, textDecoration:done?"line-through":"none" }}>{t2.title}</span>
                                         {blocked && <Badge label="🔒" color="#EF4444" />}
                                         {cnt > 0 && <span style={{ fontSize:10, color:t.accent, fontWeight:700 }}>💬 {cnt}</span>}
+                                        <button onClick={() => setEditingTask({...t2})} title="Edit" style={{ background:"transparent", border:"none", color:t.textGhost, cursor:"pointer", fontSize:12, padding:"0 2px", lineHeight:1 }}>✏</button>
                                       </div>
                                     </div>
                                     <div style={{ display:"flex", alignItems:"center", gap:6, minWidth:0 }}>
@@ -380,6 +395,7 @@ export const Tasks = React.memo(function Tasks() {
                         <span style={{ fontSize:13, fontWeight:600, color:isTaskComplete(t2)?t.textFaint:t.textSub, textDecoration:isTaskComplete(t2)?"line-through":"none" }}>{t2.title}</span>
                         {t2.recurrence && t2.recurrence !== "none" && <span title={`Repeats ${t2.recurrence}`} style={{ fontSize:11 }}>🔄</span>}
                         {blocked && <Badge label="🔒" color="#EF4444" />}
+                        <button onClick={() => setEditingTask({...t2})} title="Edit" style={{ background:"transparent", border:"none", color:t.textGhost, cursor:"pointer", fontSize:12, padding:"0 2px", lineHeight:1 }}>✏</button>
                       </div>
                       <div style={{ fontSize:11, color:t.textGhost }}>
                         {t2.estimated_hours}h est.{t2.actual_hours ? ` · ${t2.actual_hours}h logged` : ""}
@@ -408,6 +424,58 @@ export const Tasks = React.memo(function Tasks() {
       </div>
     </>
   )}
+
+      <Modal open={!!editingTask} onClose={() => setEditingTask(null)} title="Edit Task">
+        {editingTask && (
+          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+            <FormField label="Title">
+              <input value={editingTask.title} onChange={e => setEditingTask(prev => ({...prev, title: e.target.value}))} style={mkInputStyle(t)} />
+            </FormField>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+              <FormField label="Status">
+                <select value={editingTask.status} onChange={e => setEditingTask(prev => ({...prev, status: e.target.value}))} style={mkSelectStyle(t)}>
+                  {["To Do","In Progress","In Review","Done"].map(s => <option key={s}>{s}</option>)}
+                </select>
+              </FormField>
+              <FormField label="Priority">
+                <select value={editingTask.priority} onChange={e => setEditingTask(prev => ({...prev, priority: e.target.value}))} style={mkSelectStyle(t)}>
+                  {["Low","Medium","High","Urgent"].map(s => <option key={s}>{s}</option>)}
+                </select>
+              </FormField>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+              <FormField label="Due Date">
+                <input type="date" value={editingTask.due_date || ""} onChange={e => setEditingTask(prev => ({...prev, due_date: e.target.value}))} style={mkInputStyle(t)} />
+              </FormField>
+              <FormField label="Assigned To">
+                <select
+                  value={editingTask.assigned_to?.email || ""}
+                  onChange={e => {
+                    const user = users.find(u => u.email === e.target.value);
+                    setEditingTask(prev => ({...prev, assigned_to: user ? {name: user.name, email: user.email} : null}));
+                  }}
+                  style={mkSelectStyle(t)}
+                >
+                  <option value="">Unassigned</option>
+                  {users.map(u => <option key={u.email} value={u.email}>{u.name}</option>)}
+                </select>
+              </FormField>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+              <FormField label="Est. Hours">
+                <input type="number" min="0" value={editingTask.estimated_hours || ""} onChange={e => setEditingTask(prev => ({...prev, estimated_hours: e.target.value ? Number(e.target.value) : null}))} style={mkInputStyle(t)} />
+              </FormField>
+              <FormField label="Actual Hours">
+                <input type="number" min="0" value={editingTask.actual_hours || ""} onChange={e => setEditingTask(prev => ({...prev, actual_hours: e.target.value ? Number(e.target.value) : null}))} style={mkInputStyle(t)} />
+              </FormField>
+            </div>
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:10, marginTop:4 }}>
+              <button onClick={() => setEditingTask(null)} style={bs}>Cancel</button>
+              <button onClick={saveEditTask} style={btnPrimary(t)}>Save Changes</button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal open={!!commentTask} onClose={()=>setCommentTask(null)} title={`Comments · ${commentTask?.title || ""}`}>
         {commentTask && <CommentsPanel entityType="task" entityId={commentTask.id} comments={comments||[]} setComments={setComments} currentUser={currentUser} users={users} />}
