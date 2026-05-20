@@ -18,7 +18,7 @@ const PAGE_LABELS = {
   clients:"Clients", kpis:"KPIs", timeline:"Timeline", reports:"Reports",
   "ai-brief":"AI Brief", profitability:"Profitability", pitches:"Pitch Pipeline",
   benchmarking:"Benchmarking", departments:"Departments",
-  "delivery-scores":"Delivery Scores", "settings":"Settings", profile:"Profile",
+  "delivery-scores":"Delivery Scores", "settings":"Settings", drive:"Drive", profile:"Profile",
 };
 
 function Breadcrumbs({ page, pageParam, projects, nav, theme: t }) {
@@ -171,6 +171,7 @@ export default function Madre() {
     { id:"timeline",     label:"Timeline",   icon:"\ud83d\udcc5" },
     { id:"reports",      label:"Reports",    icon:"\ud83d\udcc8" },
     { id:"ai-brief",     label:"AI Brief",   icon:"\u2728" },
+    { id:"drive",        label:"Drive",      icon:"\ud83d\udcc2" },
   ];
   const canAccessSettings = ["owner", "admin"].includes((currentUser?.role || "").toLowerCase());
   const advancedItems = [

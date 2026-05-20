@@ -39,6 +39,8 @@ import {
   mkSelectStyle
 } from "./_shared.js";
 import { sendAssignmentEmail } from "../lib/assignmentNotifications.js";
+import { fetchFiles, uploadFiles, deleteFile, getSignedUrl, formatFileSize, fileIcon } from "../lib/fileStorage.js";
+import { isSupabaseConfigured } from "../lib/supabaseClient.js";
 
 // ─── TASK TEMPLATES ───────────────────────────────────────────────────────────
 const TASK_TEMPLATES = [
@@ -125,6 +127,55 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   const [taskView, setTaskView] = useState("stage");
   const [stageCollapsed, setStageCollapsed] = useState({});
   const toggleStageCollapse = (key) => setStageCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
+
+  // ── Project files state ─────────────────────────────────────────────────────
+  const [projFiles, setProjFiles]       = useState([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [filesLoaded, setFilesLoaded]   = useState(false);
+  const [filesDragOver, setFilesDragOver] = useState(false);
+  const [filesUploading, setFilesUploading] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState(null);
+  const filesInputRef = useRef(null);
+
+  const loadProjectFiles = async () => {
+    if (!isSupabaseConfigured || !currentUser?.agency_id) return;
+    setFilesLoading(true);
+    try {
+      const all = await fetchFiles(currentUser.agency_id);
+      setProjFiles(all.filter(f => f.project_id === id));
+      setFilesLoaded(true);
+    } catch { /* silent */ } finally { setFilesLoading(false); }
+  };
+
+  const handleProjectFileUpload = async (fileList) => {
+    if (!isSupabaseConfigured || !currentUser?.agency_id) return;
+    setFilesUploading(true);
+    try {
+      const newFiles = await uploadFiles({ files: Array.from(fileList), agencyId: currentUser.agency_id, category:"general", projectId: id, currentUser });
+      setProjFiles(prev => [...newFiles, ...prev]);
+      toast({ message: `${newFiles.length} file${newFiles.length !== 1 ? "s" : ""} uploaded`, type:"success" });
+    } catch (e) {
+      toast({ message: `Upload failed: ${e.message}`, type:"error" });
+    } finally { setFilesUploading(false); }
+  };
+
+  const handleProjectFileDelete = async (file) => {
+    try {
+      await deleteFile(file);
+      setProjFiles(prev => prev.filter(f => f.id !== file.id));
+      toast({ message: `"${file.name}" deleted`, type:"success" });
+      setFileToDelete(null);
+    } catch (e) {
+      toast({ message: `Delete failed: ${e.message}`, type:"error" });
+    }
+  };
+
+  const handleProjectFileDownload = async (file) => {
+    try {
+      const url = await getSignedUrl(file.storage_path);
+      if (url) { const a = document.createElement("a"); a.href = url; a.download = file.name; a.click(); }
+    } catch { /* silent */ }
+  };
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
   const taskCommentCount = (tid) => (comments || []).filter(c => c.entity_type === "task" && c.entity_id === tid).length;
@@ -696,7 +747,83 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
         <CommentsPanel entityType="project" entityId={id} comments={comments||[]} setComments={setComments} currentUser={currentUser} users={users} />
       </div>
 
+      {/* ── Project Files ─────────────────────────────────────────────────────── */}
+      {isSupabaseConfigured && (
+        <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, marginTop:20 }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+            <h3 style={{ margin:0, color:t.text, fontSize:15, fontWeight:700 }}>📂 Project Files {projFiles.length > 0 && <span style={{ fontSize:12, color:t.textFaint, fontWeight:400 }}>({projFiles.length})</span>}</h3>
+            <div style={{ display:"flex", gap:8 }}>
+              {!filesLoaded && (
+                <button style={{...bs, padding:"6px 14px", fontSize:12}} onClick={loadProjectFiles} disabled={filesLoading}>
+                  {filesLoading ? "Loading…" : "Load Files"}
+                </button>
+              )}
+              {filesLoaded && (
+                <button style={{ ...btnPrimary, padding:"6px 14px", fontSize:12 }} onClick={() => filesInputRef.current?.click()} disabled={filesUploading}>
+                  {filesUploading ? "Uploading…" : "+ Upload"}
+                </button>
+              )}
+            </div>
+          </div>
+          <input ref={filesInputRef} type="file" multiple style={{ display:"none" }} onChange={e => handleProjectFileUpload(e.target.files)} />
+          {!filesLoaded ? (
+            <div style={{ fontSize:12, color:t.textFaint, padding:"8px 0" }}>Click "Load Files" to view files attached to this project.</div>
+          ) : filesLoading ? (
+            <div style={{ display:"flex", alignItems:"center", gap:8, color:t.textMuted, fontSize:13, padding:"12px 0" }}>
+              <div style={{ width:16, height:16, border:`2px solid ${t.border2}`, borderTopColor:t.accent, borderRadius:"50%", animation:"spin 0.7s linear infinite" }} />
+              Loading…
+            </div>
+          ) : projFiles.length === 0 ? (
+            <div
+              onDragOver={e => { e.preventDefault(); setFilesDragOver(true); }}
+              onDragLeave={() => setFilesDragOver(false)}
+              onDrop={e => { e.preventDefault(); setFilesDragOver(false); handleProjectFileUpload(e.dataTransfer.files); }}
+              onClick={() => filesInputRef.current?.click()}
+              style={{ border:`2px dashed ${filesDragOver ? t.accent : t.border2}`, borderRadius:10, padding:"24px 16px", textAlign:"center", cursor:"pointer", background:filesDragOver ? `${t.accent}11` : t.statBg }}
+            >
+              <div style={{ fontSize:22, marginBottom:6 }}>📂</div>
+              <div style={{ fontSize:12, color:t.textMuted }}>Drop files here or click to upload</div>
+            </div>
+          ) : (
+            <>
+              <div
+                onDragOver={e => { e.preventDefault(); setFilesDragOver(true); }}
+                onDragLeave={() => setFilesDragOver(false)}
+                onDrop={e => { e.preventDefault(); setFilesDragOver(false); handleProjectFileUpload(e.dataTransfer.files); }}
+                style={{ border:`2px dashed ${filesDragOver ? t.accent : "transparent"}`, borderRadius:8, transition:"border-color 0.15s", marginBottom:8 }}
+              >
+                {projFiles.map(f => (
+                  <div key={f.id} style={{ display:"grid", gridTemplateColumns:"28px 1fr 90px 80px auto", alignItems:"center", gap:8, padding:"9px 10px", borderRadius:8, background:t.statBg, marginBottom:5, fontSize:12 }}>
+                    <span style={{ fontSize:18, textAlign:"center" }}>{fileIcon(f.mime_type)}</span>
+                    <div style={{ minWidth:0 }}>
+                      <div style={{ fontWeight:600, color:t.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{f.name}</div>
+                      <div style={{ fontSize:10, color:t.textGhost }}>{f.uploaded_by_name} · {new Date(f.created_at).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" })}</div>
+                    </div>
+                    <span style={{ color:t.textMuted, textAlign:"right" }}>{formatFileSize(f.file_size)}</span>
+                    <span style={{ color:t.textFaint, textAlign:"center", background:t.card, border:`1px solid ${t.border}`, borderRadius:5, padding:"1px 7px" }}>{f.category}</span>
+                    <div style={{ display:"flex", gap:5 }}>
+                      <button onClick={() => handleProjectFileDownload(f)} title="Download" style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:6, padding:"3px 8px", fontSize:11, cursor:"pointer", color:t.textMuted }}>↓</button>
+                      <button onClick={() => setFileToDelete(f)} title="Delete" style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:6, padding:"3px 8px", fontSize:11, cursor:"pointer", color:"#EF4444" }}>✕</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize:11, color:t.textGhost, marginTop:4 }}>Drop more files anywhere above to upload</div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* ── Modals ────────────────────────────────────────────────────────────── */}
+
+      <ConfirmModal
+        open={!!fileToDelete}
+        onClose={() => setFileToDelete(null)}
+        onConfirm={() => handleProjectFileDelete(fileToDelete)}
+        title={`Delete "${fileToDelete?.name || "this file"}"?`}
+        message="This will permanently remove the file from storage."
+        confirmLabel="Delete File"
+      />
 
       <Modal open={!!commentTask} onClose={()=>setCommentTask(null)} title={`Comments · ${commentTask?.title||""}`}>
         {commentTask && <CommentsPanel entityType="task" entityId={commentTask.id} comments={comments||[]} setComments={setComments} currentUser={currentUser} users={users} />}

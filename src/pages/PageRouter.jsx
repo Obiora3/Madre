@@ -15,6 +15,7 @@ import { Tasks } from "./Tasks.jsx";
 import { Team } from "./Team.jsx";
 import { Timeline } from "./Timeline.jsx";
 import { WhiteLabel } from "./WhiteLabel.jsx";
+import { Drive } from "./Drive.jsx";
 import { Profile } from "./Profile.jsx";
 
 // ─── PAGE ROUTER ──────────────────────────────────────────────────────────────
@@ -38,6 +39,7 @@ export const PageRouter = React.memo(function PageRouter() {
     case "delivery-scores": return <DeliveryScores />;
     case "settings":        return <WhiteLabel />;
     case "white-label":     return <WhiteLabel />;
+    case "drive":           return <Drive />;
     case "profile":         return <Profile />;
     default:                return <Dashboard />;
   }
