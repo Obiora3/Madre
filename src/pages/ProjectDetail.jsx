@@ -473,11 +473,13 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
               })}
 
               {/* Add task row */}
-              <div style={{ padding:"8px 14px", background:t.card, borderBottom:`1px solid ${t.border2}` }}>
+              <div style={{ padding:"8px 14px", background:t.card, borderTop:`1px solid ${t.divider}` }}>
                 <button
                   onClick={() => { setTaskForm({ ...BLANK_TASK, project_stage: label === "No Stage" ? "" : label }); setShowTaskForm(true); }}
-                  style={{ background:"none", border:"none", cursor:"pointer", color:t.textFaint, fontSize:12, padding:0, fontWeight:500 }}
-                >+ Add Task</button>
+                  style={{ display:"flex", alignItems:"center", gap:6, background:"none", border:`1px dashed ${color}88`, borderRadius:7, cursor:"pointer", color, fontSize:12, padding:"5px 12px", fontWeight:600, transition:"background 0.15s" }}
+                >
+                  <span style={{ fontSize:15, lineHeight:1 }}>+</span> Add Task to {label}
+                </button>
               </div>
             </div>
           )}
