@@ -93,7 +93,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
 
   // ── Task form state ─────────────────────────────────────────────────────────
   const [showTaskForm, setShowTaskForm] = useState(false);
-  const BLANK_TASK = { title:"", description:"", status:defaultTaskStatus, priority:"Medium", due_date:"", estimated_hours:0, actual_hours:0, subtasks:[], recurrence:"none", blocked_by:[], project_stage: project.stage || "" };
+  const BLANK_TASK = { title:"", description:"", status:defaultTaskStatus, priority:"Medium", due_date:"", estimated_hours:0, actual_hours:0, subtasks:[], recurrence:"none", blocked_by:[], project_stage: project?.stage || "" };
   const [taskForm, setTaskForm] = useState(BLANK_TASK);
   const [taskAssigneeKey, setTaskAssigneeKey] = useState("");
 
