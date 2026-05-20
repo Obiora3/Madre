@@ -368,6 +368,11 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
                       <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
                     </div>
                     <span style={{ fontSize:13, fontWeight:600, color:isTaskComplete(t2)?t.textFaint:t.textSub, textDecoration:isTaskComplete(t2)?"line-through":"none", lineHeight:1.4, flex:1 }}>{t2.title}</span>
+                    <button
+                      onClick={e=>{ e.stopPropagation(); openEditTask(t2); }}
+                      title="Edit task"
+                      style={{ background:"transparent", border:"none", color:t.textMuted, cursor:"pointer", fontSize:13, lineHeight:1, padding:"0 2px", flexShrink:0 }}
+                    >✏</button>
                     {canDeleteTasks && (
                       <button
                         onClick={e=>{ e.stopPropagation(); setTaskToDelete(t2); }}
@@ -453,6 +458,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
                         {t2.recurrence && t2.recurrence !== "none" && <span style={{ fontSize:10 }}>🔄</span>}
                         {subs.length > 0 && <span style={{ fontSize:10, color:t.textGhost, background:t.statBg, borderRadius:99, padding:"1px 6px" }}>{subsDone}/{subs.length} ✓</span>}
                         {cnt > 0 && <span style={{ fontSize:10, color:t.accent, fontWeight:700 }}>💬 {cnt}</span>}
+                        <button onClick={() => openEditTask(t2)} title="Edit task" style={{ background:"transparent", border:"none", color:t.textGhost, cursor:"pointer", fontSize:12, padding:"0 2px", lineHeight:1 }}>✏</button>
                       </div>
                     </div>
                     <div style={{ display:"flex", alignItems:"center", gap:6, minWidth:0 }}>
