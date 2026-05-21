@@ -357,36 +357,74 @@ export const Tasks = React.memo(function Tasks() {
           const proj = projectId ? projectById[projectId] : null;
           const doneCount = groupTasks.filter(t2 => isTaskComplete(t2)).length;
           return (
-            <div key={projectId || "__none__"} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, overflowX:"auto", overflowY:"hidden" }}>
+            <div key={projectId || "__none__"} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, ...(isMobile ? {} : { overflowX:"auto", overflowY:"hidden" }) }}>
               {/* Card header */}
               <div style={{ padding:"14px 18px", borderBottom:`1px solid ${t.border2}`, display:"flex", alignItems:"center", gap:12, background: proj ? proj.colour ? `${proj.colour}11` : `${t.accent}0d` : t.statBg }}>
-                <div style={{ flex:1 }}>
-                  <div onClick={proj ? ()=>nav("project-detail", proj.id) : undefined} style={{ fontSize:14, fontWeight:800, color: proj ? t.accent : t.textMuted, cursor: proj ? "pointer" : "default", textDecoration: proj ? "underline" : "none", textDecorationColor: proj ? `${t.accent}66` : "transparent" }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div onClick={proj ? ()=>nav("project-detail", proj.id) : undefined} style={{ fontSize:14, fontWeight:800, color: proj ? t.accent : t.textMuted, cursor: proj ? "pointer" : "default", textDecoration: proj ? "underline" : "none", textDecorationColor: proj ? `${t.accent}66` : "transparent", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                     {proj ? proj.title : "No Project"}
                   </div>
                   {proj && (
                     <div style={{ fontSize:11, color:t.textFaint, marginTop:2 }}>
-                      {proj.client_id ? "" : ""}
                       {proj.stage} · {proj.status}
                     </div>
                   )}
                 </div>
-                <span style={{ fontSize:12, color:t.textFaint }}>{doneCount}/{groupTasks.length} done</span>
+                <span style={{ fontSize:12, color:t.textFaint, flexShrink:0 }}>{doneCount}/{groupTasks.length} done</span>
                 {proj && <Badge label={proj.priority} color={priorityColor(proj.priority)} />}
               </div>
 
-              {/* Column headers */}
-              <div style={{ display:"grid", gridTemplateColumns:COLS, columnGap:TABLE_GAP, minWidth:TABLE_MIN_WIDTH, padding:"8px 16px", borderBottom:`1px solid ${t.divider}` }}>
-                {ROW_HEADERS.map((h,i)=>(
-                  <div key={i} style={{ fontSize:10, fontWeight:700, color:t.textGhost, letterSpacing:"0.07em", textTransform:"uppercase" }}>{h}</div>
-                ))}
-              </div>
+              {/* Column headers — desktop only */}
+              {!isMobile && (
+                <div style={{ display:"grid", gridTemplateColumns:COLS, columnGap:TABLE_GAP, minWidth:TABLE_MIN_WIDTH, padding:"8px 16px", borderBottom:`1px solid ${t.divider}` }}>
+                  {ROW_HEADERS.map((h,i)=>(
+                    <div key={i} style={{ fontSize:10, fontWeight:700, color:t.textGhost, letterSpacing:"0.07em", textTransform:"uppercase" }}>{h}</div>
+                  ))}
+                </div>
+              )}
 
               {/* Task rows */}
               {groupTasks.map(t2 => {
                 const cnt = (comments||[]).filter(c=>c.entity_type==="task"&&c.entity_id===t2.id).length;
                 const subs = t2.subtasks||[];
                 const blocked = (t2.blocked_by||[]).some(depId => { const dep = tasks.find(x=>x.id===depId); return dep && !isTaskComplete(dep); });
+                if (isMobile) {
+                  return (
+                    <div key={t2.id} style={{ padding:"12px 14px", borderBottom:`1px solid ${t.divider}` }}>
+                      <div style={{ display:"flex", alignItems:"flex-start", gap:8, marginBottom:8 }}>
+                        <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:"flex", gap:5, alignItems:"flex-start", flexWrap:"wrap" }}>
+                            <span style={{ fontSize:13, fontWeight:600, color:isTaskComplete(t2)?t.textFaint:t.textSub, textDecoration:isTaskComplete(t2)?"line-through":"none", lineHeight:1.4 }}>{t2.title}</span>
+                            {blocked && <Badge label="🔒" color="#EF4444" />}
+                            {t2.recurrence && t2.recurrence !== "none" && <span title={`Repeats ${t2.recurrence}`} style={{ fontSize:11 }}>🔄</span>}
+                          </div>
+                          {(t2.estimated_hours || subs.length > 0) && (
+                            <div style={{ fontSize:11, color:t.textGhost, marginTop:3 }}>
+                              {t2.estimated_hours ? `${t2.estimated_hours}h est.` : ""}
+                              {t2.actual_hours ? ` · ${t2.actual_hours}h logged` : ""}
+                              {subs.length > 0 ? ` · ${subs.filter(s=>s.done).length}/${subs.length} subtasks` : ""}
+                            </div>
+                          )}
+                        </div>
+                        <button onClick={() => setEditingTask({...t2})} style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:6, padding:"5px 9px", fontSize:13, color:t.textMuted, cursor:"pointer", flexShrink:0 }}>✏</button>
+                      </div>
+                      <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+                        <Badge label={t2.status} color={statusColor(t2.status)} />
+                        <Badge label={t2.priority} color={priorityColor(t2.priority)} />
+                        {t2.assigned_to?.name && (
+                          <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                            <Avatar name={t2.assigned_to.name} size={16} />
+                            <span style={{ fontSize:11, color:t.textMuted }}>{t2.assigned_to.name.split(" ")[0]}</span>
+                          </div>
+                        )}
+                        {t2.due_date && <span style={{ fontSize:11, color:t.textFaint }}>Due {fmtDate(t2.due_date)}</span>}
+                        <button onClick={()=>setCommentTask(t2)} style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:5, padding:"3px 8px", fontSize:11, color:cnt>0?t.accent:t.textMuted, cursor:"pointer" }}>💬{cnt>0?` ${cnt}`:""}</button>
+                        {canDeleteTasks && <button onClick={()=>setTaskToDelete(t2)} style={{ background:"transparent", border:"1px solid #EF444466", borderRadius:5, padding:"3px 8px", fontSize:11, color:"#EF4444", cursor:"pointer" }}>Delete</button>}
+                      </div>
+                    </div>
+                  );
+                }
                 return (
                   <div key={t2.id} style={{ display:"grid", gridTemplateColumns:COLS, columnGap:TABLE_GAP, minWidth:TABLE_MIN_WIDTH, padding:"11px 16px", borderBottom:`1px solid ${t.divider}`, alignItems:"center" }}>
                     <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />

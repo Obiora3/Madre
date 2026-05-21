@@ -41,7 +41,7 @@ const PRIORITY_ORDER = { Critical:0, High:1, Medium:2, Low:3 };
 const STATUS_ORDER   = { Active:0, "On Hold":1, Completed:2, Archived:3, Cancelled:4 };
 
 // ─── LIST VIEW ────────────────────────────────────────────────────────────────
-function ListView({ projects, tasks, clients, users, projectPipelines, CS, theme:t, nav, onDelete, advanceStage }) {
+function ListView({ projects, tasks, clients, users, projectPipelines, CS, theme:t, nav, onDelete, advanceStage, isMobile }) {
   const [sortBy,  setSortBy]  = useState("title");
   const [sortDir, setSortDir] = useState(1);
 
@@ -75,6 +75,51 @@ function ListView({ projects, tasks, clients, users, projectPipelines, CS, theme
       </th>
     );
   };
+
+  if (isMobile) {
+    return (
+      <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+        {sorted.length === 0 ? (
+          <div style={{ padding:"36px 0", textAlign:"center", color:t.textFaint, fontSize:13 }}>No projects match the current filter.</div>
+        ) : sorted.map(p => {
+          const client = clients.find(c => c.id === p.client_id);
+          const pipeline = getProjectPipeline(p, projectPipelines);
+          const sColor = pipeline.statuses.find(s=>s.label===p.stage)?.color || "#6B7280";
+          const progress = calcProgress(p.id, tasks);
+          const taskCount = tasks.filter(t2=>t2.project_id===p.id).length;
+          return (
+            <div key={p.id} onClick={() => nav("project-detail", p.id)} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:16, cursor:"pointer" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8, gap:8 }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontWeight:700, color:t.text, fontSize:14, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.title}</div>
+                  <div style={{ fontSize:12, color:t.textMuted, marginTop:2 }}>{client?.name || "No client"}</div>
+                </div>
+                <div style={{ display:"flex", gap:4, flexShrink:0 }} onClick={e=>e.stopPropagation()}>
+                  <button onClick={() => onDelete(p)} style={{ background:"none", border:"none", color:t.textGhost, cursor:"pointer", fontSize:16, padding:"2px 4px" }}>×</button>
+                </div>
+              </div>
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:10 }}>
+                <span style={{ fontSize:11, fontWeight:700, color:sColor, background:`${sColor}18`, border:`1px solid ${sColor}44`, borderRadius:6, padding:"2px 8px" }}>{p.stage}</span>
+                <Badge label={p.status} color={statusColor(p.status)} />
+                <Badge label={p.priority} color={priorityColor(p.priority)} />
+              </div>
+              <ProgressBar value={progress} color={sColor} height={5} />
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:6 }}>
+                <span style={{ fontSize:11, color:t.textMuted }}>{progress}% · {taskCount} task{taskCount!==1?"s":""}</span>
+                <span style={{ fontSize:11, color:t.textFaint }}>{p.due_date ? `Due ${fmtDate(p.due_date)}` : "No due date"}</span>
+              </div>
+              {p.assigned_to?.name && (
+                <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:8, paddingTop:8, borderTop:`1px solid ${t.divider}` }}>
+                  <Avatar name={p.assigned_to.name} size={18} />
+                  <span style={{ fontSize:12, color:t.textMuted }}>{p.assigned_to.name}</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div style={{ overflowX:"auto", borderRadius:12, border:`1px solid ${t.border2}` }}>
@@ -330,6 +375,7 @@ export const Projects = React.memo(function Projects() {
           nav={nav}
           onDelete={setConfirmDelete}
           advanceStage={advanceStage}
+          isMobile={isMobile}
         />
       )}
       <Modal open={showForm} onClose={() => setShowForm(false)} title="New Project">
