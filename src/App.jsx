@@ -195,8 +195,8 @@ export default function Madre() {
     { id:"profitability",    label:"Profitability",   icon:"\ud83d\udcb0" },
     { id:"pitches",          label:"Pitch Pipeline",  icon:"\ud83c\udfaf" },
     { id:"benchmarking",     label:"Benchmarking",    icon:"\ud83d\udd2c" },
-    { id:"departments",      label:"Departments",     icon:"\ud83c\udfe2", badge:"NEW" },
-    { id:"delivery-scores",  label:"Delivery Scores", icon:"\u2b50", badge:"NEW" },
+    { id:"departments",      label:"Departments",     icon:"\ud83c\udfe2" },
+    { id:"delivery-scores",  label:"Delivery Scores", icon:"\u2b50" },
     canAccessSettings ? { id:"settings", label:"Settings", icon:"\u2699\ufe0f" } : null,
   ].filter(Boolean);
 
