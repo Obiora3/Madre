@@ -159,13 +159,14 @@ export const Benchmarking = React.memo(function Benchmarking() {
 
       {/* Benchmarks table */}
       <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, overflow:"hidden", marginBottom:20 }}>
-        <div style={{ display:"grid", gridTemplateColumns:"180px 80px 80px 80px 1fr 130px 40px", padding:"10px 20px", borderBottom:`1px solid ${t.border2}`, background:t.statBg }}>
+        <div style={{ overflowX:"auto" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"180px 80px 80px 80px 1fr 130px 40px", padding:"10px 20px", borderBottom:`1px solid ${t.border2}`, background:t.statBg, minWidth:700 }}>
           {["Metric","Low","Average","Top","Position on Spectrum","Your Performance",""].map((h,i) => (
             <div key={i} style={{ fontSize:10, fontWeight:700, color:t.textFaint, textTransform:"uppercase", letterSpacing:"0.05em" }}>{h}</div>
           ))}
         </div>
         {scoredBenchmarks.map(b => (
-          <div key={b.id} style={{ display:"grid", gridTemplateColumns:"180px 80px 80px 80px 1fr 130px 40px", padding:"14px 20px", borderBottom:`1px solid ${t.divider}`, alignItems:"center" }}>
+          <div key={b.id} style={{ display:"grid", gridTemplateColumns:"180px 80px 80px 80px 1fr 130px 40px", padding:"14px 20px", borderBottom:`1px solid ${t.divider}`, alignItems:"center", minWidth:700 }}>
             <div style={{ fontSize:13, fontWeight:600, color:t.textSub }}>{b.metric}</div>
             <div style={{ fontSize:12, color:"#EF4444" }}>{b.low}{b.unit}</div>
             <div style={{ fontSize:12, color:"#F59E0B" }}>{b.avg}{b.unit}</div>
@@ -219,6 +220,7 @@ export const Benchmarking = React.memo(function Benchmarking() {
             </div>
           </div>
         ))}
+        </div>{/* end overflowX scroll */}
       </div>
 
       {/* Internal metrics from real data */}

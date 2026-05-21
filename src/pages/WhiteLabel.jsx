@@ -295,7 +295,7 @@ export const WhiteLabel = React.memo(function Settings() {
 
       {/* ── BRANDING ─────────────────────────────────────────────────────────── */}
       {tab === "branding" && (
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:24 }}>
+        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:24 }}>
           <div>
             <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, marginBottom:16 }}>
               <h3 style={{ margin:"0 0 16px", fontSize:14, fontWeight:700, color:t.text }}>Workspace</h3>
@@ -368,7 +368,7 @@ export const WhiteLabel = React.memo(function Settings() {
 
       {/* ── PREFERENCES ──────────────────────────────────────────────────────── */}
       {tab === "preferences" && (
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:24 }}>
+        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:24 }}>
           <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20 }}>
             <h3 style={{ margin:"0 0 4px", fontSize:14, fontWeight:700, color:t.text }}>Finance</h3>
             <p style={{ fontSize:12, color:t.textFaint, margin:"0 0 16px" }}>Used for budget calculations in Reports.</p>
@@ -419,7 +419,7 @@ export const WhiteLabel = React.memo(function Settings() {
 
       {/* ── NOTIFICATIONS ────────────────────────────────────────────────────── */}
       {tab === "pipelines" && (
-        <div style={{ display:"grid", gridTemplateColumns:"1.3fr 0.9fr", gap:24 }}>
+        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1.3fr 0.9fr", gap:24 }}>
           <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
             {taskPipelines.map(pipeline => (
               <div key={pipeline.id} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:18 }}>
@@ -485,7 +485,7 @@ export const WhiteLabel = React.memo(function Settings() {
 
       {/* Automations */}
       {tab === "automations" && (
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 300px", gap:24, alignItems:"start" }}>
+        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 300px", gap:24, alignItems:"start" }}>
           <div>
             <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, marginBottom:16 }}>
               <h3 style={{ margin:"0 0 4px", fontSize:14, fontWeight:700, color:t.text }}>Operational Rules</h3>
@@ -561,15 +561,16 @@ export const WhiteLabel = React.memo(function Settings() {
             </div>
           ) : (
             <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, overflow:"hidden" }}>
+              <div style={{ overflowX:"auto" }}>
               {/* Column header */}
-              <div style={{ display:"grid", gridTemplateColumns:"36px 1fr 140px 120px", gap:0, padding:"10px 20px", background:t.statBg, borderBottom:`1px solid ${t.border2}` }}>
+              <div style={{ display:"grid", gridTemplateColumns:"36px 1fr 140px 120px", gap:0, padding:"10px 20px", background:t.statBg, borderBottom:`1px solid ${t.border2}`, minWidth:420 }}>
                 {["","Activity","Entity","When"].map((h,i) => (
                   <div key={i} style={{ fontSize:10, fontWeight:700, color:t.textGhost, letterSpacing:"0.07em", textTransform:"uppercase" }}>{h}</div>
                 ))}
               </div>
 
               {activityPage.map((ev, i) => (
-                <div key={ev.id} style={{ display:"grid", gridTemplateColumns:"36px 1fr 140px 120px", gap:0, padding:"12px 20px", borderBottom:`1px solid ${t.divider}`, alignItems:"center", background:i%2===0?"transparent":t.statBg+"44" }}>
+                <div key={ev.id} style={{ display:"grid", gridTemplateColumns:"36px 1fr 140px 120px", gap:0, padding:"12px 20px", borderBottom:`1px solid ${t.divider}`, alignItems:"center", background:i%2===0?"transparent":t.statBg+"44", minWidth:420 }}>
                   {/* Icon */}
                   <div style={{ width:28, height:28, borderRadius:"50%", background:ev.color+"22", display:"flex", alignItems:"center", justifyContent:"center", fontSize:13 }}>{ev.icon}</div>
                   {/* Description */}
@@ -592,6 +593,7 @@ export const WhiteLabel = React.memo(function Settings() {
                 </div>
               ))}
 
+              </div>{/* end overflowX scroll */}
               {hasMore && (
                 <div style={{ padding:"14px 20px", textAlign:"center", borderTop:`1px solid ${t.divider}` }}>
                   <button onClick={() => setActPage(p => p+1)} style={{ ...bs, padding:"8px 24px", fontSize:12 }}>
