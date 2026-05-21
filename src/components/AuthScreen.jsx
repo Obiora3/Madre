@@ -1,6 +1,23 @@
 import { useState } from "react";
 import { useTheme } from "../theme.js";
 
+// Floating decorative card for right panel
+function FeatureCard({ style, children }) {
+  return (
+    <div style={{
+      background: "rgba(255,255,255,0.12)",
+      backdropFilter: "blur(12px)",
+      border: "1px solid rgba(255,255,255,0.2)",
+      borderRadius: 16,
+      padding: "14px 16px",
+      boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
+      ...style,
+    }}>
+      {children}
+    </div>
+  );
+}
+
 export function AuthScreen({ brand, onSignIn, onSignUp }) {
   const { theme: t } = useTheme();
   const [mode, setMode] = useState("signin");
@@ -38,11 +55,11 @@ export function AuthScreen({ brand, onSignIn, onSignUp }) {
     boxSizing: "border-box",
     background: t.input,
     border: `1.5px solid ${t.inputBorder}`,
-    borderRadius: 10,
+    borderRadius: 50,
     color: t.textSub,
     fontSize: 14,
     outline: "none",
-    padding: "12px 14px",
+    padding: "13px 20px",
     transition: "border-color 0.2s",
   };
 
@@ -55,268 +72,251 @@ export function AuthScreen({ brand, onSignIn, onSignUp }) {
       justifyContent: "center",
       padding: "24px 16px",
       fontFamily: "'DM Sans', 'Outfit', system-ui, sans-serif",
-      position: "relative",
-      overflow: "hidden",
     }}>
-      {/* Decorative blobs */}
-      <div style={{ position:"fixed", top:-120, right:-120, width:400, height:400, borderRadius:"50%", background:`${accent}12`, filter:"blur(60px)", pointerEvents:"none" }} />
-      <div style={{ position:"fixed", bottom:-80, left:-80, width:300, height:300, borderRadius:"50%", background:`${accent}0d`, filter:"blur(50px)", pointerEvents:"none" }} />
-
-      <div style={{
+      {/* Outer card */}
+      <div className="auth-split" style={{
         width: "100%",
-        maxWidth: 460,
-        position: "relative",
-        zIndex: 1,
+        maxWidth: 920,
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        borderRadius: 28,
+        overflow: "hidden",
+        boxShadow: "0 32px 80px rgba(0,0,0,0.25)",
+        minHeight: 560,
       }}>
-        {/* Logo + branding above card */}
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div style={{
-            width: 80, height: 80,
-            borderRadius: 20,
-            background: `${accent}18`,
-            border: `1.5px solid ${accent}33`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            margin: "0 auto 16px",
-            overflow: "hidden",
-          }}>
-            <img src="/logo.png" alt="logo" style={{ width: 60, height: 60, objectFit: "contain" }} />
-          </div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: t.text, letterSpacing: "-0.02em" }}>
-            {brand.agency_name}
-          </div>
-          {brand.tagline && (
-            <div style={{ fontSize: 13, color: t.textMuted, marginTop: 4 }}>{brand.tagline}</div>
-          )}
-        </div>
 
-        {/* Card */}
+        {/* ── LEFT: Form panel ──────────────────────────────── */}
         <div style={{
           background: t.card,
-          border: `1px solid ${t.border2}`,
-          borderRadius: 20,
-          boxShadow: `0 20px 60px rgba(0,0,0,0.18), 0 0 0 1px ${accent}11`,
-          overflow: "hidden",
+          padding: "36px 40px 32px",
+          display: "flex",
+          flexDirection: "column",
+          position: "relative",
         }}>
-          {/* Accent top bar */}
-          <div style={{ height: 4, background: `linear-gradient(90deg, ${accent}, ${accent}99)` }} />
-
-          <div style={{ padding: "28px 32px 32px" }}>
-            {/* Tab switcher */}
+          {/* Brand pill top-left */}
+          <div style={{ marginBottom: 32 }}>
             <div style={{
-              display: "flex",
-              background: t.statBg,
-              borderRadius: 12,
-              padding: 4,
-              marginBottom: 28,
-              border: `1px solid ${t.border}`,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              border: `1.5px solid ${t.border2}`,
+              borderRadius: 50,
+              padding: "6px 14px 6px 8px",
             }}>
-              {[["signin", "Sign In"], ["signup", "Create Account"]].map(([id, label]) => {
-                const active = mode === id;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => switchMode(id)}
-                    style={{
-                      flex: 1,
-                      border: "none",
-                      borderRadius: 9,
-                      background: active ? t.card : "transparent",
-                      color: active ? accent : t.textMuted,
-                      fontWeight: active ? 700 : 500,
-                      fontSize: 13,
-                      padding: "9px 12px",
-                      cursor: "pointer",
-                      transition: "all 0.2s",
-                      boxShadow: active ? `0 1px 6px rgba(0,0,0,0.1)` : "none",
-                    }}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+              <div style={{
+                width: 28, height: 28, borderRadius: "50%",
+                background: `${accent}18`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                overflow: "hidden",
+              }}>
+                <img src="/logo.png" alt="logo" style={{ width: 22, height: 22, objectFit: "contain" }} />
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{brand.agency_name}</span>
             </div>
+          </div>
 
-            <form onSubmit={submit}>
-              {mode === "signup" && (
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: t.textMuted, marginBottom: 6 }}>Full Name</label>
-                  <input
-                    style={inputStyle}
-                    value={form.name}
-                    onChange={e => setForm({ ...form, name: e.target.value })}
-                    placeholder="Your full name"
-                    autoComplete="name"
-                  />
-                </div>
-              )}
+          {/* Heading */}
+          <div style={{ marginBottom: 28 }}>
+            <h1 style={{ margin: "0 0 6px", fontSize: 26, fontWeight: 800, color: t.text, letterSpacing: "-0.02em" }}>
+              {mode === "signin" ? "Welcome back" : "Create an account"}
+            </h1>
+            <p style={{ margin: 0, fontSize: 13, color: t.textMuted }}>
+              {mode === "signin" ? "Sign in to continue to your workspace." : "Sign up and start managing your agency."}
+            </p>
+          </div>
 
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: t.textMuted, marginBottom: 6 }}>Email address</label>
+          {/* Form */}
+          <form onSubmit={submit} style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+            {mode === "signup" && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: t.textMuted, marginBottom: 6, paddingLeft: 4 }}>Full name</div>
                 <input
-                  type="email"
                   style={inputStyle}
-                  value={form.email}
-                  onChange={e => setForm({ ...form, email: e.target.value })}
-                  placeholder="you@example.com"
-                  autoComplete="email"
+                  value={form.name}
+                  onChange={e => setForm({ ...form, name: e.target.value })}
+                  placeholder="Your full name"
+                  autoComplete="name"
                 />
               </div>
+            )}
 
-              <div style={{ marginBottom: mode === "signup" ? 20 : 24 }}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: t.textMuted, marginBottom: 6 }}>Password</label>
-                <div style={{ position: "relative" }}>
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    style={{ ...inputStyle, paddingRight: 44 }}
-                    value={form.password}
-                    onChange={e => setForm({ ...form, password: e.target.value })}
-                    placeholder={mode === "signin" ? "Your password" : "Min. 8 characters"}
-                    autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(v => !v)}
-                    style={{
-                      position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
-                      background: "none", border: "none", cursor: "pointer",
-                      color: t.textMuted, fontSize: 15, lineHeight: 1, padding: 2,
-                    }}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? "🙈" : "👁"}
-                  </button>
-                </div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: t.textMuted, marginBottom: 6, paddingLeft: 4 }}>Email</div>
+              <input
+                type="email"
+                style={inputStyle}
+                value={form.email}
+                onChange={e => setForm({ ...form, email: e.target.value })}
+                placeholder="you@example.com"
+                autoComplete="email"
+              />
+            </div>
+
+            <div style={{ marginBottom: mode === "signup" ? 16 : 22 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: t.textMuted, marginBottom: 6, paddingLeft: 4 }}>Password</div>
+              <div style={{ position: "relative" }}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  style={{ ...inputStyle, paddingRight: 48 }}
+                  value={form.password}
+                  onChange={e => setForm({ ...form, password: e.target.value })}
+                  placeholder={mode === "signin" ? "Your password" : "Min. 8 characters"}
+                  autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                />
+                <button type="button" onClick={() => setShowPassword(v => !v)}
+                  style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: t.textMuted, fontSize: 15, lineHeight: 1, padding: 2 }}
+                  aria-label={showPassword ? "Hide password" : "Show password"}>
+                  {showPassword ? "🙈" : "👁"}
+                </button>
               </div>
+            </div>
 
-              {/* Agency section — signup only */}
-              {mode === "signup" && (
-                <div style={{
-                  background: `${accent}09`,
-                  border: `1.5px solid ${accent}22`,
-                  borderRadius: 12,
-                  padding: 16,
-                  marginBottom: 20,
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
-                    <span style={{ fontSize: 14 }}>🏢</span>
-                    <span style={{ fontSize: 11, fontWeight: 800, color: accent, letterSpacing: "0.08em" }}>AGENCY WORKSPACE</span>
-                  </div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 }}>
-                    {[["create", "Create New"], ["join", "Join Existing"]].map(([id, label]) => {
-                      const active = agencyMode === id;
-                      return (
-                        <button key={id} type="button" onClick={() => setAgencyMode(id)} style={{
-                          border: `1.5px solid ${active ? accent : t.border2}`,
-                          background: active ? accent : "transparent",
-                          color: active ? "#fff" : t.textMuted,
-                          borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, padding: "8px 10px",
-                          transition: "all 0.15s",
-                        }}>
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {agencyMode === "create" ? (
-                    <div>
-                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: t.textMuted, marginBottom: 6 }}>Agency Name</label>
-                      <input
-                        style={inputStyle}
-                        value={agencyName}
-                        onChange={e => setAgencyName(e.target.value)}
-                        placeholder="e.g. Nova Creative"
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: t.textMuted, marginBottom: 6 }}>Invite Code</label>
-                      <input
-                        style={{ ...inputStyle, textTransform: "uppercase", letterSpacing: "0.15em", fontWeight: 700, fontSize: 16 }}
-                        value={agencyCode}
-                        onChange={e => setAgencyCode(e.target.value.toUpperCase())}
-                        placeholder="XXXXXXXX"
-                        maxLength={8}
-                      />
-                    </div>
-                  )}
+            {/* Agency section — signup only */}
+            {mode === "signup" && (
+              <div style={{
+                background: `${accent}0d`,
+                border: `1.5px solid ${accent}22`,
+                borderRadius: 16,
+                padding: "14px 16px",
+                marginBottom: 18,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                  <span style={{ fontSize: 13 }}>🏢</span>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: accent, letterSpacing: "0.08em" }}>AGENCY WORKSPACE</span>
                 </div>
-              )}
-
-              {error && (
-                <div style={{
-                  background: "#EF444411",
-                  border: "1.5px solid #EF444433",
-                  borderRadius: 10,
-                  color: "#EF4444",
-                  fontSize: 12,
-                  lineHeight: 1.6,
-                  marginBottom: 16,
-                  padding: "10px 14px",
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 8,
-                }}>
-                  <span style={{ fontSize: 14, flexShrink: 0 }}>⚠</span>
-                  {error}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 12 }}>
+                  {[["create", "Create New"], ["join", "Join Existing"]].map(([id, label]) => {
+                    const active = agencyMode === id;
+                    return (
+                      <button key={id} type="button" onClick={() => setAgencyMode(id)} style={{
+                        border: `1.5px solid ${active ? accent : t.border2}`,
+                        background: active ? accent : "transparent",
+                        color: active ? "#fff" : t.textMuted,
+                        borderRadius: 50, cursor: "pointer", fontSize: 12, fontWeight: 700, padding: "7px 10px",
+                        transition: "all 0.15s",
+                      }}>
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
+                {agencyMode === "create" ? (
+                  <input style={{ ...inputStyle, borderRadius: 50 }} value={agencyName} onChange={e => setAgencyName(e.target.value)} placeholder="Agency name e.g. Nova Creative" />
+                ) : (
+                  <input style={{ ...inputStyle, borderRadius: 50, textTransform: "uppercase", letterSpacing: "0.15em", fontWeight: 700 }} value={agencyCode} onChange={e => setAgencyCode(e.target.value.toUpperCase())} placeholder="INVITE CODE" maxLength={8} />
+                )}
+              </div>
+            )}
 
-              <button
-                type="submit"
-                disabled={loading}
-                style={{
-                  width: "100%",
-                  background: loading ? `${accent}99` : accent,
-                  border: "none",
-                  borderRadius: 12,
-                  color: "#fff",
-                  cursor: loading ? "wait" : "pointer",
-                  fontSize: 15,
-                  fontWeight: 800,
-                  padding: "13px 16px",
-                  letterSpacing: "0.01em",
-                  boxShadow: loading ? "none" : `0 4px 20px ${accent}44`,
-                  transition: "all 0.2s",
-                }}
-              >
-                {loading ? "Please wait…" : mode === "signin" ? "Sign In →" : "Create Account →"}
+            {error && (
+              <div style={{ background: "#EF444411", border: "1.5px solid #EF444433", borderRadius: 12, color: "#EF4444", fontSize: 12, lineHeight: 1.6, marginBottom: 14, padding: "10px 14px", display: "flex", gap: 8 }}>
+                <span>⚠</span>{error}
+              </div>
+            )}
+
+            <button type="submit" disabled={loading} style={{
+              width: "100%",
+              background: accent,
+              border: "none",
+              borderRadius: 50,
+              color: "#fff",
+              cursor: loading ? "wait" : "pointer",
+              fontSize: 15,
+              fontWeight: 800,
+              padding: "14px 16px",
+              boxShadow: loading ? "none" : `0 6px 24px ${accent}55`,
+              transition: "all 0.2s",
+              letterSpacing: "0.01em",
+            }}>
+              {loading ? "Please wait…" : mode === "signin" ? "Sign In" : "Create Account"}
+            </button>
+          </form>
+
+          {/* Footer */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 24, paddingTop: 16, borderTop: `1px solid ${t.border}` }}>
+            <div style={{ fontSize: 12, color: t.textFaint }}>
+              {mode === "signin" ? "Don't have an account? " : "Already have an account? "}
+              <button type="button" onClick={() => switchMode(mode === "signin" ? "signup" : "signin")}
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, color: accent, padding: 0 }}>
+                {mode === "signin" ? "Sign up" : "Sign in"}
               </button>
-
-              {mode === "signin" && (
-                <div style={{ textAlign: "center", marginTop: 18 }}>
-                  <span style={{ fontSize: 12, color: t.textFaint }}>Don't have an account? </span>
-                  <button
-                    type="button"
-                    onClick={() => switchMode("signup")}
-                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, color: accent, padding: 0 }}
-                  >
-                    Sign up free
-                  </button>
-                </div>
-              )}
-              {mode === "signup" && (
-                <div style={{ textAlign: "center", marginTop: 18 }}>
-                  <span style={{ fontSize: 12, color: t.textFaint }}>Already have an account? </span>
-                  <button
-                    type="button"
-                    onClick={() => switchMode("signin")}
-                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, color: accent, padding: 0 }}
-                  >
-                    Sign in
-                  </button>
-                </div>
-              )}
-            </form>
+            </div>
+            <div style={{ fontSize: 11, color: t.textGhost }}>Terms &amp; Privacy</div>
           </div>
         </div>
 
-        <div style={{ textAlign: "center", marginTop: 20, fontSize: 11, color: t.textGhost }}>
-          Secured by Madre · {new Date().getFullYear()}
+        {/* ── RIGHT: Decorative panel ───────────────────────── */}
+        <div className="auth-right" style={{
+          background: `linear-gradient(145deg, ${accent}, ${accent}cc)`,
+          position: "relative",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 32,
+          minHeight: 480,
+        }}>
+          {/* Background circles */}
+          <div style={{ position:"absolute", top:-60, right:-60, width:280, height:280, borderRadius:"50%", background:"rgba(255,255,255,0.08)" }} />
+          <div style={{ position:"absolute", bottom:-80, left:-40, width:240, height:240, borderRadius:"50%", background:"rgba(255,255,255,0.06)" }} />
+          <div style={{ position:"absolute", top:"40%", left:-30, width:120, height:120, borderRadius:"50%", background:"rgba(255,255,255,0.05)" }} />
+
+          {/* Central headline */}
+          <div style={{ textAlign:"center", marginBottom:32, position:"relative", zIndex:1 }}>
+            <div style={{ fontSize:28, fontWeight:800, color:"#fff", lineHeight:1.2, marginBottom:10, letterSpacing:"-0.02em" }}>
+              Run your agency<br/>smarter.
+            </div>
+            <div style={{ fontSize:13, color:"rgba(255,255,255,0.75)", lineHeight:1.6 }}>
+              Projects · Tasks · Clients · KPIs<br/>all in one place.
+            </div>
+          </div>
+
+          {/* Floating feature cards */}
+          <div style={{ position:"relative", width:"100%", maxWidth:280, height:220, zIndex:1 }}>
+            <FeatureCard style={{ position:"absolute", top:0, left:0, right:40 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+                <span style={{ fontSize:16 }}>🚀</span>
+                <span style={{ fontSize:12, fontWeight:700, color:"#fff" }}>Active Projects</span>
+              </div>
+              <div style={{ fontSize:28, fontWeight:800, color:"#fff", lineHeight:1 }}>12</div>
+              <div style={{ fontSize:11, color:"rgba(255,255,255,0.65)", marginTop:2 }}>across all clients</div>
+            </FeatureCard>
+
+            <FeatureCard style={{ position:"absolute", bottom:0, right:0, left:40 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+                <span style={{ fontSize:16 }}>✅</span>
+                <span style={{ fontSize:12, fontWeight:700, color:"#fff" }}>Tasks Done</span>
+              </div>
+              <div style={{ fontSize:28, fontWeight:800, color:"#fff", lineHeight:1 }}>94%</div>
+              <div style={{ display:"flex", gap:4, marginTop:6 }}>
+                {[80,90,70,95,88,94].map((v,i) => (
+                  <div key={i} style={{ flex:1, height:4, borderRadius:99, background:`rgba(255,255,255,${0.3 + v/200})` }} />
+                ))}
+              </div>
+            </FeatureCard>
+
+            {/* Avatar cluster */}
+            <div style={{ position:"absolute", top:"42%", right:8, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+              {["#F59E0B","#059669","#3B82F6"].map((c,i) => (
+                <div key={i} style={{ width:32, height:32, borderRadius:"50%", background:c, border:"2px solid rgba(255,255,255,0.4)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:700, color:"#fff" }}>
+                  {["A","B","C"][i]}
+                </div>
+              ))}
+              <div style={{ fontSize:10, color:"rgba(255,255,255,0.6)", marginTop:2 }}>+8</div>
+            </div>
+          </div>
         </div>
+
       </div>
+
+      {/* Responsive: hide right panel on small screens via inline media-query workaround */}
+      <style>{`
+        @media (max-width: 640px) {
+          .auth-split { grid-template-columns: 1fr !important; }
+          .auth-right { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }
