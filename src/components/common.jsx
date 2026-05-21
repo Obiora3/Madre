@@ -707,13 +707,13 @@ export function TaskStatusButton({ task, onStatusChange, statuses, project, pipe
   };
 
   return (
-    <div ref={ref} style={{ position: "relative", flexShrink: 0 }}>
+    <div ref={ref} style={{ position: "relative", flexShrink: 0, width: 22, height: 22 }}>
       <button
         onClick={handleClick}
         onContextMenu={handleRightClick}
         title={`${task.status} — click to advance, right-click to set`}
         style={{
-          width: 22, height: 22, borderRadius: "50%",
+          width: 22, height: 22, minWidth: 22, minHeight: 22, borderRadius: "50%",
           border: `2px solid ${circle.border}`,
           background: circle.bg,
           cursor: "pointer", flexShrink: 0,
@@ -721,6 +721,7 @@ export function TaskStatusButton({ task, onStatusChange, statuses, project, pipe
           color: complete ? "#fff" : circle.border,
           fontSize: task.status === "In Review" ? 14 : 12,
           fontWeight: 700, transition: "all 0.15s", lineHeight: 1,
+          boxSizing: "border-box", padding: 0, appearance: "none",
         }}
       >
         {circle.icon}
