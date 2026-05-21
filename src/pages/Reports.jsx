@@ -315,7 +315,7 @@ export const Reports = React.memo(function Reports() {
       </div>
 
       {/* Budget tracking */}
-      <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, overflow:"hidden", marginBottom:20, overflowX:"auto" }}>
+      <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, overflow:"hidden", marginBottom:20 }}>
         <div style={{ padding:"14px 20px", borderBottom:`1px solid ${t.border2}` }}>
           <h3 style={{ margin:0, fontSize:14, fontWeight:700, color:t.text }}>Budget Tracking · Planned vs Actual</h3>
           <div style={{ fontSize:11, color:t.textFaint, marginTop:2 }}>

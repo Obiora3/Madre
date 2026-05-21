@@ -300,7 +300,7 @@ export default function Madre() {
                 </div>
               </div>
               {/* Content */}
-              <div ref={contentRef} style={{ flex:1, overflowY:"auto", padding:isMobile ? "16px 14px 32px" : "28px 28px 40px", background:t.bg, borderTop:`1px solid ${t.border}`, borderLeft:(!isMobile && sidebarOpen) ? `1px solid ${t.border}` : "none", borderTopLeftRadius:(!isMobile && sidebarOpen) ? contentCurve : 0, transition:"background 0.3s ease, border-radius 0.25s ease, border-color 0.3s ease" }}>
+              <div ref={contentRef} style={{ flex:1, overflowY:"auto", overflowX:"hidden", padding:isMobile ? "16px 14px 32px" : "28px 28px 40px", background:t.bg, borderTop:`1px solid ${t.border}`, borderLeft:(!isMobile && sidebarOpen) ? `1px solid ${t.border}` : "none", borderTopLeftRadius:(!isMobile && sidebarOpen) ? contentCurve : 0, transition:"background 0.3s ease, border-radius 0.25s ease, border-color 0.3s ease" }}>
                 {dataLoading ? (
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100%", gap:12, color:t.textMuted, fontSize:14 }}>
                     <div style={{ width:20, height:20, border:`2px solid ${t.border2}`, borderTopColor:t.accent, borderRadius:"50%", animation:"spin 0.7s linear infinite" }} />

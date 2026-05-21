@@ -53,7 +53,7 @@ export const Clients = React.memo(function Clients() {
   const industries = ["Technology","Fashion","FMCG","Finance","Healthcare","Retail","Automotive","Entertainment","Food & Beverage","Other"];
   return (
     <div>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:isMobile?"flex-start":"center", marginBottom:24, flexDirection:isMobile?"column":"row", gap:isMobile?10:0 }}>
         <h1 style={{ margin:0, fontSize:26, fontWeight:800, color:t.text }}>Clients</h1>
         <button style={btnPrimary} onClick={()=>{setEditClient(null);setForm({name:"",brand:"",industry:"Technology",primary_contact:{name:"",email:"",phone:""},status:"Active",health_score:70,notes:""});setShowForm(true);}}>+ New Client</button>
       </div>

@@ -42,7 +42,7 @@ const DEFAULT_BENCHMARKS = [
 const INDUSTRIES = ["Technology","Fashion","FMCG","Finance","Healthcare","Retail","Automotive","Entertainment","Food & Beverage"];
 
 export const Benchmarking = React.memo(function Benchmarking() {
-  const { kpis, projects, tasks, whiteLabelSettings } = useApp();
+  const { kpis, projects, tasks, whiteLabelSettings, isMobile } = useApp();
   const { theme: t } = useTheme();
   const toast = useToast();
   const sS = mkSelectStyle(t); const iS = mkInputStyle(t); const bs = mkBtnSecondary(t);
@@ -139,10 +139,10 @@ export const Benchmarking = React.memo(function Benchmarking() {
   return (
     <div>
       {/* Header */}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:isMobile?"flex-start":"center", marginBottom:24, flexDirection:isMobile?"column":"row", gap:isMobile?10:0 }}>
         <h1 style={{ margin:0, fontSize:26, fontWeight:800, color:t.text }}>Performance Benchmarking</h1>
-        <div style={{ display:"flex", gap:10 }}>
-          <select style={{...sS, width:160}} value={industry} onChange={e => setIndustry(e.target.value)}>
+        <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+          <select style={{...sS, width:isMobile?"100%":160}} value={industry} onChange={e => setIndustry(e.target.value)}>
             {INDUSTRIES.map(i => <option key={i}>{i}</option>)}
           </select>
           <button style={bs} onClick={() => setShowAddForm(true)}>+ Custom Metric</button>

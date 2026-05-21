@@ -32,7 +32,7 @@ const CURRENCY_SYMBOLS = { USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CA
 const fmtM = (v, cs) => v >= 1_000_000 ? `${cs}${(v/1_000_000).toFixed(2)}M` : v >= 1000 ? `${cs}${(v/1000).toFixed(0)}k` : `${cs}${Math.round(v)}`;
 
 export const Profitability = React.memo(function Profitability() {
-  const { projects, tasks, whiteLabelSettings } = useApp();
+  const { projects, tasks, whiteLabelSettings, isMobile } = useApp();
   const { theme: t } = useTheme();
   const toast = useToast();
   const CS = CURRENCY_SYMBOLS[whiteLabelSettings?.currency] || "$";
@@ -180,7 +180,7 @@ export const Profitability = React.memo(function Profitability() {
         onChange={e => { const f = e.target.files[0]; if (f) handleFile(f); e.target.value = ""; }}
       />
 
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:isMobile?"flex-start":"center", marginBottom:24, flexDirection:isMobile?"column":"row", gap:isMobile?10:0 }}>
         <h1 style={{ margin:0, fontSize:26, fontWeight:800, color:t.text }}>Profitability</h1>
 
         {/* Top-right button group */}

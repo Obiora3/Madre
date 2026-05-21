@@ -263,7 +263,8 @@ export const Projects = React.memo(function Projects() {
 
       {/* ── Board view ── */}
       {viewMode === "board" && (
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${boardStages.length}, minmax(220px, 1fr))`, gap: 14, overflowX:"auto" }}>
+        <div style={{ overflowX:"auto", width:"100%" }}>
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${boardStages.length}, minmax(220px, 1fr))`, gap: 14, minWidth:`${boardStages.length * 234}px` }}>
           {boardStages.map((stage, stageIdx) => (
             <div key={stage.id}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
@@ -312,6 +313,7 @@ export const Projects = React.memo(function Projects() {
               </div>
             </div>
           ))}
+        </div>
         </div>
       )}
 

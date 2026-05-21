@@ -33,7 +33,7 @@ import {
 } from "./_shared.js";
 
 export const Timeline = React.memo(function Timeline() {
-  const { projects, tasks, nav, whiteLabelSettings } = useApp();
+  const { projects, tasks, nav, whiteLabelSettings, isMobile } = useApp();
   const { theme: t } = useTheme();
   const bs = mkBtnSecondary(t);
   const taskPipelines = useMemo(() => getTaskPipelines(whiteLabelSettings), [whiteLabelSettings]);
@@ -125,12 +125,12 @@ export const Timeline = React.memo(function Timeline() {
   return (
     <div>
       {/* Topbar */}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:isMobile?"flex-start":"center", marginBottom:24, flexDirection:isMobile?"column":"row", gap:isMobile?10:0 }}>
         <h1 style={{ margin:0, fontSize:26, fontWeight:800, color:t.text }}>
           Timeline
           <span style={{ marginLeft:10, fontSize:14, fontWeight:500, color:t.textFaint }}>({active.length} projects)</span>
         </h1>
-        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+        <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
           <label style={{ display:"flex", alignItems:"center", gap:6, fontSize:12, color:t.textMuted, cursor:"pointer", userSelect:"none" }}>
             <input type="checkbox" checked={showTasks} onChange={e => setShowTasks(e.target.checked)} style={{ accentColor:t.accent }} />
             Show tasks

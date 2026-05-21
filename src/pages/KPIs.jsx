@@ -61,7 +61,7 @@ export const KPIs = React.memo(function KPIs() {
   };
   return (
     <div>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:isMobile?"flex-start":"center", marginBottom:24, flexDirection:isMobile?"column":"row", gap:isMobile?10:0 }}>
         <h1 style={{ margin:0, fontSize:26, fontWeight:800, color:t.text }}>KPIs</h1>
         <button style={btnPrimary} onClick={()=>setShowForm(true)}>+ New KPI</button>
       </div>
