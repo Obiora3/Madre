@@ -64,7 +64,7 @@ export const WhiteLabel = React.memo(function Settings() {
   const {
     resetAllData, whiteLabelSettings, setWhiteLabelSettings, resetWhiteLabelSettings,
     currentUser, users, projects, tasks, clients, kpis, departments, pitches, comments, nav,
-    events: activityEvents, updateMemberRole,
+    events: activityEvents, updateMemberRole, isMobile,
   } = useApp();
   const { theme: t } = useTheme();
   const iS = mkInputStyle(t);
@@ -607,7 +607,7 @@ export const WhiteLabel = React.memo(function Settings() {
       {/* ── TEAMS & ROLES ────────────────────────────────────────────────────── */}
       {tab === "teams" && (
         <div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 380px", gap:24, alignItems:"start" }}>
+          <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 380px", gap:24, alignItems:"start" }}>
             {/* Left: member roster */}
             <div>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
@@ -625,15 +625,67 @@ export const WhiteLabel = React.memo(function Settings() {
                 </div>
               ) : (
                 <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, overflow:"hidden" }}>
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 100px 90px 70px 70px", padding:"10px 20px", background:t.statBg, borderBottom:`1px solid ${t.border2}` }}>
-                    {["Member","Role","Department","Active","Done"].map(h => (
-                      <div key={h} style={{ fontSize:10, fontWeight:700, color:t.textGhost, letterSpacing:"0.07em", textTransform:"uppercase" }}>{h}</div>
-                    ))}
-                  </div>
+                  {!isMobile && (
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 100px 90px 70px 70px", padding:"10px 20px", background:t.statBg, borderBottom:`1px solid ${t.border2}` }}>
+                      {["Member","Role","Department","Active","Done"].map(h => (
+                        <div key={h} style={{ fontSize:10, fontWeight:700, color:t.textGhost, letterSpacing:"0.07em", textTransform:"uppercase" }}>{h}</div>
+                      ))}
+                    </div>
+                  )}
 
                   {filteredUsers.map(u => {
                     const rm = ROLE_META[u.role] || ROLE_META.member;
                     const isMe = u.email === currentUser?.email;
+                    if (isMobile) {
+                      return (
+                        <div key={u.id} style={{ padding:"14px 16px", borderBottom:`1px solid ${t.divider}`, background:isMe?t.accent+"07":"transparent" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
+                            <Avatar name={u.name} size={36} />
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <div style={{ fontSize:13, fontWeight:700, color:t.text, display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+                                {u.name}
+                                {isMe && <span style={{ fontSize:9, color:t.accent, background:t.accent+"18", borderRadius:4, padding:"1px 5px", fontWeight:800 }}>YOU</span>}
+                              </div>
+                              <div style={{ fontSize:11, color:t.textFaint, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{u.email}</div>
+                              {u.job_title && <div style={{ fontSize:10, color:t.textGhost }}>{u.job_title}</div>}
+                            </div>
+                          </div>
+                          <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                            {editingRole === u.id ? (
+                              <select
+                                autoFocus
+                                style={{ ...sS, fontSize:11, padding:"4px 6px" }}
+                                value={pendingRoles[u.id] || u.role || "member"}
+                                onChange={e => setPendingRoles(p => ({ ...p, [u.id]: e.target.value }))}
+                                onBlur={async () => {
+                                  const newRole = pendingRoles[u.id];
+                                  const originalRole = (users.find(x => x.id === u.id)?.role || "member").toLowerCase();
+                                  if (newRole && newRole !== originalRole) {
+                                    const saved = await updateMemberRole(u.id, newRole);
+                                    if (!saved) {
+                                      setPendingRoles(p => { const next = { ...p }; delete next[u.id]; return next; });
+                                    }
+                                  }
+                                  setEditingRole(null);
+                                }}
+                              >
+                                {Object.keys(ROLE_META).map(r => <option key={r} value={r}>{ROLE_META[r].label}</option>)}
+                              </select>
+                            ) : (
+                              <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                                <span style={{ fontSize:11, fontWeight:700, color:rm.color, background:rm.color+"18", borderRadius:5, padding:"2px 8px" }}>{rm.label}</span>
+                                {!isMe && canManageRoles && (
+                                  <button onClick={() => setEditingRole(u.id)} style={{ background:"none", border:"none", cursor:"pointer", color:t.textGhost, fontSize:13, padding:0, lineHeight:1 }} title="Edit role">✏</button>
+                                )}
+                              </div>
+                            )}
+                            {u.deptLabel && <span style={{ fontSize:11, color:t.textMuted, background:t.statBg, borderRadius:5, padding:"2px 8px", border:`1px solid ${t.border}` }}>{u.deptLabel}</span>}
+                            <span style={{ fontSize:11, color:t.textFaint }}><span style={{ fontWeight:700, color:u.activeTasks>0?t.accent:t.textFaint }}>{u.activeTasks}</span> active</span>
+                            <span style={{ fontSize:11, color:t.textFaint }}><span style={{ fontWeight:700, color:u.completedTasks>0?"#059669":t.textFaint }}>{u.completedTasks}</span> done</span>
+                          </div>
+                        </div>
+                      );
+                    }
                     return (
                       <div key={u.id} style={{ display:"grid", gridTemplateColumns:"1fr 100px 90px 70px 70px", padding:"13px 20px", borderBottom:`1px solid ${t.divider}`, alignItems:"center", background:isMe?t.accent+"07":"transparent" }}>
                         {/* Name / email */}

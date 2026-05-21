@@ -38,7 +38,7 @@ const INDUSTRIES  = ["Technology","Fashion","FMCG","Finance","Healthcare","Retai
 const ST_COLORS   = { Lead:"#6B7280", Qualified:"#3B82F6", "Proposal Sent":"#F59E0B", Negotiation:"#F97316", Won:"#059669", Lost:"#EF4444" };
 
 export const PitchPipeline = React.memo(function PitchPipeline() {
-  const { pitches, setPitches, currentUser, logActivity, whiteLabelSettings } = useApp();
+  const { pitches, setPitches, currentUser, logActivity, whiteLabelSettings, isMobile } = useApp();
   const CS = CURRENCY_SYMBOLS[whiteLabelSettings?.currency] || "$";
   const { theme: t } = useTheme();
   const toast = useToast();
@@ -119,9 +119,9 @@ export const PitchPipeline = React.memo(function PitchPipeline() {
   return (
     <div>
       {/* Header */}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:isMobile?"flex-start":"center", marginBottom:20, flexDirection:isMobile?"column":"row", gap:isMobile?10:0 }}>
         <h1 style={{ margin:0, fontSize:26, fontWeight:800, color:t.text }}>Pitch Pipeline</h1>
-        <div style={{ display:"flex", gap:8 }}>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
           {["Kanban","List","Forecast"].map(m => (
             <button key={m} onClick={() => setViewMode(m)} style={{ ...bs, background: viewMode===m ? "#7C3AED" : t.toggleBg, color: viewMode===m ? "#fff" : t.textSub, padding:"7px 14px", fontSize:12 }}>{m}</button>
           ))}
@@ -130,7 +130,7 @@ export const PitchPipeline = React.memo(function PitchPipeline() {
       </div>
 
       {/* Stats */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:20 }}>
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)", gap:14, marginBottom:20 }}>
         <StatCard icon="📊" label="Active Pitches"     value={pitches.filter(p=>!["Won","Lost"].includes(p.stage)).length} sub={`${pitches.length} total in pipeline`} />
         <StatCard icon="💰" label="Weighted Pipeline"  value={fmtM(totalPipeline, CS)} sub="probability-adjusted value" />
         <StatCard icon="🏆" label="Won Revenue"        value={fmtM(wonRevenue, CS)} sub={`${pitches.filter(p=>p.stage==="Won").length} deals closed`} />

@@ -166,7 +166,7 @@ function DiagnosticsPanel({ t }) {
 }
 
 export function Profile() {
-  const { currentUser, updateProfile, setupAgency, resetAllData } = useApp();
+  const { currentUser, updateProfile, setupAgency, resetAllData, isMobile } = useApp();
   const { theme: t } = useTheme();
   const toast = useToast();
   const iS = mkInputStyle(t);
@@ -202,7 +202,7 @@ export function Profile() {
   return (
     <div>
       <h1 style={{ margin: "0 0 24px", fontSize: 26, fontWeight: 800, color: t.text }}>My Profile</h1>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, maxWidth: 820 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 24, maxWidth: 820 }}>
 
         {/* Left — edit form */}
         <div>

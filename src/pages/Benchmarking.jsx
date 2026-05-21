@@ -151,7 +151,7 @@ export const Benchmarking = React.memo(function Benchmarking() {
       </div>
 
       {/* Summary stat cards */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:14, marginBottom:24 }}>
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(3,1fr)", gap:14, marginBottom:24 }}>
         <StatCard icon="🏅" label="Top Performers"     value={topCount}   sub={`${Math.round((topCount/scoredBenchmarks.length)*100)}% of metrics`} />
         <StatCard icon="📊" label="At Average"          value={avgCount}   sub="meeting expectations" />
         <StatCard icon="⚠️" label="Below Average"       value={belowCount} sub="need improvement" />
@@ -224,7 +224,7 @@ export const Benchmarking = React.memo(function Benchmarking() {
       {/* Internal metrics from real data */}
       <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, marginBottom:20 }}>
         <h3 style={{ margin:"0 0 14px", fontSize:14, fontWeight:700, color:t.text }}>Internal Delivery Metrics</h3>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:14 }}>
+        <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(3,1fr)", gap:14 }}>
           {[
             { label:"Project Delivery Rate", value:agencyStats.projectCompletionRate, sub:`${agencyStats.completedProjects} of ${agencyStats.totalProjects} projects delivered`, target:80 },
             { label:"Task Completion Rate",  value:agencyStats.taskCompletionRate,    sub:`${agencyStats.completedTasks} of ${agencyStats.totalTasks} tasks done`,           target:75 },
@@ -262,7 +262,7 @@ export const Benchmarking = React.memo(function Benchmarking() {
         <FormField label="Unit (optional)">
           <input style={iS} value={newMetric.unit} onChange={e => setNewMetric({...newMetric, unit:e.target.value})} placeholder="e.g. % or leave blank" />
         </FormField>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12 }}>
+        <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(3,1fr)", gap:12 }}>
           <FormField label="Low"><input type="number" style={iS} value={newMetric.low} onChange={e => setNewMetric({...newMetric, low:e.target.value})} /></FormField>
           <FormField label="Average"><input type="number" style={iS} value={newMetric.avg} onChange={e => setNewMetric({...newMetric, avg:e.target.value})} /></FormField>
           <FormField label="Top Performer"><input type="number" style={iS} value={newMetric.top} onChange={e => setNewMetric({...newMetric, top:e.target.value})} /></FormField>

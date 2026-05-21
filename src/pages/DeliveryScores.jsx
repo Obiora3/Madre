@@ -72,7 +72,7 @@ function scoreUsers(tasks, kpis, users, quarter, projectById, taskPipelines) {
 }
 
 export const DeliveryScores = React.memo(function DeliveryScores() {
-  const { tasks, kpis, users, departments, projects, whiteLabelSettings } = useApp();
+  const { tasks, kpis, users, departments, projects, whiteLabelSettings, isMobile } = useApp();
   const { theme: t } = useTheme();
   const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);
   const taskPipelines = useMemo(() => getTaskPipelines(whiteLabelSettings), [whiteLabelSettings]);
@@ -138,10 +138,10 @@ export const DeliveryScores = React.memo(function DeliveryScores() {
   return (
     <div>
       {/* Header */}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:isMobile?"flex-start":"center", marginBottom:20, flexDirection:isMobile?"column":"row", gap:isMobile?10:0 }}>
         <h1 style={{ margin:0, fontSize:26, fontWeight:800, color:t.text }}>KPI Delivery Scores</h1>
-        <div style={{ display:"flex", gap:10 }}>
-          <select style={{...sS, width:140}} value={quarter} onChange={e => setQuarter(e.target.value)}>
+        <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+          <select style={{...sS, width:isMobile?"100%":140}} value={quarter} onChange={e => setQuarter(e.target.value)}>
             {QUARTERS.map(q => <option key={q}>{q}</option>)}
           </select>
           <button style={bs} onClick={exportCSV}>📥 Export CSV</button>
@@ -149,7 +149,7 @@ export const DeliveryScores = React.memo(function DeliveryScores() {
       </div>
 
       {/* Summary stats */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:14, marginBottom:24 }}>
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)", gap:14, marginBottom:24 }}>
         <StatCard icon="👥" label="Team Members"    value={users.length} />
         <StatCard icon="📋" label="Tasks in Quarter" value={tasks.filter(t2=>t2.due_date&&new Date(t2.due_date)>=start).length} />
         <StatCard icon="⭐" label="Team Avg Score"  value={`${avgScore}/100`} sub={avgScore >= 80 ? "High performing" : avgScore >= 60 ? "Meeting targets" : "Needs attention"} />

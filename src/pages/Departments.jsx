@@ -30,7 +30,7 @@ import {
 
 // ─── DEPARTMENTS ──────────────────────────────────────────────────────────────
 export const Departments = React.memo(function Departments() {
-  const { departments, setDepartments, users, currentUser } = useApp();
+  const { departments, setDepartments, users, currentUser, isMobile } = useApp();
   const { theme: t } = useTheme();
   const toast = useToast();
   const iS = mkInputStyle(t); const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);
@@ -51,16 +51,16 @@ export const Departments = React.memo(function Departments() {
   const openEdit = (d) => { setForm({...d}); setEditDept(d); setShowForm(true); };
   return (
     <div>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:isMobile?"flex-start":"center", marginBottom:20, flexDirection:isMobile?"column":"row", gap:isMobile?10:0 }}>
         <h1 style={{ margin:0, fontSize:26, fontWeight:800, color:t.text }}>Departments</h1>
         <button style={btnPrimary} onClick={()=>{setEditDept(null);setForm({name:"",colour:"#7C3AED",description:"",lead:null,members:[]});setShowForm(true);}}>+ New Department</button>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:20 }}>
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(3,1fr)", gap:12, marginBottom:20 }}>
         <StatCard icon="🏢" label="Departments" value={departments.length} />
         <StatCard icon="👥" label="Total Members" value={[...new Set(departments.flatMap(d=>d.members))].length} />
         <StatCard icon="👑" label="With Lead" value={departments.filter(d=>d.lead).length} />
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16 }}>
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)", gap:16 }}>
         {departments.map(d=>{
           const leadFromUsers = users.find(u=>u.email===d.lead);
           const lead = leadFromUsers
