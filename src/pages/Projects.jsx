@@ -220,7 +220,7 @@ export const Projects = React.memo(function Projects() {
   const toast = useToast();
   const iS = mkInputStyle(t); const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);
   const projectPipelines = useMemo(() => getTaskPipelines(whiteLabelSettings), [whiteLabelSettings]);
-  const [viewMode, setViewMode] = useState("board"); // "board" | "list"
+  const [viewMode, setViewMode] = useState(() => isMobile ? "list" : "board"); // "board" | "list"
   const [filter, setFilter] = useState("All");
   const [pipelineFilter, setPipelineFilter] = useState(DEFAULT_PROJECT_PIPELINE_ID);
   const [showForm, setShowForm] = useState(false);

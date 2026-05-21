@@ -394,11 +394,8 @@ export const Tasks = React.memo(function Tasks() {
                       <div style={{ display:"flex", alignItems:"flex-start", gap:8, marginBottom:8 }}>
                         <TaskStatusButton task={t2} onStatusChange={changeTaskStatus} />
                         <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ display:"flex", gap:5, alignItems:"flex-start", flexWrap:"wrap" }}>
-                            <span style={{ fontSize:13, fontWeight:600, color:isTaskComplete(t2)?t.textFaint:t.textSub, textDecoration:isTaskComplete(t2)?"line-through":"none", lineHeight:1.4 }}>{t2.title}</span>
-                            {blocked && <Badge label="🔒" color="#EF4444" />}
-                            {t2.recurrence && t2.recurrence !== "none" && <span title={`Repeats ${t2.recurrence}`} style={{ fontSize:11 }}>🔄</span>}
-                          </div>
+                          <span style={{ fontSize:13, fontWeight:600, color:isTaskComplete(t2)?t.textFaint:t.textSub, textDecoration:isTaskComplete(t2)?"line-through":"none", lineHeight:1.4 }}>{t2.title}</span>
+                          {blocked && <> <Badge label="Blocked" color="#EF4444" /></>}
                           {(t2.estimated_hours || subs.length > 0) && (
                             <div style={{ fontSize:11, color:t.textGhost, marginTop:3 }}>
                               {t2.estimated_hours ? `${t2.estimated_hours}h est.` : ""}
@@ -407,7 +404,10 @@ export const Tasks = React.memo(function Tasks() {
                             </div>
                           )}
                         </div>
-                        <button onClick={() => setEditingTask({...t2})} style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:6, padding:"5px 9px", fontSize:13, color:t.textMuted, cursor:"pointer", flexShrink:0 }}>✏</button>
+                        <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                          <button onClick={() => setEditingTask({...t2})} style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:6, padding:"5px 10px", fontSize:12, color:t.textMuted, cursor:"pointer" }}>Edit</button>
+                          {canDeleteTasks && <button onClick={()=>setTaskToDelete(t2)} style={{ background:"transparent", border:"1px solid #EF444466", borderRadius:6, padding:"5px 8px", fontSize:14, color:"#EF4444", cursor:"pointer", lineHeight:1 }}>×</button>}
+                        </div>
                       </div>
                       <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
                         <Badge label={t2.status} color={statusColor(t2.status)} />
@@ -419,8 +419,9 @@ export const Tasks = React.memo(function Tasks() {
                           </div>
                         )}
                         {t2.due_date && <span style={{ fontSize:11, color:t.textFaint }}>Due {fmtDate(t2.due_date)}</span>}
-                        <button onClick={()=>setCommentTask(t2)} style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:5, padding:"3px 8px", fontSize:11, color:cnt>0?t.accent:t.textMuted, cursor:"pointer" }}>💬{cnt>0?` ${cnt}`:""}</button>
-                        {canDeleteTasks && <button onClick={()=>setTaskToDelete(t2)} style={{ background:"transparent", border:"1px solid #EF444466", borderRadius:5, padding:"3px 8px", fontSize:11, color:"#EF4444", cursor:"pointer" }}>Delete</button>}
+                        <button onClick={()=>setCommentTask(t2)} style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:5, padding:"3px 8px", fontSize:11, color:cnt>0?t.accent:t.textMuted, cursor:"pointer" }}>
+                          {cnt>0 ? `💬 ${cnt}` : "💬"}
+                        </button>
                       </div>
                     </div>
                   );
