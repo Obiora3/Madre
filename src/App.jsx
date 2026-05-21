@@ -241,6 +241,7 @@ export default function Madre() {
               <div style={{ height:headerHeight, boxSizing:"border-box", padding:"0 16px", display:"flex", alignItems:"center" }}>
                 <img src="/logo.png" alt="logo" style={{ width:70, height:70, objectFit:"contain" }} />
               </div>
+              <div style={{ height:1, background:st.border, margin:"0 16px" }} />
               <div className="app-sidebar-scroll" style={{ flex:1, overflowY:"auto", padding:"14px 12px 10px" }}>
                 <div style={{ marginBottom:8 }}>
                   {navItems.map(item => (

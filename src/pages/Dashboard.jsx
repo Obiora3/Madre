@@ -137,7 +137,7 @@ export const Dashboard = React.memo(function Dashboard() {
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20 }}>
         <div style={{ background: t.card, border: `1px solid #EF444433`, borderRadius: 14, padding: 20 }}>
           <h3 style={{ margin: "0 0 14px", color: "#EF4444", fontSize: 15, fontWeight: 700 }}>⚠ Overdue Tasks ({overdueTasks.length})</h3>
-          {overdueTasks.length === 0 ? <p style={{ color: t.textFaint, fontSize: 13, margin: 0 }}>No overdue tasks — great work!</p> : overdueTasks.map(t2 => (
+          {overdueTasks.length === 0 ? <p style={{ color: t.textFaint, fontSize: 13, margin: 0 }}>No overdue tasks — great work!</p> : overdueTasks.slice(0, 10).map(t2 => (
             <div key={t2.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, padding: "8px 12px", background: "#EF444411", borderRadius: 8 }}>
               <div>
                 <div style={{ fontSize: 13, color: t.textSub, fontWeight: 600 }}>{t2.title}</div>
