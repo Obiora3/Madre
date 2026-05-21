@@ -47,15 +47,16 @@ export function Avatar({ name, size = 32 }) {
 }
 
 export function StatCard({ icon, label, value, sub, color = "#7C3AED" }) {
-  const { theme: t } = useTheme();
+  const { theme: t, } = useTheme();
+  const { isMobile } = useApp();
   return (
-    <div style={{ background: t.card, border: `1px solid ${t.border2}`, borderRadius: 14, padding: "20px 24px", display: "flex", flexDirection: "column", gap: 6 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-        <span style={{ fontSize: 20 }}>{icon}</span>
-        <span style={{ color: t.textMuted, fontSize: 12, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</span>
+    <div style={{ background: t.card, border: `1px solid ${t.border2}`, borderRadius: 12, padding: isMobile ? "14px 14px" : "20px 24px", display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+        <span style={{ fontSize: isMobile ? 16 : 20, flexShrink: 0 }}>{icon}</span>
+        <span style={{ color: t.textMuted, fontSize: isMobile ? 10 : 12, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
       </div>
-      <div style={{ fontSize: 32, fontWeight: 800, color: t.text, lineHeight: 1 }}>{value}</div>
-      {sub && <div style={{ fontSize: 12, color: t.textFaint }}>{sub}</div>}
+      <div style={{ fontSize: isMobile ? 22 : 32, fontWeight: 800, color: t.text, lineHeight: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
+      {sub && <div style={{ fontSize: isMobile ? 10 : 12, color: t.textFaint }}>{sub}</div>}
     </div>
   );
 }
