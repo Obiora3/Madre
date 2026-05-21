@@ -81,7 +81,7 @@ const uniqueEmails = (items) => [...new Set(items.filter(email => /\S+@\S+\.\S+/
 
 // ─── PROJECT DETAIL ───────────────────────────────────────────────────────────
 export const ProjectDetail = React.memo(function ProjectDetail() {
-  const { projects, setProjects, tasks, setTasks, kpis, clients, users, departments, comments, setComments, currentUser, nav, pageParam: id, whiteLabelSettings, logActivity } = useApp();
+  const { projects, setProjects, tasks, setTasks, kpis, clients, users, departments, comments, setComments, currentUser, nav, pageParam: id, whiteLabelSettings, logActivity, isMobile } = useApp();
   const CS = ({ USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" })[whiteLabelSettings?.currency] || "$";
   const onBack = () => nav("projects");
   const { theme: t } = useTheme();
@@ -643,7 +643,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
 
       {/* Project overview card */}
       <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:24, marginBottom:20 }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16, flexDirection:isMobile?"column":"row", gap:isMobile?10:0 }}>
           <div>
             <h1 style={{ margin:"0 0 6px", fontSize:22, fontWeight:800, color:t.text }}>{project.title}</h1>
             <div style={{ color:t.textMuted, fontSize:13 }}>{client?.name}{project.description?` · ${project.description}`:""}</div>
@@ -671,7 +671,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
           ];
           return (
             <>
-              <div style={{ display:"grid", gridTemplateColumns:`repeat(${statItems.length},1fr)`, gap:14, marginBottom:16 }}>
+              <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":`repeat(${statItems.length},1fr)`, gap:14, marginBottom:16 }}>
                 {statItems.map(([l,ic,v,color])=>(
                   <div key={l} style={{ background:t.statBg, borderRadius:10, padding:"10px 14px" }}>
                     <div style={{ fontSize:11, color:t.textFaint, marginBottom:4 }}>{ic} {l}</div>
@@ -696,8 +696,8 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
 
       {/* ── Tasks ─────────────────────────────────────────────────────────────── */}
       <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, marginBottom:20 }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:isMobile?"flex-start":"center", marginBottom:16, flexDirection:isMobile?"column":"row", gap:isMobile?10:0 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
             <h3 style={{ margin:0, color:t.text, fontSize:15, fontWeight:700 }}>Tasks ({projectTasks.length})</h3>
             {/* List / Kanban toggle */}
             <div style={{ display:"flex", gap:4, background:t.statBg, borderRadius:8, padding:3 }}>
@@ -708,7 +708,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
               ))}
             </div>
           </div>
-          <div style={{ display:"flex", gap:8 }}>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
             <button onClick={()=>setShowTemplates(true)} style={{...bs, padding:"7px 14px", fontSize:12}}>📋 Templates</button>
             <button onClick={()=>{ setTaskForm({ ...BLANK_TASK, status:defaultTaskStatus }); setShowTaskForm(true); }} style={{...btnPrimary, padding:"7px 14px", fontSize:12}}>+ Add Task</button>
           </div>

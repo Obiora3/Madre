@@ -218,7 +218,7 @@ export const NotificationBell = React.memo(function NotificationBell() {
         )}
       </button>
       {open && (
-        <div style={{ position: "absolute", right: 0, top: 40, width: 360, background: t.card, border: `1px solid ${t.border2}`, borderRadius: 14, boxShadow: t.shadow, zIndex: 1000 }}>
+        <div style={{ position: "absolute", right: 0, top: 40, width: 360, maxWidth: "calc(100vw - 16px)", background: t.card, border: `1px solid ${t.border2}`, borderRadius: 14, boxShadow: t.shadow, zIndex: 1000 }}>
           <div style={{ padding: "14px 16px 10px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${t.border2}` }}>
             <span style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>Notifications</span>
             {totalCount > 0 && <button onClick={dismissAll} style={{ background: "none", border: "none", color: t.textMuted, fontSize: 12, cursor: "pointer" }}>Clear all</button>}

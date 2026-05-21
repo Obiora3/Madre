@@ -134,7 +134,7 @@ export const Dashboard = React.memo(function Dashboard() {
           ))}
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20 }}>
         <div style={{ background: t.card, border: `1px solid #EF444433`, borderRadius: 14, padding: 20 }}>
           <h3 style={{ margin: "0 0 14px", color: "#EF4444", fontSize: 15, fontWeight: 700 }}>⚠ Overdue Tasks ({overdueTasks.length})</h3>
           {overdueTasks.length === 0 ? <p style={{ color: t.textFaint, fontSize: 13, margin: 0 }}>No overdue tasks — great work!</p> : overdueTasks.map(t2 => (

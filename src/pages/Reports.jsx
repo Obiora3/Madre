@@ -83,7 +83,7 @@ function HBarChart({ items, t }) {
 
 // ─── REPORTS PAGE ─────────────────────────────────────────────────────────────
 export const Reports = React.memo(function Reports() {
-  const { projects, tasks, kpis, clients, users, whiteLabelSettings } = useApp();
+  const { projects, tasks, kpis, clients, users, whiteLabelSettings, isMobile } = useApp();
   const { theme: t } = useTheme();
   const RATE = whiteLabelSettings?.billing_rate || 150;
   const CURRENCY_SYMBOL = { USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" }[whiteLabelSettings?.currency] || "$";
@@ -231,23 +231,25 @@ export const Reports = React.memo(function Reports() {
   return (
     <div>
       {/* Header */}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:isMobile?"flex-start":"center", marginBottom:20, flexDirection:isMobile?"column":"row", gap:isMobile?10:0 }}>
         <h1 style={{ margin:0, fontSize:26, fontWeight:800, color:t.text }}>Reports & Analytics</h1>
         <button style={btnPrimary} onClick={()=>setShowReportModal(true)}>Generate Report ✨</button>
       </div>
 
       {/* Date range filter */}
-      <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:12, padding:"12px 16px", marginBottom:20, display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
-        <span style={{ fontSize:11, fontWeight:700, color:t.textGhost, letterSpacing:"0.07em" }}>DATE RANGE</span>
-        <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-          {PRESETS.map(p => (
-            <button key={p} onClick={()=>setPreset(p)} style={{ ...bs, padding:"5px 11px", fontSize:11, background:activePreset===p?t.navActive:"transparent", color:activePreset===p?t.navActiveText:t.textMuted, border:`1px solid ${activePreset===p?t.accent:t.border2}` }}>{p}</button>
-          ))}
+      <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:12, padding:"12px 16px", marginBottom:20, display:"flex", flexDirection:"column", gap:8 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+          <span style={{ fontSize:11, fontWeight:700, color:t.textGhost, letterSpacing:"0.07em" }}>DATE RANGE</span>
+          <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+            {PRESETS.map(p => (
+              <button key={p} onClick={()=>setPreset(p)} style={{ ...bs, padding:"5px 11px", fontSize:11, background:activePreset===p?t.navActive:"transparent", color:activePreset===p?t.navActiveText:t.textMuted, border:`1px solid ${activePreset===p?t.accent:t.border2}` }}>{p}</button>
+            ))}
+          </div>
         </div>
-        <div style={{ display:"flex", gap:8, alignItems:"center", marginLeft:"auto" }}>
-          <input type="date" style={{...iS, padding:"5px 10px", fontSize:12}} value={dateFrom} onChange={e=>{setDateFrom(e.target.value); setActivePreset("");}} />
+        <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+          <input type="date" style={{...iS, padding:"5px 10px", fontSize:12, flex:isMobile?"1":"none"}} value={dateFrom} onChange={e=>{setDateFrom(e.target.value); setActivePreset("");}} />
           <span style={{ color:t.textFaint, fontSize:12 }}>→</span>
-          <input type="date" style={{...iS, padding:"5px 10px", fontSize:12}} value={dateTo} onChange={e=>{setDateTo(e.target.value); setActivePreset("");}} />
+          <input type="date" style={{...iS, padding:"5px 10px", fontSize:12, flex:isMobile?"1":"none"}} value={dateTo} onChange={e=>{setDateTo(e.target.value); setActivePreset("");}} />
         </div>
       </div>
 
@@ -257,7 +259,7 @@ export const Reports = React.memo(function Reports() {
         const totalSpent  = budgetData.reduce((s, p) => s + p.actual, 0);
         const budgetPct   = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : null;
         return (
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:14, marginBottom:24 }}>
+          <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(6,1fr)", gap:14, marginBottom:24 }}>
             <StatCard icon="🚀" label="Active Projects" value={stats.active} />
             <StatCard icon="✅" label="Tasks Completed" value={stats.done} />
             <StatCard icon="⚠️" label="Overdue Tasks"   value={stats.overdue} />
@@ -269,7 +271,7 @@ export const Reports = React.memo(function Reports() {
       })()}
 
       {/* Burndown + Team load */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, marginBottom:20 }}>
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:20, marginBottom:20 }}>
         <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
             <div>
@@ -313,7 +315,7 @@ export const Reports = React.memo(function Reports() {
       </div>
 
       {/* Budget tracking */}
-      <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, overflow:"hidden", marginBottom:20 }}>
+      <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, overflow:"hidden", marginBottom:20, overflowX:"auto" }}>
         <div style={{ padding:"14px 20px", borderBottom:`1px solid ${t.border2}` }}>
           <h3 style={{ margin:0, fontSize:14, fontWeight:700, color:t.text }}>Budget Tracking · Planned vs Actual</h3>
           <div style={{ fontSize:11, color:t.textFaint, marginTop:2 }}>
@@ -325,8 +327,8 @@ export const Reports = React.memo(function Reports() {
             No budget data for this period. Add a budget to your projects or log estimated hours on tasks.
           </div>
         ) : (
-          <>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 70px 100px 100px 100px 90px", padding:"8px 20px", borderBottom:`1px solid ${t.border2}`, background:t.statBg }}>
+          <div style={{ overflowX:"auto" }}>
+            <div style={{ minWidth:560, display:"grid", gridTemplateColumns:"1fr 70px 100px 100px 100px 90px", padding:"8px 20px", borderBottom:`1px solid ${t.border2}`, background:t.statBg }}>
               {["Project","Source","Planned","Actual","Variance","Used %"].map((h,i) => (
                 <div key={i} style={{ fontSize:10, fontWeight:700, color:t.textFaint, textTransform:"uppercase", letterSpacing:"0.05em" }}>{h}</div>
               ))}
@@ -334,7 +336,7 @@ export const Reports = React.memo(function Reports() {
             {budgetData.map(p => {
               const fmt = (v) => `${CURRENCY_SYMBOL}${(v/1_000_000).toFixed(2)}M`;
               return (
-                <div key={p.id} style={{ display:"grid", gridTemplateColumns:"1fr 70px 100px 100px 100px 90px", padding:"12px 20px", borderBottom:`1px solid ${t.divider}`, alignItems:"center" }}>
+                <div key={p.id} style={{ minWidth:560, display:"grid", gridTemplateColumns:"1fr 70px 100px 100px 100px 90px", padding:"12px 20px", borderBottom:`1px solid ${t.divider}`, alignItems:"center" }}>
                   <div>
                     <div style={{ fontSize:13, fontWeight:600, color:t.textSub }}>{p.title}</div>
                     <div style={{ fontSize:11, color:t.textFaint }}>{p.client}</div>
@@ -358,12 +360,12 @@ export const Reports = React.memo(function Reports() {
                 </div>
               );
             })}
-          </>
+          </div>
         )}
       </div>
 
       {/* Projects by Stage + KPI breakdown */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, marginBottom:20 }}>
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:20, marginBottom:20 }}>
         <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20 }}>
           <h3 style={{ margin:"0 0 16px", fontSize:14, fontWeight:700, color:t.text }}>Projects by Stage</h3>
           {stages.map(s => {

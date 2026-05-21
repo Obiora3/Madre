@@ -169,7 +169,7 @@ function ListView({ projects, tasks, clients, users, projectPipelines, CS, theme
 
 // ─── PROJECTS ─────────────────────────────────────────────────────────────────
 export const Projects = React.memo(function Projects() {
-  const { projects, setProjects, tasks, setTasks, kpis, setKpis, clients, users, nav, whiteLabelSettings, currentUser, logActivity } = useApp();
+  const { projects, setProjects, tasks, setTasks, kpis, setKpis, clients, users, nav, whiteLabelSettings, currentUser, logActivity, isMobile } = useApp();
   const CS = CURRENCY_SYMBOLS[whiteLabelSettings?.currency] || "$";
   const { theme: t } = useTheme();
   const toast = useToast();
@@ -226,9 +226,9 @@ export const Projects = React.memo(function Projects() {
   return (
     <div>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: isMobile ? "flex-start" : "center", marginBottom: 24, flexDirection: isMobile ? "column" : "row", gap: isMobile ? 10 : 0 }}>
         <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: t.text }}>Projects</h1>
-        <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+        <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
           {/* View toggle */}
           <div style={{ display:"flex", gap:3, background:t.statBg, borderRadius:8, padding:3 }}>
             {[["board","⊞ Board"],["list","☰ List"]].map(([id,label]) => (
