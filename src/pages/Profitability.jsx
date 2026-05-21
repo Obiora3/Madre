@@ -321,7 +321,8 @@ export const Profitability = React.memo(function Profitability() {
             <div style={{ fontSize:11, color:t.textFaint, marginTop:2 }}>Revenue uses direct budget when set · otherwise hours × {CS}{RATE}/h rate</div>
           </div>
         </div>
-        <div style={{ display:"grid",gridTemplateColumns:"1fr 70px 70px 110px 110px 100px",padding:"10px 20px",borderBottom:`1px solid ${t.border2}`, background:t.statBg }}>
+        <div style={{ overflowX:"auto" }}>
+        <div style={{ display:"grid",gridTemplateColumns:"1fr 70px 70px 110px 110px 100px",padding:"10px 20px",borderBottom:`1px solid ${t.border2}`, background:t.statBg, minWidth:580 }}>
           {["Project","Stage","Hours","Revenue / Budget","Cost / Spent","Margin"].map((h,i) => (
             <div key={i} style={{ fontSize:10,fontWeight:700,color:t.textFaint,textTransform:"uppercase",letterSpacing:"0.05em" }}>{h}</div>
           ))}
@@ -330,7 +331,7 @@ export const Profitability = React.memo(function Profitability() {
           const mc = p.margin>=40?"#059669":p.margin>=25?"#F59E0B":"#EF4444";
           const budgetOver = p.hasBudget && p.cost > p.revenue;
           return (
-            <div key={p.id} style={{ display:"grid",gridTemplateColumns:"1fr 70px 70px 110px 110px 100px",padding:"12px 20px",borderBottom:`1px solid ${t.divider}`,alignItems:"center" }}>
+            <div key={p.id} style={{ display:"grid",gridTemplateColumns:"1fr 70px 70px 110px 110px 100px",padding:"12px 20px",borderBottom:`1px solid ${t.divider}`,alignItems:"center", minWidth:580 }}>
               <div>
                 <div style={{ fontSize:13,fontWeight:600,color:t.textSub }}>{p.title}</div>
                 <div style={{ display:"flex", gap:5, marginTop:2, alignItems:"center" }}>
@@ -349,6 +350,7 @@ export const Profitability = React.memo(function Profitability() {
             </div>
           );
         })}
+        </div>{/* end overflowX scroll */}
       </div>
 
       {/* ── Industry Benchmarks ──────────────────────────────────────────────── */}

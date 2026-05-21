@@ -8,6 +8,7 @@ const CATEGORIES = ["general", "brief", "creative", "strategy", "report", "contr
 
 // ─── FILE ROW ─────────────────────────────────────────────────────────────────
 function FileRow({ file, onDelete, theme: t }) {
+  const { isMobile } = useApp();
   const [downloading, setDownloading] = useState(false);
 
   const handleDownload = async () => {
@@ -26,6 +27,38 @@ function FileRow({ file, onDelete, theme: t }) {
       setDownloading(false);
     }
   };
+
+  if (isMobile) {
+    return (
+      <div style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"12px 14px", borderBottom:`1px solid ${t.border}`, background:t.statBg }}>
+        <span style={{ fontSize:24, flexShrink:0 }}>{fileIcon(file.mime_type)}</span>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontWeight:600, color:t.text, fontSize:13, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{file.name}</div>
+          {file.description && <div style={{ fontSize:11, color:t.textFaint, marginTop:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{file.description}</div>}
+          <div style={{ fontSize:11, color:t.textGhost, marginTop:2, display:"flex", gap:8, flexWrap:"wrap" }}>
+            <span>{formatFileSize(file.file_size)}</span>
+            <span style={{ background:t.card, border:`1px solid ${t.border}`, borderRadius:5, padding:"1px 6px" }}>{file.category}</span>
+            <span>{new Date(file.created_at).toLocaleDateString("en-GB", { day:"numeric", month:"short" })}</span>
+          </div>
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:6, flexShrink:0 }}>
+          <button
+            onClick={handleDownload}
+            disabled={downloading}
+            style={{ background:t.accent, color:"#fff", border:"none", borderRadius:7, padding:"6px 12px", fontSize:12, fontWeight:700, cursor:"pointer" }}
+          >
+            {downloading ? "…" : "↓ Download"}
+          </button>
+          <button
+            onClick={() => onDelete(file)}
+            style={{ background:"transparent", border:"1px solid #EF444466", borderRadius:7, padding:"5px 10px", fontSize:12, color:"#EF4444", cursor:"pointer" }}
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display:"grid", gridTemplateColumns:"32px 1fr 100px 120px 90px 90px", alignItems:"center", gap:10, padding:"10px 12px", borderRadius:8, background:t.statBg, marginBottom:6, fontSize:13 }}>
@@ -197,7 +230,7 @@ function UploadModal({ open, onClose, onUpload, projects, departments, theme: t 
 export function Drive() {
   const { theme: t } = useTheme();
   const toast = useToast();
-  const { currentUser, projects, departments } = useApp();
+  const { currentUser, projects, departments, isMobile } = useApp();
   const bs = mkBtnSecondary(t);
 
   const [files, setFiles]         = useState([]);
@@ -281,11 +314,13 @@ export function Drive() {
         </div>
       ) : (
         <>
-          <div style={{ display:"grid", gridTemplateColumns:"32px 1fr 100px 120px 90px 90px", gap:10, padding:"6px 12px", marginBottom:4 }}>
-            {["", "Name", "Size", "Category", "Date", ""].map((h, i) => (
-              <span key={i} style={{ fontSize:10, fontWeight:700, color:t.textGhost, textAlign: i >= 2 ? "center" : "left", letterSpacing:"0.06em" }}>{h.toUpperCase()}</span>
-            ))}
-          </div>
+          {!isMobile && (
+            <div style={{ display:"grid", gridTemplateColumns:"32px 1fr 100px 120px 90px 90px", gap:10, padding:"6px 12px", marginBottom:4 }}>
+              {["", "Name", "Size", "Category", "Date", ""].map((h, i) => (
+                <span key={i} style={{ fontSize:10, fontWeight:700, color:t.textGhost, textAlign: i >= 2 ? "center" : "left", letterSpacing:"0.06em" }}>{h.toUpperCase()}</span>
+              ))}
+            </div>
+          )}
           {filtered.map(f => <FileRow key={f.id} file={f} onDelete={setToDelete} theme={t} />)}
         </>
       )}

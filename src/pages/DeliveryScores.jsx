@@ -261,7 +261,8 @@ export const DeliveryScores = React.memo(function DeliveryScores() {
             <div style={{ padding:40, textAlign:"center", color:t.textGhost, fontSize:13 }}>No departments with assigned members for this quarter.</div>
           ) : (
             <>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 80px 180px 100px", padding:"10px 20px", borderBottom:`1px solid ${t.border2}`, background:t.statBg }}>
+              <div style={{ overflowX:"auto" }}>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 80px 180px 100px", padding:"10px 20px", borderBottom:`1px solid ${t.border2}`, background:t.statBg, minWidth:460 }}>
                 {["Department","Members","Avg Score","Tier"].map((h,i) => (
                   <div key={i} style={{ fontSize:10, fontWeight:700, color:t.textFaint, textTransform:"uppercase", letterSpacing:"0.05em" }}>{h}</div>
                 ))}
@@ -270,7 +271,7 @@ export const DeliveryScores = React.memo(function DeliveryScores() {
                 const dc    = d.avg >= 80 ? "#059669" : d.avg >= 60 ? "#F59E0B" : "#EF4444";
                 const dtier = d.avg >= 80 ? "Strong"  : d.avg >= 60 ? "Moderate" : "Weak";
                 return (
-                  <div key={d.name} style={{ display:"grid", gridTemplateColumns:"1fr 80px 180px 100px", padding:"14px 20px", borderBottom:`1px solid ${t.divider}`, alignItems:"center" }}>
+                  <div key={d.name} style={{ display:"grid", gridTemplateColumns:"1fr 80px 180px 100px", padding:"14px 20px", borderBottom:`1px solid ${t.divider}`, alignItems:"center", minWidth:460 }}>
                     <div style={{ fontSize:13, fontWeight:600, color:t.textSub }}>{d.name}</div>
                     <div style={{ fontSize:13, color:t.textMuted }}>{d.count}</div>
                     <div>
@@ -285,6 +286,7 @@ export const DeliveryScores = React.memo(function DeliveryScores() {
                   </div>
                 );
               })}
+              </div>{/* end overflowX scroll */}
             </>
           )}
         </div>

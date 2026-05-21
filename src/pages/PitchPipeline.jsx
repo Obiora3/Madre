@@ -191,7 +191,8 @@ export const PitchPipeline = React.memo(function PitchPipeline() {
       {/* ── List ──────────────────────────────────────────────────────────────── */}
       {viewMode === "List" && (
         <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, overflow:"hidden" }}>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 120px 120px 90px 90px 100px 90px 72px", padding:"10px 16px", borderBottom:`1px solid ${t.border2}`, background:t.statBg }}>
+          <div style={{ overflowX:"auto" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 120px 120px 90px 90px 100px 90px 72px", padding:"10px 16px", borderBottom:`1px solid ${t.border2}`, background:t.statBg, minWidth:760 }}>
             {["Pitch","Stage","Company","Value","Prob.","Decision","Owner",""].map((h,i) => (
               <div key={i} style={{ fontSize:10, fontWeight:700, color:t.textFaint, textTransform:"uppercase", letterSpacing:"0.05em" }}>{h}</div>
             ))}
@@ -200,7 +201,7 @@ export const PitchPipeline = React.memo(function PitchPipeline() {
             <div
               key={p.id}
               onClick={() => openEdit(p)}
-              style={{ display:"grid", gridTemplateColumns:"1fr 120px 120px 90px 90px 100px 90px 72px", padding:"12px 16px", borderBottom:`1px solid ${t.divider}`, alignItems:"center", cursor:"pointer", transition:"background 0.1s" }}
+              style={{ display:"grid", gridTemplateColumns:"1fr 120px 120px 90px 90px 100px 90px 72px", padding:"12px 16px", borderBottom:`1px solid ${t.divider}`, alignItems:"center", cursor:"pointer", transition:"background 0.1s", minWidth:760 }}
               onMouseEnter={e => e.currentTarget.style.background = t.statBg}
               onMouseLeave={e => e.currentTarget.style.background = "transparent"}
             >
@@ -228,6 +229,7 @@ export const PitchPipeline = React.memo(function PitchPipeline() {
           {pitches.length === 0 && (
             <div style={{ padding:40, textAlign:"center", color:t.textGhost, fontSize:13 }}>No pitches yet — add your first to start tracking the pipeline.</div>
           )}
+          </div>{/* end overflowX scroll */}
         </div>
       )}
 
