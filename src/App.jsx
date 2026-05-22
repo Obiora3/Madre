@@ -192,6 +192,7 @@ export default function Madre() {
   ];
   const canAccessSettings = ["owner", "admin"].includes((currentUser?.role || "").toLowerCase());
   const advancedItems = [
+    { id:"team-analytics",   label:"Team Analytics",  icon:"\ud83d\udcca" },
     { id:"profitability",    label:"Profitability",   icon:"\ud83d\udcb0" },
     { id:"pitches",          label:"Pitch Pipeline",  icon:"\ud83c\udfaf" },
     { id:"benchmarking",     label:"Benchmarking",    icon:"\ud83d\udd2c" },
