@@ -33,6 +33,57 @@ import {
   mkSelectStyle
 } from "./_shared.js";
 
+// ─── QUICK ASSIGN DROPDOWN ────────────────────────────────────────────────────
+function QuickAssignDropdown({ task, users, onAssign, onClose, theme: t, accent }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose]);
+
+  return (
+    <div ref={ref} style={{
+      position:"absolute", zIndex:4000, top:"110%", left:0,
+      background:t.card, border:`1px solid ${t.border2}`,
+      borderRadius:12, boxShadow:t.shadow || "0 8px 32px rgba(0,0,0,0.18)",
+      padding:6, minWidth:200, maxHeight:260, overflowY:"auto",
+    }}>
+      <div style={{ fontSize:10, fontWeight:700, color:t.textGhost, letterSpacing:"0.07em", padding:"4px 10px 6px", textTransform:"uppercase" }}>
+        Assign to
+      </div>
+      {/* Unassign option */}
+      <button onClick={() => onAssign(task.id, null)} style={{
+        display:"flex", alignItems:"center", gap:8, width:"100%",
+        background:!task.assigned_to ? (accent+"18") : "transparent",
+        border:"none", borderRadius:8, padding:"7px 10px", cursor:"pointer",
+        color:t.textMuted, fontSize:12, fontWeight:!task.assigned_to?700:400,
+      }}>
+        <span style={{ width:24, height:24, borderRadius:"50%", background:t.toggleBg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, flexShrink:0 }}>—</span>
+        <span>Unassigned</span>
+      </button>
+      {users.map(u => {
+        const active = task.assigned_to?.email === u.email;
+        return (
+          <button key={u.id} onClick={() => onAssign(task.id, u)} style={{
+            display:"flex", alignItems:"center", gap:8, width:"100%",
+            background:active ? (accent+"18") : "transparent",
+            border:"none", borderRadius:8, padding:"7px 10px", cursor:"pointer",
+            color:active ? accent : t.textSub, fontSize:12, fontWeight:active?700:400,
+          }}>
+            <Avatar name={u.name} size={24} />
+            <div style={{ minWidth:0, textAlign:"left" }}>
+              <div style={{ fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{u.name}</div>
+              {u.job_title && <div style={{ fontSize:10, color:t.textGhost, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{u.job_title}</div>}
+            </div>
+            {active && <span style={{ marginLeft:"auto", fontSize:12 }}>✓</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── TASKS ────────────────────────────────────────────────────────────────────
 export const Tasks = React.memo(function Tasks() {
   const { tasks, setTasks, projects, setProjects, departments, comments, setComments, currentUser, users, logActivity, nav, isMobile } = useApp();
@@ -51,6 +102,20 @@ export const Tasks = React.memo(function Tasks() {
   const statuses = ["All","To Do","In Progress","In Review","Done"];
   const kanbanStatuses = ["To Do","In Progress","In Review","Done"];
   const canDeleteTasks = canDeleteTasksForRole(currentUser?.role);
+  const currentRole    = (currentUser?.role || "member").toLowerCase();
+  const canAssign      = ["owner","admin","manager"].includes(currentRole);
+  const accent         = t.accent || "#7C3AED";
+
+  const [quickAssignTask, setQuickAssignTask] = useState(null); // task id with open dropdown
+
+  const quickAssign = (taskId, user) => {
+    setTasks(tasks.map(t2 => t2.id === taskId
+      ? { ...t2, assigned_to: user ? { name: user.name, email: user.email, id: user.id } : null }
+      : t2
+    ));
+    setQuickAssignTask(null);
+    toast({ message: user ? `Assigned to ${user.name}` : "Task unassigned", type: "success" });
+  };
 
   const filtered = useMemo(() => {
     let result = statusFilter === "All" ? tasks : tasks.filter(t2 => t2.status === statusFilter);
@@ -120,11 +185,26 @@ export const Tasks = React.memo(function Tasks() {
   };
 
   const TABLE_GAP = 14;
-  const TABLE_MIN_WIDTH = canDeleteTasks ? 920 : 850;
-  const COLS = canDeleteTasks
-    ? "32px minmax(220px, 1fr) 140px 130px 118px 110px 40px 64px 54px"
-    : "32px minmax(220px, 1fr) 140px 130px 118px 110px 40px 54px";
-  const ROW_HEADERS = canDeleteTasks ? ["","Task","Assigned To","Status","Priority","Due","","",""] : ["","Task","Assigned To","Status","Priority","Due","",""];
+  const TABLE_MIN_WIDTH = (canDeleteTasks ? 920 : 850) + (canAssign ? 64 : 0);
+  const COLS = [
+    "32px",
+    "minmax(220px, 1fr)",
+    "140px",
+    canAssign ? "54px" : null,
+    "130px",
+    "118px",
+    "110px",
+    "40px",
+    canDeleteTasks ? "64px" : null,
+    "54px",
+  ].filter(Boolean).join(" ");
+  const ROW_HEADERS = [
+    "","Task","Assigned To",
+    canAssign ? "Assign" : null,
+    "Status","Priority","Due","",
+    canDeleteTasks ? "" : null,
+    "",
+  ].filter(v => v !== null);
 
   return (
     <div>
@@ -201,9 +281,27 @@ export const Tasks = React.memo(function Tasks() {
                               )}
                             </div>
                             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                              <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-                                <Avatar name={t2.assigned_to?.name||"?"} size={16} />
-                                <span style={{ fontSize:10, color:t.textMuted }}>{(t2.assigned_to?.name||"").split(" ")[0]||"?"}</span>
+                              <div style={{ display:"flex", alignItems:"center", gap:4, position:"relative" }}>
+                                {canAssign ? (
+                                  <>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setQuickAssignTask(quickAssignTask === t2.id ? null : t2.id); }}
+                                      title="Quick assign"
+                                      style={{ display:"flex", alignItems:"center", gap:4, background:quickAssignTask===t2.id?accent+"22":"transparent", border:`1px solid ${quickAssignTask===t2.id?accent:t.border}`, borderRadius:6, padding:"2px 6px 2px 3px", cursor:"pointer" }}
+                                    >
+                                      <Avatar name={t2.assigned_to?.name||"?"} size={16} />
+                                      <span style={{ fontSize:10, color:quickAssignTask===t2.id?accent:t.textMuted }}>{(t2.assigned_to?.name||"?").split(" ")[0]}</span>
+                                    </button>
+                                    {quickAssignTask === t2.id && (
+                                      <QuickAssignDropdown task={t2} users={users||[]} onAssign={quickAssign} onClose={() => setQuickAssignTask(null)} theme={t} accent={accent} />
+                                    )}
+                                  </>
+                                ) : (
+                                  <>
+                                    <Avatar name={t2.assigned_to?.name||"?"} size={16} />
+                                    <span style={{ fontSize:10, color:t.textMuted }}>{(t2.assigned_to?.name||"").split(" ")[0]||"?"}</span>
+                                  </>
+                                )}
                               </div>
                               <Badge label={t2.priority} color={priorityColor(t2.priority)} />
                             </div>
@@ -260,8 +358,8 @@ export const Tasks = React.memo(function Tasks() {
               return ai - bi;
             });
 
-            const SCOLS = "32px 1fr 150px 120px 110px 110px 40px" + (canDeleteTasks ? " 72px" : "");
-            const SHEADERS = ["", "Task", "Assigned To", "Status", "Priority", "Due Date", "", ...(canDeleteTasks ? [""] : [])];
+            const SCOLS = "32px 1fr 150px" + (canAssign ? " 46px" : "") + " 120px 110px 110px 40px" + (canDeleteTasks ? " 72px" : "");
+            const SHEADERS = ["", "Task", "Assigned To", ...(canAssign ? [""] : []), "Status", "Priority", "Due Date", "", ...(canDeleteTasks ? [""] : [])];
 
             return (
               <div key={projectId || "__none__"} style={{ marginBottom:24 }}>
@@ -320,11 +418,26 @@ export const Tasks = React.memo(function Tasks() {
                                         {cnt > 0 && <span style={{ fontSize:10, color:t.accent, fontWeight:700 }}>💬 {cnt}</span>}
                                       </div>
                                     </div>
-                                    <div style={{ display:"flex", alignItems:"center", gap:6, minWidth:0 }}>
+                                    <div style={{ display:"flex", alignItems:"center", gap:6, minWidth:0, position:"relative" }}>
                                       {t2.assigned_to?.name
                                         ? <><Avatar name={t2.assigned_to.name} size={20} /><span style={{ fontSize:12, color:t.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t2.assigned_to.name.split(" ")[0]}</span></>
                                         : <span style={{ fontSize:12, color:t.textGhost }}>—</span>}
                                     </div>
+                                    {/* Quick assign — by stage */}
+                                    {canAssign && (
+                                      <div style={{ position:"relative" }}>
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); setQuickAssignTask(quickAssignTask === t2.id ? null : t2.id); }}
+                                          title="Quick assign"
+                                          style={{ background:quickAssignTask===t2.id?accent:t.statBg, border:`1px solid ${quickAssignTask===t2.id?accent:t.border2}`, borderRadius:6, padding:"3px 6px", fontSize:13, color:quickAssignTask===t2.id?"#fff":t.textMuted, cursor:"pointer", lineHeight:1 }}
+                                        >
+                                          👤
+                                        </button>
+                                        {quickAssignTask === t2.id && (
+                                          <QuickAssignDropdown task={t2} users={users||[]} onAssign={quickAssign} onClose={() => setQuickAssignTask(null)} theme={t} accent={accent} />
+                                        )}
+                                      </div>
+                                    )}
                                     <Badge label={t2.status} color={statusColor(t2.status)} />
                                     <Badge label={t2.priority} color={priorityColor(t2.priority)} />
                                     <span style={{ fontSize:12, color:t.textFaint }}>{t2.due_date ? fmtDate(t2.due_date) : "—"}</span>
@@ -405,6 +518,20 @@ export const Tasks = React.memo(function Tasks() {
                           )}
                         </div>
                         <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                          {canAssign && (
+                            <div style={{ position:"relative" }}>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setQuickAssignTask(quickAssignTask === t2.id ? null : t2.id); }}
+                                title="Quick assign"
+                                style={{ background:quickAssignTask===t2.id?accent:"transparent", border:`1px solid ${quickAssignTask===t2.id?accent:t.border2}`, borderRadius:6, padding:"5px 8px", fontSize:13, color:quickAssignTask===t2.id?"#fff":t.textMuted, cursor:"pointer", lineHeight:1 }}
+                              >
+                                👤
+                              </button>
+                              {quickAssignTask === t2.id && (
+                                <QuickAssignDropdown task={t2} users={users||[]} onAssign={quickAssign} onClose={() => setQuickAssignTask(null)} theme={t} accent={accent} />
+                              )}
+                            </div>
+                          )}
                           <button onClick={() => setEditingTask({...t2})} style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:6, padding:"5px 10px", fontSize:12, color:t.textMuted, cursor:"pointer" }}>Edit</button>
                           {canDeleteTasks && <button onClick={()=>setTaskToDelete(t2)} style={{ background:"transparent", border:"1px solid #EF444466", borderRadius:6, padding:"5px 8px", fontSize:14, color:"#EF4444", cursor:"pointer", lineHeight:1 }}>×</button>}
                         </div>
@@ -444,6 +571,21 @@ export const Tasks = React.memo(function Tasks() {
                       <Avatar name={t2.assigned_to?.name||"?"} size={20} />
                       {(t2.assigned_to?.name||"").split(" ")[0]}
                     </div>
+                    {/* Quick assign button */}
+                    {canAssign && (
+                      <div style={{ position:"relative" }}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setQuickAssignTask(quickAssignTask === t2.id ? null : t2.id); }}
+                          title="Quick assign"
+                          style={{ background:quickAssignTask===t2.id?accent:t.statBg, border:`1px solid ${quickAssignTask===t2.id?accent:t.border2}`, borderRadius:7, padding:"3px 6px", fontSize:14, color:quickAssignTask===t2.id?"#fff":t.textMuted, cursor:"pointer", lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}
+                        >
+                          👤
+                        </button>
+                        {quickAssignTask === t2.id && (
+                          <QuickAssignDropdown task={t2} users={users||[]} onAssign={quickAssign} onClose={() => setQuickAssignTask(null)} theme={t} accent={accent} />
+                        )}
+                      </div>
+                    )}
                     <Badge label={t2.status} color={statusColor(t2.status)} />
                     <Badge label={t2.priority} color={priorityColor(t2.priority)} />
                     <div style={{ fontSize:11, color:t.textMuted }}>{fmtDate(t2.due_date)}</div>
