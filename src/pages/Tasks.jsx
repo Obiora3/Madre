@@ -34,25 +34,46 @@ import {
 } from "./_shared.js";
 
 // ─── QUICK ASSIGN DROPDOWN ────────────────────────────────────────────────────
-function QuickAssignDropdown({ task, users, onAssign, onClose, theme: t, accent }) {
+// Uses position:fixed so it escapes any overflow:hidden ancestor.
+// rect = DOMRect from the trigger button's getBoundingClientRect().
+function QuickAssignDropdown({ task, users, onAssign, onClose, theme: t, accent, rect }) {
   const ref = useRef(null);
+
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose]);
 
+  // Flip upward if less than 280px space below the button
+  const spaceBelow = window.innerHeight - (rect?.bottom ?? 0);
+  const openUpward = spaceBelow < 280;
+
+  const style = {
+    position:"fixed",
+    zIndex:9999,
+    left: Math.min(rect?.left ?? 0, window.innerWidth - 220),
+    background:t.card,
+    border:`1px solid ${t.border2}`,
+    borderRadius:12,
+    boxShadow:"0 8px 32px rgba(0,0,0,0.22)",
+    padding:6,
+    minWidth:210,
+    maxHeight:260,
+    overflowY:"auto",
+  };
+
+  if (openUpward) {
+    style.bottom = window.innerHeight - (rect?.top ?? 0) + 4;
+  } else {
+    style.top = (rect?.bottom ?? 0) + 4;
+  }
+
   return (
-    <div ref={ref} style={{
-      position:"absolute", zIndex:4000, top:"110%", left:0,
-      background:t.card, border:`1px solid ${t.border2}`,
-      borderRadius:12, boxShadow:t.shadow || "0 8px 32px rgba(0,0,0,0.18)",
-      padding:6, minWidth:200, maxHeight:260, overflowY:"auto",
-    }}>
+    <div ref={ref} style={style}>
       <div style={{ fontSize:10, fontWeight:700, color:t.textGhost, letterSpacing:"0.07em", padding:"4px 10px 6px", textTransform:"uppercase" }}>
         Assign to
       </div>
-      {/* Unassign option */}
       <button onClick={() => onAssign(task.id, null)} style={{
         display:"flex", alignItems:"center", gap:8, width:"100%",
         background:!task.assigned_to ? (accent+"18") : "transparent",
@@ -106,7 +127,13 @@ export const Tasks = React.memo(function Tasks() {
   const canAssign      = ["owner","admin","manager"].includes(currentRole);
   const accent         = t.accent || "#7C3AED";
 
-  const [quickAssignTask, setQuickAssignTask] = useState(null); // task id with open dropdown
+  const [quickAssignTask, setQuickAssignTask] = useState(null); // { id, rect }
+
+  const openQuickAssign = (e, taskId) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setQuickAssignTask(prev => prev?.id === taskId ? null : { id: taskId, rect });
+  };
 
   const quickAssign = (taskId, user) => {
     setTasks(tasks.map(t2 => t2.id === taskId
@@ -285,15 +312,15 @@ export const Tasks = React.memo(function Tasks() {
                                 {canAssign ? (
                                   <>
                                     <button
-                                      onClick={(e) => { e.stopPropagation(); setQuickAssignTask(quickAssignTask === t2.id ? null : t2.id); }}
+                                      onClick={(e) => openQuickAssign(e, t2.id)}
                                       title="Quick assign"
                                       style={{ display:"flex", alignItems:"center", gap:4, background:quickAssignTask===t2.id?accent+"22":"transparent", border:`1px solid ${quickAssignTask===t2.id?accent:t.border}`, borderRadius:6, padding:"2px 6px 2px 3px", cursor:"pointer" }}
                                     >
                                       <Avatar name={t2.assigned_to?.name||"?"} size={16} />
                                       <span style={{ fontSize:10, color:quickAssignTask===t2.id?accent:t.textMuted }}>{(t2.assigned_to?.name||"?").split(" ")[0]}</span>
                                     </button>
-                                    {quickAssignTask === t2.id && (
-                                      <QuickAssignDropdown task={t2} users={users||[]} onAssign={quickAssign} onClose={() => setQuickAssignTask(null)} theme={t} accent={accent} />
+                                    {quickAssignTask?.id === t2.id && (
+                                      <QuickAssignDropdown task={t2} users={users||[]} onAssign={quickAssign} onClose={() => setQuickAssignTask(null)} theme={t} accent={accent} rect={quickAssignTask?.rect} />
                                     )}
                                   </>
                                 ) : (
@@ -427,14 +454,14 @@ export const Tasks = React.memo(function Tasks() {
                                     {canAssign && (
                                       <div style={{ position:"relative" }}>
                                         <button
-                                          onClick={(e) => { e.stopPropagation(); setQuickAssignTask(quickAssignTask === t2.id ? null : t2.id); }}
+                                          onClick={(e) => openQuickAssign(e, t2.id)}
                                           title="Quick assign"
                                           style={{ background:quickAssignTask===t2.id?accent:t.statBg, border:`1px solid ${quickAssignTask===t2.id?accent:t.border2}`, borderRadius:6, padding:"3px 6px", fontSize:13, color:quickAssignTask===t2.id?"#fff":t.textMuted, cursor:"pointer", lineHeight:1 }}
                                         >
                                           👤
                                         </button>
-                                        {quickAssignTask === t2.id && (
-                                          <QuickAssignDropdown task={t2} users={users||[]} onAssign={quickAssign} onClose={() => setQuickAssignTask(null)} theme={t} accent={accent} />
+                                        {quickAssignTask?.id === t2.id && (
+                                          <QuickAssignDropdown task={t2} users={users||[]} onAssign={quickAssign} onClose={() => setQuickAssignTask(null)} theme={t} accent={accent} rect={quickAssignTask?.rect} />
                                         )}
                                       </div>
                                     )}
@@ -521,14 +548,14 @@ export const Tasks = React.memo(function Tasks() {
                           {canAssign && (
                             <div style={{ position:"relative" }}>
                               <button
-                                onClick={(e) => { e.stopPropagation(); setQuickAssignTask(quickAssignTask === t2.id ? null : t2.id); }}
+                                onClick={(e) => openQuickAssign(e, t2.id)}
                                 title="Quick assign"
                                 style={{ background:quickAssignTask===t2.id?accent:"transparent", border:`1px solid ${quickAssignTask===t2.id?accent:t.border2}`, borderRadius:6, padding:"5px 8px", fontSize:13, color:quickAssignTask===t2.id?"#fff":t.textMuted, cursor:"pointer", lineHeight:1 }}
                               >
                                 👤
                               </button>
-                              {quickAssignTask === t2.id && (
-                                <QuickAssignDropdown task={t2} users={users||[]} onAssign={quickAssign} onClose={() => setQuickAssignTask(null)} theme={t} accent={accent} />
+                              {quickAssignTask?.id === t2.id && (
+                                <QuickAssignDropdown task={t2} users={users||[]} onAssign={quickAssign} onClose={() => setQuickAssignTask(null)} theme={t} accent={accent} rect={quickAssignTask?.rect} />
                               )}
                             </div>
                           )}
@@ -575,14 +602,14 @@ export const Tasks = React.memo(function Tasks() {
                     {canAssign && (
                       <div style={{ position:"relative" }}>
                         <button
-                          onClick={(e) => { e.stopPropagation(); setQuickAssignTask(quickAssignTask === t2.id ? null : t2.id); }}
+                          onClick={(e) => openQuickAssign(e, t2.id)}
                           title="Quick assign"
                           style={{ background:quickAssignTask===t2.id?accent:t.statBg, border:`1px solid ${quickAssignTask===t2.id?accent:t.border2}`, borderRadius:7, padding:"3px 6px", fontSize:14, color:quickAssignTask===t2.id?"#fff":t.textMuted, cursor:"pointer", lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}
                         >
                           👤
                         </button>
-                        {quickAssignTask === t2.id && (
-                          <QuickAssignDropdown task={t2} users={users||[]} onAssign={quickAssign} onClose={() => setQuickAssignTask(null)} theme={t} accent={accent} />
+                        {quickAssignTask?.id === t2.id && (
+                          <QuickAssignDropdown task={t2} users={users||[]} onAssign={quickAssign} onClose={() => setQuickAssignTask(null)} theme={t} accent={accent} rect={quickAssignTask?.rect} />
                         )}
                       </div>
                     )}
