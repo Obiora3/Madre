@@ -179,26 +179,26 @@ export default function Madre() {
   ]);
 
   const navItems = [
-    { id:"dashboard",    label:"Dashboard",  icon:"\u229e" },
-    { id:"projects",     label:"Projects",   icon:"\ud83d\uddc2" },
-    { id:"tasks",        label:"Tasks",      icon:"\u2713" },
-    { id:"team",         label:"Team",       icon:"\ud83d\udc65" },
-    { id:"clients",      label:"Clients",    icon:"\ud83e\udd1d" },
-    { id:"kpis",         label:"KPIs",       icon:"\ud83d\udcca" },
-    { id:"timeline",     label:"Timeline",   icon:"\ud83d\udcc5" },
-    { id:"reports",      label:"Reports",    icon:"\ud83d\udcc8" },
-    { id:"ai-brief",     label:"AI Brief",   icon:"\u2728" },
-    { id:"drive",        label:"Drive",      icon:"\ud83d\udcc2" },
+    { id:"dashboard",    label:"Dashboard",  icon:"\u229e",  color:"#7C3AED" },
+    { id:"projects",     label:"Projects",   icon:"\ud83d\uddc2",  color:"#3B82F6" },
+    { id:"tasks",        label:"Tasks",      icon:"\u2713",   color:"#059669" },
+    { id:"team",         label:"Team",       icon:"\ud83d\udc65",  color:"#F59E0B" },
+    { id:"clients",      label:"Clients",    icon:"\ud83e\udd1d",  color:"#0891B2" },
+    { id:"kpis",         label:"KPIs",       icon:"\ud83d\udcca",  color:"#6366F1" },
+    { id:"timeline",     label:"Timeline",   icon:"\ud83d\udcc5",  color:"#8B5CF6" },
+    { id:"reports",      label:"Reports",    icon:"\ud83d\udcc8",  color:"#2563EB" },
+    { id:"ai-brief",     label:"AI Brief",   icon:"\u2726",   color:"#D97706" },
+    { id:"drive",        label:"Drive",      icon:"\ud83d\udcc2",  color:"#0D9488" },
   ];
   const canAccessSettings = ["owner", "admin"].includes((currentUser?.role || "").toLowerCase());
   const advancedItems = [
-    { id:"team-analytics",   label:"Team Analytics",  icon:"\ud83d\udcca" },
-    { id:"profitability",    label:"Profitability",   icon:"\ud83d\udcb0" },
-    { id:"pitches",          label:"Pitch Pipeline",  icon:"\ud83c\udfaf" },
-    { id:"benchmarking",     label:"Benchmarking",    icon:"\ud83d\udd2c" },
-    { id:"departments",      label:"Departments",     icon:"\ud83c\udfe2" },
-    { id:"delivery-scores",  label:"Delivery Scores", icon:"\u2b50" },
-    canAccessSettings ? { id:"settings", label:"Settings", icon:"\u2699\ufe0f" } : null,
+    { id:"team-analytics",   label:"Team Analytics",  icon:"\ud83d\udcca", color:"#7C3AED" },
+    { id:"profitability",    label:"Profitability",   icon:"\ud83d\udcb0", color:"#059669" },
+    { id:"pitches",          label:"Pitch Pipeline",  icon:"\ud83c\udfaf", color:"#DC2626" },
+    { id:"benchmarking",     label:"Benchmarking",    icon:"\ud83d\udd2c", color:"#0D9488" },
+    { id:"departments",      label:"Departments",     icon:"\ud83c\udfe2", color:"#EA580C" },
+    { id:"delivery-scores",  label:"Delivery Scores", icon:"\u2b50", color:"#CA8A04" },
+    canAccessSettings ? { id:"settings", label:"Settings", icon:"\u2699\ufe0f", color:"#6B7280" } : null,
   ].filter(Boolean);
 
   const activeId = page === "project-detail" ? "projects" : page;
@@ -245,21 +245,42 @@ export default function Madre() {
               <div style={{ height:1, background:st.border, margin:"0 16px" }} />
               <div className="app-sidebar-scroll" style={{ flex:1, overflowY:"auto", padding:"14px 12px 10px" }}>
                 <div style={{ marginBottom:8 }}>
-                  {navItems.map(item => (
-                    <button key={item.id} onClick={() => nav(item.id)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"9px 10px", borderRadius:8, border:"none", cursor:"pointer", background:activeId===item.id?st.navActive:"transparent", color:activeId===item.id?st.navActiveText:st.navText, fontWeight:activeId===item.id?700:400, fontSize:13, textAlign:"left", marginBottom:1, transition:"background 0.15s, color 0.15s" }}>
-                      <span style={{ fontSize:16 }}>{item.icon}</span>{item.label}
-                    </button>
-                  ))}
+                  {navItems.map(item => {
+                    const isActive = activeId === item.id;
+                    return (
+                      <button key={item.id} onClick={() => nav(item.id)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"7px 10px", borderRadius:9, border:"none", cursor:"pointer", background:isActive ? item.color+"22" : "transparent", color:isActive ? item.color : st.navText, fontWeight:isActive?700:400, fontSize:13, textAlign:"left", marginBottom:1, transition:"background 0.15s, color 0.15s" }}>
+                        <span style={{
+                          width:26, height:26, borderRadius:7, flexShrink:0,
+                          display:"flex", alignItems:"center", justifyContent:"center",
+                          fontSize:13, lineHeight:1,
+                          background: isActive ? item.color : item.color+"22",
+                          color: isActive ? "#fff" : item.color,
+                          transition:"background 0.15s, color 0.15s",
+                        }}>{item.icon}</span>
+                        {item.label}
+                      </button>
+                    );
+                  })}
                 </div>
                 <div style={{ height:1, background:st.border, margin:"10px 8px 10px" }} />
                 <div style={{ fontSize:10, fontWeight:700, color:st.textGhost, padding:"0 10px 6px", letterSpacing:"0.08em" }}>ADVANCED</div>
-                {advancedItems.map(item => (
-                  <button key={item.id} onClick={() => nav(item.id)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"9px 10px", borderRadius:8, border:"none", cursor:"pointer", background:activeId===item.id?st.navActive:"transparent", color:activeId===item.id?st.navActiveText:st.navText, fontWeight:activeId===item.id?700:400, fontSize:13, textAlign:"left", marginBottom:1, transition:"background 0.15s, color 0.15s" }}>
-                    <span style={{ fontSize:15 }}>{item.icon}</span>
-                    <span style={{ flex:1 }}>{item.label}</span>
-                    {item.badge && <span style={{ fontSize:9, background:st.accent, color:"#fff", borderRadius:4, padding:"1px 5px", fontWeight:800 }}>{item.badge}</span>}
-                  </button>
-                ))}
+                {advancedItems.map(item => {
+                  const isActive = activeId === item.id;
+                  return (
+                    <button key={item.id} onClick={() => nav(item.id)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"7px 10px", borderRadius:9, border:"none", cursor:"pointer", background:isActive ? item.color+"22" : "transparent", color:isActive ? item.color : st.navText, fontWeight:isActive?700:400, fontSize:13, textAlign:"left", marginBottom:1, transition:"background 0.15s, color 0.15s" }}>
+                      <span style={{
+                        width:26, height:26, borderRadius:7, flexShrink:0,
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        fontSize:13, lineHeight:1,
+                        background: isActive ? item.color : item.color+"22",
+                        color: isActive ? "#fff" : item.color,
+                        transition:"background 0.15s, color 0.15s",
+                      }}>{item.icon}</span>
+                      <span style={{ flex:1 }}>{item.label}</span>
+                      {item.badge && <span style={{ fontSize:9, background:st.accent, color:"#fff", borderRadius:4, padding:"1px 5px", fontWeight:800 }}>{item.badge}</span>}
+                    </button>
+                  );
+                })}
               </div>
               <div style={{ padding:"12px 16px", borderTop:`1px solid ${st.border}` }}>
                 <button onClick={() => nav("profile")} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", background:"transparent", border:"none", cursor:"pointer", padding:"4px 0", borderRadius:8, textAlign:"left" }}>
