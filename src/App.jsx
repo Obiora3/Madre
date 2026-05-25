@@ -126,6 +126,15 @@ export default function Madre() {
     };
   }, [auth.currentUser, users]);
 
+  // appUsers must be declared before useOperationalAutomations so the
+  // minifier doesn't hit a TDZ when it references this value.
+  const appUsers = useMemo(() => {
+    if (!currentUser) return users;
+    const found = users.some(u => u.email === currentUser.email);
+    const merged = users.map(u => u.email === currentUser.email ? { ...u, ...currentUser } : u);
+    return found ? merged : [currentUser, ...users];
+  }, [currentUser, users]);
+
   useOperationalAutomations({
     tasks,
     projects,
@@ -144,13 +153,6 @@ export default function Madre() {
     dismiss:     dismissNotif,
     dismissAll:  dismissAllNotifs,
   } = useNotifications(currentUser);
-
-  const appUsers = useMemo(() => {
-    if (!currentUser) return users;
-    const found = users.some(u => u.email === currentUser.email);
-    const merged = users.map(u => u.email === currentUser.email ? { ...u, ...currentUser } : u);
-    return found ? merged : [currentUser, ...users];
-  }, [currentUser, users]);
   const t = theme;
   const st = whiteLabelSettings.dark_sidebar ? {
     ...DARK,
