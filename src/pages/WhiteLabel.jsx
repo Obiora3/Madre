@@ -502,6 +502,20 @@ export const WhiteLabel = React.memo(function Settings() {
               <Row label="Assignment Emails" sub="Email users when a new assigned task or project is created"><Toggle value={s.assignment_email_alerts} onChange={v=>set("assignment_email_alerts",v)} accent={s.primary_colour} /></Row>
               <Row label="Email Alerts" sub="Send through Resend to task assignees and configured fallback recipients"><Toggle value={s.automation_email} onChange={v=>set("automation_email",v)} accent={s.primary_colour} /></Row>
               <Row label="WhatsApp Alerts" sub="Send through Meta WhatsApp Cloud API to configured recipients"><Toggle value={s.automation_whatsapp} onChange={v=>set("automation_whatsapp",v)} accent={s.primary_colour} /></Row>
+              {s.automation_whatsapp && (
+                <div style={{ marginTop:10, padding:"12px 14px", background:"#22c55e14", border:"1px solid #22c55e44", borderRadius:10 }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:"#16a34a", marginBottom:6 }}>⚙️ Required environment variables</div>
+                  <div style={{ fontFamily:"monospace", fontSize:11, color:t.textSub, lineHeight:1.9, background:t.statBg, border:`1px solid ${t.border}`, borderRadius:7, padding:"8px 12px", marginBottom:8 }}>
+                    <div>WHATSAPP_ACCESS_TOKEN=<span style={{ color:t.textFaint }}>your_meta_access_token</span></div>
+                    <div>WHATSAPP_PHONE_NUMBER_ID=<span style={{ color:t.textFaint }}>your_phone_number_id</span></div>
+                    <div>NOTIFICATION_WHATSAPP_TO=<span style={{ color:t.textFaint }}>2348012345678,447...</span></div>
+                    <div>WHATSAPP_TEMPLATE_NAME=<span style={{ color:t.textFaint }}>madre_task_alert</span> <span style={{ color:"#9ca3af" }}>(or set WHATSAPP_ALLOW_TEXT=true)</span></div>
+                  </div>
+                  <div style={{ fontSize:11, color:t.textFaint, lineHeight:1.5 }}>
+                    Get your credentials from <strong>Meta Business Manager → WhatsApp → API Setup</strong>. Team members can also add their personal WhatsApp number in their <strong>Profile</strong> to receive notifications directly.
+                  </div>
+                </div>
+              )}
             </div>
             <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20 }}>
               <h3 style={{ margin:"0 0 4px", fontSize:14, fontWeight:700, color:t.text }}>Escalation Threshold</h3>

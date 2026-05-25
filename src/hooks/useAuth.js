@@ -24,6 +24,7 @@ const publicUser = (user) => ({
   job_title:     clean(user.job_title,     STALE_JOB_TITLES),
   skills:        cleanSkills(user.skills),
   avatar_url: user.avatar_url || null,
+  phone: user.phone || null,
   agency_id: user.agency_id || null,
   agency_code: user.agency_code || null,
   agency_name: user.agency_name || null,
@@ -42,6 +43,7 @@ const publicSupabaseUser = (user) => {
     job_title:     meta.job_title     || "",
     skills:        meta.skills        || [],
     avatar_url:    meta.avatar_url    || null,
+    phone:         meta.phone         || null,
   });
 };
 
@@ -278,25 +280,27 @@ export function useAuth() {
     if (user?.id) await loadUserAgency(user.id);
   }, [loadUserAgency]);
 
-  const updateProfile = useCallback(async ({ name, job_title, department, skills }) => {
+  const updateProfile = useCallback(async ({ name, job_title, department, skills, phone }) => {
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.auth.updateUser({
-        data: { name, job_title, department, skills },
+        data: { name, job_title, department, skills, phone: phone || null },
       });
       if (error) throw new Error(error.message);
       if (data.user) {
-        // Keep profiles table in sync so team members see the updated info
+        // Keep profiles table in sync so team members see the updated info.
+        // phone is stored in user_metadata; the profiles update is best-effort
+        // in case the table has a phone column — it's silently ignored otherwise.
         await supabase
           .from("profiles")
-          .update({ name, job_title, department, skills })
+          .update({ name, job_title, department, skills, phone: phone || null })
           .eq("id", data.user.id);
         // Apply values directly — Supabase sometimes returns stale user_metadata
         // in the updateUser response, so we never re-derive from data.user here.
-        setCurrentUser(prev => prev ? { ...prev, name, job_title, department, skills } : null);
+        setCurrentUser(prev => prev ? { ...prev, name, job_title, department, skills, phone: phone || null } : null);
       }
       return;
     }
-    setCurrentUser(prev => prev ? { ...prev, name, job_title, department, skills } : null);
+    setCurrentUser(prev => prev ? { ...prev, name, job_title, department, skills, phone: phone || null } : null);
   }, [setCurrentUser]);
 
   return {

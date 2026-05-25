@@ -133,6 +133,7 @@ export default function Madre() {
     settings: whiteLabelSettings,
     logActivity,
     toast: addToast,
+    users: appUsers,
   });
 
   const {

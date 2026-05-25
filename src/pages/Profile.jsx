@@ -178,6 +178,7 @@ export function Profile() {
     job_title: currentUser?.job_title || "",
     department: currentUser?.department || "",
     skills: (currentUser?.skills || []).join(", "),
+    phone: currentUser?.phone || "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -190,6 +191,7 @@ export function Profile() {
         job_title: form.job_title.trim(),
         department: form.department.trim(),
         skills: form.skills.split(",").map(s => s.trim()).filter(Boolean),
+        phone: form.phone.trim(),
       });
       toast({ message: "Profile updated successfully." });
     } catch (err) {
@@ -231,6 +233,10 @@ export function Profile() {
             <FormField label="Skills (comma-separated)">
               <input style={iS} value={form.skills} onChange={e => setForm({ ...form, skills: e.target.value })} placeholder="e.g. Branding, Strategy, Design" />
             </FormField>
+            <FormField label="WhatsApp Number">
+              <input style={iS} value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="e.g. +2348012345678" />
+              <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4 }}>Include country code. Used to receive task alerts via WhatsApp when enabled in Settings.</div>
+            </FormField>
             <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
               <button style={{ ...btnPrimary, opacity: saving ? 0.75 : 1 }} onClick={save} disabled={saving}>
                 {saving ? "Saving..." : "Save Changes"}
@@ -240,6 +246,7 @@ export function Profile() {
                 job_title: currentUser?.job_title || "",
                 department: currentUser?.department || "",
                 skills: (currentUser?.skills || []).join(", "),
+                phone: currentUser?.phone || "",
               })}>
                 Cancel
               </button>
@@ -282,6 +289,7 @@ export function Profile() {
             ["Role", currentUser?.role],
             ["Department", currentUser?.department || "—"],
             ["Job Title", currentUser?.job_title || "—"],
+            ["WhatsApp", currentUser?.phone || "—"],
           ].map(([label, value]) => (
             <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${t.border}` }}>
               <span style={{ fontSize: 12, color: t.textMuted, fontWeight: 600 }}>{label}</span>

@@ -87,7 +87,7 @@ async function sendExternalNotification({ action, project, settings }) {
   }
 }
 
-export function useOperationalAutomations({ tasks, projects, currentUser, settings, logActivity, toast }) {
+export function useOperationalAutomations({ tasks, projects, currentUser, settings, logActivity, toast, users }) {
   const quietInitialSweeps = useRef(new Set());
 
   useEffect(() => {
@@ -182,9 +182,21 @@ export function useOperationalAutomations({ tasks, projects, currentUser, settin
     }
 
     if (settings.automation_email || settings.automation_whatsapp) {
+      // Build a phone lookup from the live users list so notifications reach the
+      // current assignee's WhatsApp even if the task was created before they added their number.
+      const phoneByEmail = new Map(
+        (users || []).filter(u => u.phone).map(u => [u.email, u.phone])
+      );
+
       actions.slice(0, 6).forEach((action) => {
+        const assigneeEmail = action.task.assigned_to?.email;
+        const assigneePhone = assigneeEmail ? (phoneByEmail.get(assigneeEmail) || null) : null;
+        const enrichedTask = assigneePhone
+          ? { ...action.task, assigned_to: { ...action.task.assigned_to, phone: assigneePhone } }
+          : action.task;
+
         sendExternalNotification({
-          action,
+          action: { ...action, task: enrichedTask },
           project: projectById.get(action.task.project_id) || null,
           settings,
         }).catch((error) => {
@@ -194,5 +206,5 @@ export function useOperationalAutomations({ tasks, projects, currentUser, settin
         });
       });
     }
-  }, [tasks, projects, currentUser, settings, logActivity, toast]);
+  }, [tasks, projects, currentUser, settings, logActivity, toast, users]);
 }

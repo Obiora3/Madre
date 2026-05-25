@@ -407,11 +407,13 @@ function makeWhatsAppPayload(to, notification) {
   };
 }
 
-async function sendWhatsApp(notification) {
+async function sendWhatsApp(notification, { assigneePhone = "" } = {}) {
   const token = process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const graphVersion = process.env.WHATSAPP_GRAPH_VERSION || "v25.0";
-  const recipients = unique(csv(process.env.NOTIFICATION_WHATSAPP_TO));
+  // Merge the static fallback list with the assignee's own number (if stored on their profile).
+  const envRecipients = csv(process.env.NOTIFICATION_WHATSAPP_TO);
+  const recipients = unique([...envRecipients, ...(assigneePhone ? [assigneePhone] : [])]);
 
   if (!token || !phoneNumberId || recipients.length === 0) {
     return { channel: "whatsapp", skipped: true, reason: "WhatsApp provider or recipients not configured." };
@@ -465,13 +467,17 @@ export default async function handler(req, res) {
       ...(Array.isArray(body.emailRecipients) ? body.emailRecipients : []),
     ].filter(email => String(email || "").includes("@")));
 
+    // Assignee's WhatsApp number — stored on their profile and forwarded here
+    // by the automation hook so messages go directly to the right person.
+    const assigneePhone = String(body.task?.assigned_to?.phone || "").trim();
+
     const results = [];
     if (channels.includes("email")) {
       results.push(await sendEmail(notification, emailRecipients, {
         includeFallbackRecipients: body.includeFallbackRecipients !== false,
       }));
     }
-    if (channels.includes("whatsapp")) results.push(await sendWhatsApp(notification));
+    if (channels.includes("whatsapp")) results.push(await sendWhatsApp(notification, { assigneePhone }));
 
     return json(res, 200, { ok: true, results });
   } catch (error) {
