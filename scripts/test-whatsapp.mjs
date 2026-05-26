@@ -49,9 +49,11 @@ loadEnvFile(path.resolve(process.cwd(), ".env.local"));
 const token        = process.env.WHATSAPP_ACCESS_TOKEN;
 const phoneId      = process.env.WHATSAPP_PHONE_NUMBER_ID;
 const graphVersion = process.env.WHATSAPP_GRAPH_VERSION || "v25.0";
-const templateName = process.env.WHATSAPP_TEMPLATE_NAME;
-const templateLang = process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en";
 const allowText    = process.env.WHATSAPP_ALLOW_TEXT === "true";
+// When WHATSAPP_ALLOW_TEXT=true, skip the template so the test works immediately
+// without needing an approved template. In production the API route uses the template.
+const templateName = allowText ? null : process.env.WHATSAPP_TEMPLATE_NAME;
+const templateLang = process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en";
 const envRecipients = csv(process.env.NOTIFICATION_WHATSAPP_TO);
 
 // --to flag overrides the recipient list for this test run
