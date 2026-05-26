@@ -50,10 +50,19 @@ const token        = process.env.WHATSAPP_ACCESS_TOKEN;
 const phoneId      = process.env.WHATSAPP_PHONE_NUMBER_ID;
 const graphVersion = process.env.WHATSAPP_GRAPH_VERSION || "v25.0";
 const allowText    = process.env.WHATSAPP_ALLOW_TEXT === "true";
-// When WHATSAPP_ALLOW_TEXT=true, skip the template so the test works immediately
-// without needing an approved template. In production the API route uses the template.
-const templateName = allowText ? null : process.env.WHATSAPP_TEMPLATE_NAME;
 const templateLang = process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en";
+
+// Per-kind template resolution — mirrors api/notify.js resolveTemplateName()
+const kindArg = argValue("--kind") || "task_assigned";
+const perKind = {
+  task_assigned:    process.env.WHATSAPP_TEMPLATE_TASK_ASSIGNED,
+  project_assigned: process.env.WHATSAPP_TEMPLATE_PROJECT_ASSIGNED,
+  deadline_warning: process.env.WHATSAPP_TEMPLATE_DEADLINE_WARNING,
+  escalated:        process.env.WHATSAPP_TEMPLATE_OVERDUE,
+  blocked:          process.env.WHATSAPP_TEMPLATE_BLOCKED,
+};
+// When WHATSAPP_ALLOW_TEXT=true, skip templates so the test works immediately.
+const templateName = allowText ? null : (perKind[kindArg] || process.env.WHATSAPP_TEMPLATE_NAME || null);
 const envRecipients = csv(process.env.NOTIFICATION_WHATSAPP_TO);
 
 // --to flag overrides the recipient list for this test run
@@ -75,6 +84,15 @@ if (errors.length > 0) {
 // ── Build payload ─────────────────────────────────────────────────────────────
 const now = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
+// Sample variables per kind — mirrors what api/notify.js sends in production
+const sampleParams = {
+  task_assigned:    [{ type:"text", text:"Design homepage mockup" }, { type:"text", text:"Client Portal Redesign" }, { type:"text", text:"High" }, { type:"text", text:now }],
+  project_assigned: [{ type:"text", text:"Client Portal Redesign" }, { type:"text", text:"Acme Corp" }, { type:"text", text:"Creative" }, { type:"text", text:now }, { type:"text", text:"5,000" }],
+  deadline_warning: [{ type:"text", text:"Design homepage mockup" }, { type:"text", text:"Client Portal Redesign" }, { type:"text", text:now }],
+  escalated:        [{ type:"text", text:"Write copy for landing page" }, { type:"text", text:"Brand Campaign" }, { type:"text", text:now }],
+  blocked:          [{ type:"text", text:"Final QA review" }, { type:"text", text:"Client Portal Redesign" }],
+};
+
 function makePayload(to) {
   if (templateName) {
     return {
@@ -84,29 +102,22 @@ function makePayload(to) {
       template: {
         name: templateName,
         language: { code: templateLang },
-        components: [
-          {
-            type: "body",
-            parameters: [
-              { type: "text", text: "Test Alert" },
-              { type: "text", text: "Madre smoke test" },
-              { type: "text", text: "Madre" },
-              { type: "text", text: now },
-            ],
-          },
-        ],
+        components: [{
+          type: "body",
+          parameters: sampleParams[kindArg] || sampleParams.task_assigned,
+        }],
       },
     };
   }
 
-  // Plain text fallback (only works with WHATSAPP_ALLOW_TEXT=true and existing conversations)
+  // Plain text fallback (WHATSAPP_ALLOW_TEXT=true + test recipient / existing conversation)
   return {
     messaging_product: "whatsapp",
     to,
     type: "text",
     text: {
       preview_url: false,
-      body: `✅ Madre WhatsApp test — ${now}\n\nThis message confirms your WhatsApp integration is working correctly.`,
+      body: `✅ Madre WhatsApp test (${kindArg}) — ${now}\n\nThis confirms your WhatsApp integration is working correctly.`,
     },
   };
 }
@@ -116,6 +127,7 @@ const endpoint = `https://graph.facebook.com/${graphVersion}/${phoneId}/messages
 const mode = templateName ? `template "${templateName}"` : "plain text";
 
 console.log(`\nMadre WhatsApp smoke test`);
+console.log(`Kind       : ${kindArg}`);
 console.log(`Mode       : ${mode}`);
 console.log(`Recipients : ${recipients.join(", ")}`);
 console.log(`Endpoint   : ${endpoint}\n`);

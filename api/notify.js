@@ -383,7 +383,19 @@ function makeNotification(input) {
   const notification = {
     kind, subject, brand, meta, title, narrative,
     rows, detailLines, description, ctaUrl, logo, recipientNames,
-    variables: { label: meta.label, title, project: project.title || "-", due: task.due_date || "-" },
+    variables: {
+      label:    meta.label,
+      title,
+      project:  project.title  || "-",
+      client:   project.client_name || "-",
+      stage:    project.stage  || "-",
+      status:   task.status    || project.status || "-",
+      priority: task.priority  || project.priority || "Normal",
+      due:      prettyDate(task.due_date || project.due_date) || "-",
+      start:    prettyDate(project.start_date) || "-",
+      budget:   money(project.budget) || "-",
+      assigned: task.assigned_to?.name || project.assigned_to?.name || "-",
+    },
   };
   return { ...notification, ...personalizeNotification(notification) };
 }
@@ -462,9 +474,58 @@ async function sendEmail(notification, recipients, { includeFallbackRecipients =
   };
 }
 
+// Returns the body parameters for a given notification kind.
+// Each entry matches the variables in the corresponding Meta template.
+function templateParams(kind, vars) {
+  const t = (v) => ({ type: "text", text: truncate(String(v ?? "-"), 1024) });
+  switch (kind) {
+    case "task_assigned":
+      // Template body: {{1}} has been assigned to you on the {{2}} project.
+      // Priority: {{3}}  |  Due: {{4}}
+      return [t(vars.title), t(vars.project), t(vars.priority), t(vars.due)];
+
+    case "project_assigned":
+      // Template body: You're leading {{1}} for {{2}}.
+      // Stage: {{3}}  |  Due: {{4}}  |  Budget: {{5}}
+      return [t(vars.title), t(vars.client), t(vars.stage), t(vars.due), t(vars.budget)];
+
+    case "deadline_warning":
+      // Template body: {{1}} on {{2}} is due on {{3}}.
+      // Please review and make sure you're on track.
+      return [t(vars.title), t(vars.project), t(vars.due)];
+
+    case "escalated":
+      // Template body: {{1}} on {{2}} was due {{3}} and is still open.
+      // Please update its status or flag a blocker.
+      return [t(vars.title), t(vars.project), t(vars.due)];
+
+    case "blocked":
+      // Template body: {{1}} on {{2}} is blocked by unfinished dependencies.
+      // Coordinate with your team to unblock it.
+      return [t(vars.title), t(vars.project)];
+
+    default:
+      // Generic fallback template: {{1}} — {{2}} | Project: {{3}} | Due: {{4}}
+      return [t(vars.label), t(vars.title), t(vars.project), t(vars.due)];
+  }
+}
+
+// Resolves the template name for a given notification kind.
+// Per-kind env vars take priority; WHATSAPP_TEMPLATE_NAME is the catch-all fallback.
+function resolveTemplateName(kind) {
+  const perKind = {
+    task_assigned:    process.env.WHATSAPP_TEMPLATE_TASK_ASSIGNED,
+    project_assigned: process.env.WHATSAPP_TEMPLATE_PROJECT_ASSIGNED,
+    deadline_warning: process.env.WHATSAPP_TEMPLATE_DEADLINE_WARNING,
+    escalated:        process.env.WHATSAPP_TEMPLATE_OVERDUE,
+    blocked:          process.env.WHATSAPP_TEMPLATE_BLOCKED,
+  };
+  return perKind[kind] || process.env.WHATSAPP_TEMPLATE_NAME || null;
+}
+
 function makeWhatsAppPayload(to, notification) {
-  const templateName = process.env.WHATSAPP_TEMPLATE_NAME;
-  const templateLanguage = process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en";
+  const templateLang = process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en";
+  const templateName = resolveTemplateName(notification.kind);
 
   if (templateName) {
     return {
@@ -473,29 +534,37 @@ function makeWhatsAppPayload(to, notification) {
       type: "template",
       template: {
         name: templateName,
-        language: { code: templateLanguage },
-        components: [
-          {
-            type: "body",
-            parameters: [
-              { type: "text", text: notification.variables.label },
-              { type: "text", text: notification.variables.title },
-              { type: "text", text: notification.variables.project },
-              { type: "text", text: notification.variables.due },
-            ],
-          },
-        ],
+        language: { code: templateLang },
+        components: [{
+          type: "body",
+          parameters: templateParams(notification.kind, notification.variables),
+        }],
       },
     };
   }
 
   if (process.env.WHATSAPP_ALLOW_TEXT !== "true") return null;
 
+  // Plain-text fallback — only works for existing conversations / test recipients.
+  const vars = notification.variables || {};
+  const lines = [
+    `*${vars.label}* — Madre`,
+    "",
+    vars.title !== "-" ? `Task: ${vars.title}` : null,
+    vars.project !== "-" ? `Project: ${vars.project}` : null,
+    vars.client  !== "-" ? `Client: ${vars.client}` : null,
+    vars.due     !== "-" ? `Due: ${vars.due}` : null,
+    vars.priority !== "Normal" && vars.priority !== "-" ? `Priority: ${vars.priority}` : null,
+    vars.status  !== "-" ? `Status: ${vars.status}` : null,
+    "",
+    "Open Madre to review and take action.",
+  ].filter((l) => l !== null);
+
   return {
     messaging_product: "whatsapp",
     to,
     type: "text",
-    text: { preview_url: false, body: notification.text },
+    text: { preview_url: false, body: truncate(lines.join("\n")) },
   };
 }
 

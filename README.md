@@ -198,32 +198,109 @@ Madre sends WhatsApp alerts through the **Meta WhatsApp Business Cloud API**. Me
 3. Under **WhatsApp → API Setup**, note your **Phone Number ID** and **Temporary Access Token** (or generate a permanent System User token for production).
 4. Add a real phone number as a test recipient under **WhatsApp → API Setup → To**.
 
-#### Step 2 — Create a message template (recommended for production)
+#### Step 2 — Create message templates
 
-1. In Meta Business Manager, go to **WhatsApp → Message Templates → Create**.
-2. Category: **Utility** · Language: **English**
-3. Suggested name: `madre_task_alert`
-4. Body text with four variables:
+Madre fires five distinct notification kinds, each with a different set of variables. Create one Meta template per kind for the best messages, or start with a single generic template and add the rest over time.
 
-   ```
-   {{1}} alert for "{{2}}" on the {{3}} project. Due: {{4}}.
-   ```
+> **Testing without templates:** set `WHATSAPP_ALLOW_TEXT=true` to send plain-text messages to numbers that already have an active conversation with your number. This bypasses template approval but only works in a sandbox context.
 
-   The four variables map to: `alert label`, `task title`, `project name`, `due date`.
-5. Submit for review. Approval usually takes a few minutes for utility templates.
+---
 
-> **Testing without a template:** set `WHATSAPP_ALLOW_TEXT=true` to send plain-text messages to numbers you have an existing conversation with. This bypasses template approval but only works in a test/sandbox context.
+**`madre_task_assigned`** — 4 variables
+
+```
+{{1}} has been assigned to you on the {{2}} project. Priority: {{3}} | Due: {{4}}.
+```
+
+| `{{1}}` | `{{2}}` | `{{3}}` | `{{4}}` |
+|---|---|---|---|
+| Task title | Project name | Priority | Due date |
+
+---
+
+**`madre_project_assigned`** — 5 variables
+
+```
+You have been assigned to the {{1}} project for {{2}}. Stage: {{3}} | Due: {{4}} | Budget: {{5}}.
+```
+
+| `{{1}}` | `{{2}}` | `{{3}}` | `{{4}}` | `{{5}}` |
+|---|---|---|---|---|
+| Project title | Client name | Stage | Due date | Budget |
+
+---
+
+**`madre_deadline_warning`** — 3 variables
+
+```
+Deadline reminder: "{{1}}" on the {{2}} project is due {{3}}. Please review and update the task status.
+```
+
+| `{{1}}` | `{{2}}` | `{{3}}` |
+|---|---|---|
+| Task title | Project name | Due date |
+
+---
+
+**`madre_overdue`** — 3 variables
+
+```
+Overdue alert: "{{1}}" on the {{2}} project was due {{3}}. Please update the task or flag a blocker.
+```
+
+| `{{1}}` | `{{2}}` | `{{3}}` |
+|---|---|---|
+| Task title | Project name | Due date |
+
+---
+
+**`madre_blocked`** — 2 variables
+
+```
+Task blocked: "{{1}}" on the {{2}} project is waiting on unfinished dependencies. Please coordinate to unblock it.
+```
+
+| `{{1}}` | `{{2}}` |
+|---|---|
+| Task title | Project name |
+
+---
+
+**Generic fallback — `madre_task_alert`** — 4 variables  
+Used when a per-kind template variable is not set.
+
+```
+{{1}} alert for "{{2}}" on the {{3}} project. Due: {{4}}.
+```
+
+| `{{1}}` | `{{2}}` | `{{3}}` | `{{4}}` |
+|---|---|---|---|
+| Alert label | Task/project title | Project name | Due date |
+
+---
+
+For all templates: Category **Utility**, Language **English**. Submit for review — utility templates are typically approved within a few minutes.
 
 #### Step 3 — Environment variables
 
 ```bash
 WHATSAPP_ACCESS_TOKEN=your_meta_access_token
-WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
-WHATSAPP_GRAPH_VERSION=v25.0                       # optional, defaults to v25.0
-NOTIFICATION_WHATSAPP_TO=2348012345678,44712345678 # fallback numbers, international format, no +
-WHATSAPP_TEMPLATE_NAME=madre_task_alert            # name of your approved template
-WHATSAPP_TEMPLATE_LANGUAGE=en                      # optional, defaults to en
-WHATSAPP_ALLOW_TEXT=false                          # set true only for sandbox testing
+WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id        # 15–16 digit Meta internal ID, not the phone number
+WHATSAPP_GRAPH_VERSION=v25.0                         # optional, defaults to v25.0
+NOTIFICATION_WHATSAPP_TO=2348012345678,44712345678   # fallback numbers, international format, no +
+WHATSAPP_TEMPLATE_LANGUAGE=en                        # optional, defaults to en
+WHATSAPP_ALLOW_TEXT=false                            # set true only for sandbox testing
+
+# Per-kind templates (recommended — Madre picks the right one automatically).
+# Any var left unset falls back to WHATSAPP_TEMPLATE_NAME.
+WHATSAPP_TEMPLATE_TASK_ASSIGNED=madre_task_assigned
+WHATSAPP_TEMPLATE_PROJECT_ASSIGNED=madre_project_assigned
+WHATSAPP_TEMPLATE_DEADLINE_WARNING=madre_deadline_warning
+WHATSAPP_TEMPLATE_OVERDUE=madre_overdue
+WHATSAPP_TEMPLATE_BLOCKED=madre_blocked
+
+# Generic fallback used when a per-kind var above is not set.
+WHATSAPP_TEMPLATE_NAME=madre_task_alert
 ```
 
 > Phone numbers must be in **international format without the `+`**, e.g. `2348012345678` for a Nigerian number or `447911123456` for a UK number.
@@ -301,15 +378,22 @@ NOTIFICATION_EMAIL_TO=ops@your-domain.com
 
 # WhatsApp (Meta Cloud API)
 WHATSAPP_ACCESS_TOKEN=your_meta_access_token
-WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
+WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id       # Meta internal Phone Number ID, not the phone number
 NOTIFICATION_WHATSAPP_TO=2348012345678
 
-# Branding (optional)
+# WhatsApp templates — per-kind (recommended)
+WHATSAPP_TEMPLATE_TASK_ASSIGNED=madre_task_assigned
+WHATSAPP_TEMPLATE_PROJECT_ASSIGNED=madre_project_assigned
+WHATSAPP_TEMPLATE_DEADLINE_WARNING=madre_deadline_warning
+WHATSAPP_TEMPLATE_OVERDUE=madre_overdue
+WHATSAPP_TEMPLATE_BLOCKED=madre_blocked
+
+# Branding & misc (optional)
 ANTHROPIC_MODEL=claude-sonnet-4-20250514
 NOTIFICATION_BRAND_NAME=Madre
 NOTIFICATION_APP_URL=https://madre.com.ng
 NOTIFICATION_LOGO_URL=https://madre.com.ng/logo.png
-WHATSAPP_TEMPLATE_NAME=madre_task_alert
+WHATSAPP_TEMPLATE_NAME=madre_task_alert             # generic fallback
 WHATSAPP_TEMPLATE_LANGUAGE=en
 ```
 
