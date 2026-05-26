@@ -102,41 +102,116 @@ const logoUrl = () => {
 
 const notificationMeta = (kind) => ({
   task_assigned: {
-    label: "New task assigned",
-    intro: "A new task has been assigned to you.",
-    action: "Open task",
+    label: "New Task Assigned",
+    action: "Open Task",
     accent: "#1F6FEB",
   },
   project_assigned: {
-    label: "New project assigned",
-    intro: "A new project has been assigned to you.",
-    action: "Open project",
+    label: "New Project Assigned",
+    action: "Open Project",
     accent: "#0F766E",
   },
   deadline_warning: {
-    label: "Deadline warning",
-    intro: "A task is approaching its deadline.",
-    action: "Review deadline",
+    label: "Deadline Approaching",
+    action: "Review Task",
     accent: "#B45309",
   },
   escalated: {
-    label: "Overdue escalation",
-    intro: "A task is overdue and needs attention.",
-    action: "Review task",
+    label: "Task Overdue",
+    action: "Review Task",
     accent: "#B91C1C",
   },
   blocked: {
-    label: "Blocked task alert",
-    intro: "A task is blocked by unfinished work.",
-    action: "Review blocker",
+    label: "Task Blocked",
+    action: "Review Blockers",
     accent: "#7C2D12",
   },
 }[kind] || {
-  label: "Workspace notification",
-  intro: "There is a new workspace notification.",
-  action: "Open Madre",
+  label: "Workspace Notification",
+  action: "Open Workspace",
   accent: "#374151",
 });
+
+// Builds a narrative paragraph tailored to the notification kind and available data.
+function makeNarrative({ kind, task, project }) {
+  const taskName  = task?.title  ? `<strong>${escapeHtml(task.title)}</strong>`  : "A task";
+  const projName  = project?.title ? `<strong>${escapeHtml(project.title)}</strong>` : null;
+  const client    = project?.client_name ? `<strong>${escapeHtml(project.client_name)}</strong>` : null;
+  const dueDate   = task?.due_date || project?.due_date;
+  const prettyDue = dueDate ? `<strong>${escapeHtml(prettyDate(dueDate))}</strong>` : null;
+  const priority  = task?.priority || project?.priority;
+  const stage     = project?.stage;
+  const budget    = money(project?.budget);
+  const startDate = project?.start_date ? prettyDate(project.start_date) : null;
+
+  const projectCtx = projName ? ` on the ${projName} project` : "";
+  const clientCtx  = client  ? ` for ${client}` : "";
+
+  switch (kind) {
+    case "task_assigned": {
+      const parts = [
+        `You've been assigned a new task${projectCtx}${clientCtx}.`,
+      ];
+      if (priority && priority.toLowerCase() !== "medium") {
+        parts.push(`This task carries a <strong>${escapeHtml(priority)}</strong> priority — please plan your schedule accordingly.`);
+      }
+      if (prettyDue) {
+        parts.push(`It's due on ${prettyDue}, so take a moment to review the details below and reach out if anything is unclear.`);
+      } else {
+        parts.push(`Take a moment to review the details below and get in touch if you have any questions before getting started.`);
+      }
+      return parts.join(" ");
+    }
+
+    case "project_assigned": {
+      const parts = [
+        `You've been assigned to lead${projName ? ` the ${projName} project` : " a new project"}${clientCtx}.`,
+      ];
+      if (stage) parts.push(`The project is currently in the <strong>${escapeHtml(stage)}</strong> stage.`);
+      const timeline = [
+        startDate ? `It kicks off on <strong>${escapeHtml(startDate)}</strong>` : null,
+        prettyDue ? `with a target delivery of ${prettyDue}` : null,
+      ].filter(Boolean).join(" ");
+      if (timeline) parts.push(`${timeline}.`);
+      if (budget) parts.push(`The approved budget is <strong>${escapeHtml(budget)}</strong>.`);
+      parts.push("Review the full project details below and don't hesitate to reach out with any questions.");
+      return parts.join(" ");
+    }
+
+    case "deadline_warning": {
+      const parts = [
+        prettyDue
+          ? `${taskName} is due on ${prettyDue}${projectCtx} — the deadline is coming up soon.`
+          : `${taskName} has an upcoming deadline${projectCtx} that needs your attention.`,
+        "Now's a great time to review where things stand and make sure you're on track to deliver.",
+        "If you've hit a blocker or need more time, flag it early so the team can help.",
+      ];
+      return parts.join(" ");
+    }
+
+    case "escalated": {
+      const parts = [
+        prettyDue
+          ? `${taskName} was due on ${prettyDue}${projectCtx} and hasn't been marked complete yet.`
+          : `${taskName} is overdue${projectCtx} and needs your attention.`,
+        "Please review this task as soon as possible — update its status, log your progress, or flag any blockers so the team can step in.",
+      ];
+      return parts.join(" ");
+    }
+
+    case "blocked": {
+      const parts = [
+        `${taskName} can't move forward right now${projectCtx} — it's waiting on other work to be completed first.`,
+        "Take a look at the dependencies below and coordinate with whoever owns the blocking tasks.",
+        "Once those are resolved, this task will be ready to progress.",
+      ];
+      return parts.join(" ");
+    }
+
+    default:
+      return `There's a new update${projectCtx}${clientCtx} in your workspace that needs your attention.`;
+  }
+}
 
 const row = (label, value) => {
   if (value === null || value === undefined || value === "") return null;
@@ -144,69 +219,90 @@ const row = (label, value) => {
 };
 
 function renderRows(rows) {
-  return rows.map((item) => `
+  return rows.map((item, i) => `
     <tr>
-      <td style="padding:9px 12px 9px 0;color:#667085;font-size:13px;line-height:18px;border-bottom:1px solid #EAECF0;vertical-align:top;width:34%">${escapeHtml(item.label)}</td>
-      <td style="padding:9px 0;color:#101828;font-size:13px;line-height:18px;border-bottom:1px solid #EAECF0;vertical-align:top;font-weight:600">${escapeHtml(item.value)}</td>
+      <td style="padding:10px 14px 10px 0;color:#667085;font-size:13px;line-height:18px;${i < rows.length - 1 ? "border-bottom:1px solid #F2F4F7;" : ""}vertical-align:top;width:38%;white-space:nowrap">${escapeHtml(item.label)}</td>
+      <td style="padding:10px 0;color:#101828;font-size:13px;line-height:18px;${i < rows.length - 1 ? "border-bottom:1px solid #F2F4F7;" : ""}vertical-align:top;font-weight:600">${escapeHtml(item.value)}</td>
     </tr>
   `).join("");
 }
 
-function renderEmailHtml({ brand, meta, title, message, rows, description, ctaUrl, logo, recipientName }) {
-  const safeBrand = escapeHtml(brand);
-  const safeTitle = escapeHtml(title);
-  const safeMessage = escapeHtml(message || meta.intro);
-  const safeDescription = escapeHtml(description);
+function renderEmailHtml({ brand, meta, narrative, rows, description, ctaUrl, logo, recipientName }) {
+  const safeBrand  = escapeHtml(brand);
   const safeCtaUrl = escapeHtml(ctaUrl);
-  const safeLogo = escapeHtml(logo);
-  const greeting = recipientName ? `Hi ${recipientName},` : "Hi there,";
+  const safeLogo   = escapeHtml(logo);
+  const greeting   = recipientName ? `Hi ${escapeHtml(recipientName)},` : "Hi there,";
 
   return `<!doctype html>
-<html>
-  <body style="margin:0;padding:0;background:#F6F7F9;font-family:Arial,sans-serif;color:#101828">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F6F7F9;padding:24px 12px">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#FFFFFF;border:1px solid #EAECF0;border-radius:10px;overflow:hidden">
-            <tr>
-              <td style="padding:18px 24px;border-bottom:1px solid #EAECF0">
-                ${logo ? `
-                  <img src="${safeLogo}" alt="${safeBrand}" width="120" style="display:block;width:120px;max-width:120px;max-height:52px;height:auto;margin:0 0 14px;border:0;outline:none;text-decoration:none;object-fit:contain" />
-                ` : `<div style="font-size:13px;line-height:18px;font-weight:700;color:${meta.accent};margin-bottom:8px">${safeBrand}</div>`}
-                <div style="font-size:22px;line-height:28px;font-weight:700;color:#101828;margin-bottom:8px">${escapeHtml(meta.label)}</div>
-                <div style="font-size:14px;line-height:20px;color:#475467">${safeMessage}</div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:22px 24px">
-                <div style="font-size:14px;line-height:20px;color:#101828;margin-bottom:12px">${escapeHtml(greeting)}</div>
-                <div style="font-size:16px;line-height:22px;font-weight:700;color:#101828;margin-bottom:14px">${safeTitle}</div>
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse">
-                  ${renderRows(rows)}
-                </table>
-                ${description ? `
-                  <div style="margin-top:16px">
-                    <div style="font-size:12px;line-height:16px;font-weight:700;color:#667085;text-transform:uppercase;margin-bottom:6px">Details</div>
-                    <div style="font-size:14px;line-height:20px;color:#344054">${safeDescription}</div>
-                  </div>
-                ` : ""}
-                ${ctaUrl ? `
-                  <div style="margin-top:22px">
-                    <a href="${safeCtaUrl}" style="display:inline-block;background:${meta.accent};color:#FFFFFF;text-decoration:none;border-radius:7px;padding:11px 16px;font-size:14px;line-height:18px;font-weight:700">${escapeHtml(meta.action)}</a>
-                  </div>
-                ` : ""}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:16px 24px;background:#F9FAFB;border-top:1px solid #EAECF0;color:#667085;font-size:12px;line-height:18px">
-                Sent by ${safeBrand}. You received this because assignment notifications are enabled for your workspace.
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
+<html lang="en">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /></head>
+<body style="margin:0;padding:0;background:#F0F2F5;font-family:'Helvetica Neue',Arial,sans-serif;color:#101828;-webkit-font-smoothing:antialiased">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F0F2F5;padding:36px 16px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#FFFFFF;border-radius:14px;overflow:hidden;border:1px solid #E4E7EC">
+
+        <!-- Brand header -->
+        <tr>
+          <td style="padding:24px 28px 20px;border-bottom:3px solid ${meta.accent}">
+            ${logo
+              ? `<img src="${safeLogo}" alt="${safeBrand}" height="40" style="display:block;height:40px;width:auto;max-width:140px;border:0;margin-bottom:14px" />`
+              : `<div style="font-size:15px;font-weight:800;color:${meta.accent};letter-spacing:0.05em;text-transform:uppercase;margin-bottom:14px">${safeBrand}</div>`
+            }
+            <span style="display:inline-block;background:${meta.accent}18;color:${meta.accent};font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;padding:4px 12px;border-radius:20px">${escapeHtml(meta.label)}</span>
+          </td>
+        </tr>
+
+        <!-- Narrative body -->
+        <tr>
+          <td style="padding:28px 28px 20px">
+            <p style="margin:0 0 16px;font-size:15px;line-height:24px;color:#344054;font-weight:500">${greeting}</p>
+            <p style="margin:0;font-size:15px;line-height:27px;color:#344054">${narrative}</p>
+          </td>
+        </tr>
+
+        <!-- Details table -->
+        ${rows.length > 0 ? `
+        <tr>
+          <td style="padding:0 28px 24px">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#98A2B3;margin-bottom:10px">Details</div>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#F9FAFB;border:1px solid #EAECF0;border-radius:10px;padding:4px 16px;overflow:hidden">
+              <tr><td style="padding:4px 0"></td></tr>
+              ${renderRows(rows)}
+              <tr><td style="padding:4px 0"></td></tr>
+            </table>
+          </td>
+        </tr>` : ""}
+
+        <!-- Notes / description -->
+        ${description ? `
+        <tr>
+          <td style="padding:0 28px 24px">
+            <div style="background:#F9FAFB;border-left:3px solid ${meta.accent};border-radius:0 8px 8px 0;padding:14px 18px">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#98A2B3;margin-bottom:6px">Notes</div>
+              <div style="font-size:14px;line-height:22px;color:#344054">${escapeHtml(description)}</div>
+            </div>
+          </td>
+        </tr>` : ""}
+
+        <!-- CTA -->
+        ${ctaUrl ? `
+        <tr>
+          <td style="padding:0 28px 32px">
+            <a href="${safeCtaUrl}" style="display:inline-block;background:${meta.accent};color:#FFFFFF;text-decoration:none;border-radius:8px;padding:13px 24px;font-size:14px;font-weight:700;letter-spacing:0.01em">${escapeHtml(meta.action)} &rarr;</a>
+          </td>
+        </tr>` : ""}
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:18px 28px;background:#F9FAFB;border-top:1px solid #EAECF0">
+            <p style="margin:0;font-size:12px;line-height:18px;color:#98A2B3">Sent by <strong style="color:#667085">${safeBrand}</strong>. You're receiving this because workspace notifications are enabled for your account.</p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
 </html>`;
 }
 
@@ -225,22 +321,26 @@ function recipientMap(input) {
 }
 
 function personalizeNotification(notification, recipientName) {
-  const greeting = recipientName ? `Hi ${recipientName},` : "Hi there,";
+  const greeting  = recipientName ? `Hi ${recipientName},` : "Hi there,";
+  // Plain-text version strips HTML from the narrative
+  const plainNarrative = (notification.narrative || "")
+    .replace(/<strong>/gi, "").replace(/<\/strong>/gi, "")
+    .replace(/<[^>]+>/g, "");
   return {
     subject: notification.subject,
     text: truncate([
       greeting,
-      `${notification.meta.label}: ${notification.title}`,
-      notification.message || notification.meta.intro,
+      "",
+      plainNarrative,
+      "",
       ...notification.detailLines,
-      notification.description ? `Details: ${notification.description}` : null,
-      notification.ctaUrl ? `Open in ${notification.brand}: ${notification.ctaUrl}` : null,
-    ].filter(Boolean).join("\n")),
+      notification.description ? `\nNotes: ${notification.description}` : null,
+      notification.ctaUrl ? `\nOpen in ${notification.brand}: ${notification.ctaUrl}` : null,
+    ].filter((l) => l !== null).join("\n")),
     html: renderEmailHtml({
       brand: notification.brand,
       meta: notification.meta,
-      title: notification.title,
-      message: notification.message,
+      narrative: notification.narrative,
       rows: notification.rows,
       description: notification.description,
       ctaUrl: notification.ctaUrl,
@@ -251,46 +351,38 @@ function personalizeNotification(notification, recipientName) {
 }
 
 function makeNotification(input) {
-  const kind = input.kind || "notification";
-  const task = input.task || {};
+  const kind    = input.kind || "notification";
+  const task    = input.task    || {};
   const project = input.project || {};
-  const title = task.title || project.title || input.title || "Madre notification";
-  const meta = notificationMeta(kind);
-  const brand = process.env.NOTIFICATION_BRAND_NAME || "Madre";
+  const title   = task.title || project.title || input.title || "Madre notification";
+  const meta    = notificationMeta(kind);
+  const brand   = process.env.NOTIFICATION_BRAND_NAME || "Madre";
   const description = task.description || project.description || "";
-  const message = input.message || meta.intro;
-  const rows = [
-    row(task.title ? "Task" : "Project", title),
-    task.title ? row("Project", project.title) : null,
-    row("Client", project.client_name),
-    row("Status", task.status || project.status),
-    row("Priority", task.priority || project.priority),
-    row("Stage", project.stage),
-    row("Start date", prettyDate(project.start_date)),
-    row("Due date", prettyDate(task.due_date || project.due_date)),
-    row("Estimated hours", task.estimated_hours ? `${task.estimated_hours}h` : ""),
-    row("Budget", money(project.budget)),
-    row("Assigned to", task.assigned_to?.name || project.assigned_to?.name),
-  ].filter(Boolean);
-  const detailLines = rows.map((item) => `${item.label}: ${item.value}`);
-  const ctaUrl = appUrl();
-  const logo = logoUrl();
-  const recipientNames = recipientMap(input);
 
-  const subject = truncate(`${brand}: ${meta.label} - ${title}`, 140);
+  const rows = [
+    task.title ? row("Task",         task.title)   : row("Project", title),
+    task.title ? row("Project",      project.title) : null,
+    row("Client",         project.client_name),
+    row("Status",         task.status    || project.status),
+    row("Priority",       task.priority  || project.priority),
+    row("Stage",          project.stage),
+    row("Start date",     prettyDate(project.start_date)),
+    row("Due date",       prettyDate(task.due_date || project.due_date)),
+    row("Estimated",      task.estimated_hours ? `${task.estimated_hours} hrs` : ""),
+    row("Budget",         money(project.budget)),
+    row("Assigned to",    task.assigned_to?.name || project.assigned_to?.name),
+  ].filter(Boolean);
+
+  const detailLines   = rows.map((item) => `${item.label}: ${item.value}`);
+  const narrative     = makeNarrative({ kind, task, project });
+  const ctaUrl        = appUrl();
+  const logo          = logoUrl();
+  const recipientNames = recipientMap(input);
+  const subject       = truncate(`${brand}: ${meta.label} — ${title}`, 140);
+
   const notification = {
-    kind,
-    subject,
-    brand,
-    meta,
-    title,
-    message,
-    rows,
-    detailLines,
-    description,
-    ctaUrl,
-    logo,
-    recipientNames,
+    kind, subject, brand, meta, title, narrative,
+    rows, detailLines, description, ctaUrl, logo, recipientNames,
     variables: { label: meta.label, title, project: project.title || "-", due: task.due_date || "-" },
   };
   return { ...notification, ...personalizeNotification(notification) };
