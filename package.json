@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test:email": "node scripts/test-resend-email.mjs",
+    "test:whatsapp": "node scripts/test-whatsapp.mjs",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:db:push": "supabase db push"
