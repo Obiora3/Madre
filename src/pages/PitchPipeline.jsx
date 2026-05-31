@@ -39,7 +39,7 @@ const ST_COLORS   = { Lead:"#6B7280", Qualified:"#3B82F6", "Proposal Sent":"#F59
 
 export const PitchPipeline = React.memo(function PitchPipeline() {
   const { pitches, setPitches, currentUser, logActivity, whiteLabelSettings, isMobile } = useApp();
-  const CS = CURRENCY_SYMBOLS[whiteLabelSettings?.currency] || "$";
+  const CS = CURRENCY_SYMBOLS[whiteLabelSettings?.currency] || "₦";
   const { theme: t } = useTheme();
   const toast = useToast();
   const iS = mkInputStyle(t); const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);

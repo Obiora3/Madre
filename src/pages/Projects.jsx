@@ -215,7 +215,7 @@ function ListView({ projects, tasks, clients, users, projectPipelines, CS, theme
 // ─── PROJECTS ─────────────────────────────────────────────────────────────────
 export const Projects = React.memo(function Projects() {
   const { projects, setProjects, tasks, setTasks, kpis, setKpis, clients, users, nav, whiteLabelSettings, currentUser, logActivity, isMobile } = useApp();
-  const CS = CURRENCY_SYMBOLS[whiteLabelSettings?.currency] || "$";
+  const CS = CURRENCY_SYMBOLS[whiteLabelSettings?.currency] || "₦";
   const { theme: t } = useTheme();
   const toast = useToast();
   const iS = mkInputStyle(t); const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);

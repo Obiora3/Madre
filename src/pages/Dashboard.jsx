@@ -20,7 +20,7 @@ import {
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 export const Dashboard = React.memo(function Dashboard() {
   const { projects, tasks, clients, kpis, nav, whiteLabelSettings, isMobile } = useApp();
-  const CS = ({ USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" })[whiteLabelSettings?.currency] || "$";
+  const CS = ({ USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" })[whiteLabelSettings?.currency] || "₦";
   const { theme: t } = useTheme();
   const taskPipelines = useMemo(() => getTaskPipelines(whiteLabelSettings), [whiteLabelSettings]);
   const projectById = useMemo(() => Object.fromEntries((projects || []).map(p => [p.id, p])), [projects]);

@@ -13,7 +13,7 @@ export const DEFAULT_WHITE_LABEL_SETTINGS = {
 
   // Preferences
   billing_rate:          150,      // $/h used in Reports budget tracking
-  currency:              "USD",    // USD | GBP | EUR | AUD | NGN
+  currency:              "NGN",    // USD | GBP | EUR | AUD | NGN
   default_task_priority: "Medium",
   week_starts_on:        "monday", // "monday" | "sunday"
   project_pipelines:     DEFAULT_PROJECT_PIPELINES,

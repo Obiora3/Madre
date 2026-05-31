@@ -82,7 +82,7 @@ const uniqueEmails = (items) => [...new Set(items.filter(email => /\S+@\S+\.\S+/
 // ─── PROJECT DETAIL ───────────────────────────────────────────────────────────
 export const ProjectDetail = React.memo(function ProjectDetail() {
   const { projects, setProjects, tasks, setTasks, kpis, clients, users, departments, comments, setComments, currentUser, nav, pageParam: id, whiteLabelSettings, logActivity, isMobile } = useApp();
-  const CS = ({ USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" })[whiteLabelSettings?.currency] || "$";
+  const CS = ({ USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" })[whiteLabelSettings?.currency] || "₦";
   const onBack = () => nav("projects");
   const { theme: t } = useTheme();
   const toast = useToast();

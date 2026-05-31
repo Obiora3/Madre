@@ -86,7 +86,7 @@ export const Reports = React.memo(function Reports() {
   const { projects, tasks, kpis, clients, users, whiteLabelSettings, isMobile } = useApp();
   const { theme: t } = useTheme();
   const RATE = whiteLabelSettings?.billing_rate || 150;
-  const CURRENCY_SYMBOL = { USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" }[whiteLabelSettings?.currency] || "$";
+  const CURRENCY_SYMBOL = { USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" }[whiteLabelSettings?.currency] || "₦";
   const iS = mkInputStyle(t); const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);
   const taskPipelines = useMemo(() => getTaskPipelines(whiteLabelSettings), [whiteLabelSettings]);
   const projectById = useMemo(() => Object.fromEntries((projects || []).map(p => [p.id, p])), [projects]);
