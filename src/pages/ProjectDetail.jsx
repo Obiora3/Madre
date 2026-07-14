@@ -16,6 +16,7 @@ import {
   getProjectPipeline,
   getPipelineStatuses,
   getTaskPipelines,
+  getTaskTemplates,
   isTaskComplete,
   mapStatusToPipeline,
   priorityColor,
@@ -43,39 +44,6 @@ import { fetchFiles, uploadFiles, deleteFile, getSignedUrl, formatFileSize, file
 import { isSupabaseConfigured } from "../lib/supabaseClient.js";
 import { createNotification } from "../lib/notificationHelpers.js";
 
-// ─── TASK TEMPLATES ───────────────────────────────────────────────────────────
-const TASK_TEMPLATES = [
-  { name:"Social Media Campaign", icon:"📱", tasks:[
-    { title:"Brief & Strategy",       priority:"High",   description:"Define campaign goals and target audience" },
-    { title:"Content Calendar",        priority:"High",   description:"Plan post schedule and themes" },
-    { title:"Creative Assets",         priority:"Medium", description:"Design graphics and write copy" },
-    { title:"Scheduling & Publishing", priority:"Medium", description:"Schedule posts across platforms" },
-    { title:"Performance Review",      priority:"Low",    description:"Analyse engagement and results" },
-  ]},
-  { name:"Brand Identity", icon:"🎨", tasks:[
-    { title:"Discovery & Research",  priority:"High",   description:"Competitive analysis and brand audit" },
-    { title:"Concept Development",   priority:"High",   description:"Create brand concepts and moodboards" },
-    { title:"Logo Design",           priority:"High",   description:"Design primary and secondary logo variants" },
-    { title:"Brand Guidelines",      priority:"Medium", description:"Document colors, fonts and usage rules" },
-    { title:"Asset Delivery",        priority:"Low",    description:"Export final files in all required formats" },
-  ]},
-  { name:"Website Launch", icon:"🌐", tasks:[
-    { title:"Sitemap & Wireframes", priority:"High",   description:"Plan site structure and page layouts" },
-    { title:"Design Mockups",       priority:"High",   description:"Design key pages in high fidelity" },
-    { title:"Development",          priority:"High",   description:"Build and code the website" },
-    { title:"Content Population",   priority:"Medium", description:"Add all copy, images and media" },
-    { title:"QA & Testing",         priority:"Medium", description:"Test across devices and browsers" },
-    { title:"Launch & Handover",    priority:"Low",    description:"Deploy and hand over to client" },
-  ]},
-  { name:"Content Strategy", icon:"📝", tasks:[
-    { title:"Audience Research",  priority:"High",   description:"Define audience personas and pain points" },
-    { title:"Content Audit",      priority:"Medium", description:"Review existing content performance" },
-    { title:"Editorial Plan",     priority:"High",   description:"Define topics, formats and cadence" },
-    { title:"Content Production", priority:"Medium", description:"Write and design content pieces" },
-    { title:"Distribution Plan",  priority:"Low",    description:"Define channels and promotion strategy" },
-  ]},
-];
-
 const KANBAN_COLS = ["To Do","In Progress","In Review","Done"];
 const uniqueEmails = (items) => [...new Set(items.filter(email => /\S+@\S+\.\S+/.test(String(email || ""))))];
 
@@ -89,6 +57,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   const iS = mkInputStyle(t); const sS = mkSelectStyle(t); const bs = mkBtnSecondary(t);
   const project = projects.find(p => p.id === id);
   const taskPipelines = useMemo(() => getTaskPipelines(whiteLabelSettings), [whiteLabelSettings]);
+  const taskTemplates = useMemo(() => getTaskTemplates(whiteLabelSettings), [whiteLabelSettings]);
   const projectPipeline = getProjectPipeline(project, taskPipelines);
   const projectStages = getPipelineStatuses(project, taskPipelines);
   const defaultTaskStatus = "To Do";
@@ -1033,8 +1002,8 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
       <Modal open={showTemplates} onClose={()=>setShowTemplates(false)} title="📋 Task Templates" width={600}>
         <div style={{ fontSize:13, color:t.textMuted, marginBottom:16 }}>Pick a template to bulk-add tasks to this project. You can edit them after.</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-          {TASK_TEMPLATES.map(tmpl=>(
-            <button key={tmpl.name} onClick={()=>{ applyTemplate(tmpl, stageForTemplate); setShowTemplates(false); setStageForTemplate(""); }} style={{ textAlign:"left", background:t.statBg, border:`1px solid ${t.border2}`, borderRadius:12, padding:"16px", cursor:"pointer" }}>
+          {taskTemplates.map(tmpl=>(
+            <button key={tmpl.id} onClick={()=>{ applyTemplate(tmpl, stageForTemplate); setShowTemplates(false); setStageForTemplate(""); }} style={{ textAlign:"left", background:t.statBg, border:`1px solid ${t.border2}`, borderRadius:12, padding:"16px", cursor:"pointer" }}>
               <div style={{ fontSize:22, marginBottom:8 }}>{tmpl.icon}</div>
               <div style={{ fontSize:13, fontWeight:700, color:t.text, marginBottom:4 }}>{tmpl.name}</div>
               <div style={{ fontSize:11, color:t.textFaint }}>{tmpl.tasks.length} tasks</div>

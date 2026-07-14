@@ -4,7 +4,9 @@ import {
   useState,
   DEFAULT_WHITE_LABEL_SETTINGS,
   getTaskPipelines,
+  getTaskTemplates,
   isTaskComplete,
+  priorityColor,
   useApp,
   useTheme,
   Avatar,
@@ -76,7 +78,9 @@ export const WhiteLabel = React.memo(function Settings() {
   const [saved, setSaved]   = useState(false);
   const [copied, setCopied] = useState(false);
   const [pipelineDraft, setPipelineDraft] = useState({ name:"", description:"", statuses:"To Do\nIn Progress\nIn Review\nDone" });
+  const [templateDraft, setTemplateDraft] = useState({ name:"", icon:"📋", description:"", tasks:[{ title:"", priority:"Medium", description:"" }] });
   const taskPipelines = useMemo(() => getTaskPipelines(s), [s]);
+  const taskTemplates = useMemo(() => getTaskTemplates(s), [s]);
   const projectById = useMemo(() => Object.fromEntries((projects || []).map(p => [p.id, p])), [projects]);
 
   // Activity filter / pagination
@@ -116,6 +120,30 @@ export const WhiteLabel = React.memo(function Settings() {
   };
   const removePipeline = (pipelineId) => {
     setS(prev => ({ ...prev, project_pipelines:(prev.project_pipelines || prev.task_pipelines || []).filter(p => p.id !== pipelineId) }));
+  };
+
+  const updateDraftTask = (idx, key, val) => setTemplateDraft(prev => ({ ...prev, tasks: prev.tasks.map((tk, i) => i === idx ? { ...tk, [key]: val } : tk) }));
+  const addDraftTaskRow = () => setTemplateDraft(prev => ({ ...prev, tasks:[...prev.tasks, { title:"", priority:"Medium", description:"" }] }));
+  const removeDraftTaskRow = (idx) => setTemplateDraft(prev => ({ ...prev, tasks: prev.tasks.filter((_, i) => i !== idx) }));
+  const addTemplate = () => {
+    const name = templateDraft.name.trim();
+    const tasks = templateDraft.tasks
+      .map(tk => ({ ...tk, title: tk.title.trim(), description: tk.description.trim() }))
+      .filter(tk => tk.title);
+    if (!name || tasks.length === 0) return;
+    const template = {
+      id: `custom-${Date.now()}`,
+      name,
+      icon: templateDraft.icon.trim() || "📋",
+      description: templateDraft.description.trim(),
+      builtIn: false,
+      tasks,
+    };
+    setS(prev => ({ ...prev, task_templates:[...(prev.task_templates || []), template] }));
+    setTemplateDraft({ name:"", icon:"📋", description:"", tasks:[{ title:"", priority:"Medium", description:"" }] });
+  };
+  const removeTemplate = (templateId) => {
+    setS(prev => ({ ...prev, task_templates:(prev.task_templates || []).filter(tp => tp.id !== templateId) }));
   };
 
   const save = () => {
@@ -262,6 +290,7 @@ export const WhiteLabel = React.memo(function Settings() {
     { id:"branding",      label:"Branding",        icon:"🎨" },
     { id:"preferences",   label:"Preferences",     icon:"⚙️" },
     { id:"pipelines",     label:"Pipelines",       icon:"Workflow" },
+    { id:"templates",     label:"Task Templates",  icon:"📋" },
     { id:"notifications", label:"Notifications",   icon:"🔔" },
     { id:"automations",   label:"Automations",     icon:"⚡" },
     { id:"activity",      label:"Activity",        icon:"📋" },
@@ -274,7 +303,7 @@ export const WhiteLabel = React.memo(function Settings() {
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
         <h1 style={{ margin:0, fontSize:26, fontWeight:800, color:t.text }}>Settings</h1>
-        {["branding","preferences","pipelines","notifications","automations"].includes(tab) && (
+        {["branding","preferences","pipelines","templates","notifications","automations"].includes(tab) && (
           <div style={{ display:"flex", gap:10 }}>
             <button style={bs} onClick={reset}>Reset Defaults</button>
             <button style={{ ...btnPrimary, minWidth:120 }} onClick={save}>
@@ -453,6 +482,67 @@ export const WhiteLabel = React.memo(function Settings() {
               <textarea style={{ ...iS, height:120, resize:"vertical" }} value={pipelineDraft.statuses} onChange={e=>setPipelineDraft({...pipelineDraft,statuses:e.target.value})} placeholder="One stage per line" />
             </FormField>
             <button style={{ ...btnPrimary, width:"100%", opacity:pipelineDraft.name.trim()?1:0.6 }} disabled={!pipelineDraft.name.trim()} onClick={addPipeline}>Add Pipeline</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── TASK TEMPLATES ───────────────────────────────────────────────────── */}
+      {tab === "templates" && (
+        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1.3fr 0.9fr", gap:24 }}>
+          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+            {taskTemplates.map(template => (
+              <div key={template.id} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:18 }}>
+                <div style={{ display:"flex", alignItems:"flex-start", gap:12, marginBottom:12 }}>
+                  <div style={{ fontSize:22, flexShrink:0 }}>{template.icon}</div>
+                  <div style={{ flex:1 }}>
+                    <h3 style={{ margin:"0 0 4px", fontSize:14, fontWeight:800, color:t.text }}>{template.name}</h3>
+                    <p style={{ margin:0, fontSize:12, color:t.textFaint }}>{template.description || `${template.tasks.length} task${template.tasks.length!==1?"s":""}`}</p>
+                  </div>
+                  {template.builtIn ? (
+                    <Badge label="Built in" color={s.primary_colour} />
+                  ) : (
+                    <button onClick={()=>removeTemplate(template.id)} style={{ ...bs, padding:"5px 10px", fontSize:11, color:"#EF4444", borderColor:"#EF444466" }}>Remove</button>
+                  )}
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                  {template.tasks.map((tk, i) => (
+                    <div key={i} style={{ display:"flex", alignItems:"center", gap:8, fontSize:12, color:t.textSub }}>
+                      <span style={{ fontSize:10, fontWeight:700, color:priorityColor(tk.priority), background:`${priorityColor(tk.priority)}18`, borderRadius:5, padding:"2px 7px", flexShrink:0 }}>{tk.priority}</span>
+                      <span>{tk.title}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, alignSelf:"start" }}>
+            <h3 style={{ margin:"0 0 4px", fontSize:14, fontWeight:800, color:t.text }}>Add Task Template</h3>
+            <p style={{ margin:"0 0 16px", fontSize:12, color:t.textFaint }}>Build a reusable checklist of tasks that can be bulk-added to any project.</p>
+            <div style={{ display:"grid", gridTemplateColumns:"56px 1fr", gap:10 }}>
+              <FormField label="Icon"><input style={{ ...iS, textAlign:"center" }} value={templateDraft.icon} onChange={e=>setTemplateDraft({...templateDraft,icon:e.target.value})} maxLength={2} /></FormField>
+              <FormField label="Name"><input style={iS} value={templateDraft.name} onChange={e=>setTemplateDraft({...templateDraft,name:e.target.value})} placeholder="e.g. Podcast Production" /></FormField>
+            </div>
+            <FormField label="Description"><input style={iS} value={templateDraft.description} onChange={e=>setTemplateDraft({...templateDraft,description:e.target.value})} placeholder="Short summary" /></FormField>
+            <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:"0.06em", textTransform:"uppercase", margin:"14px 0 8px" }}>Tasks</div>
+            <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:10 }}>
+              {templateDraft.tasks.map((tk, idx) => (
+                <div key={idx} style={{ display:"flex", gap:6, alignItems:"center" }}>
+                  <input style={{ ...iS, flex:1 }} value={tk.title} onChange={e=>updateDraftTask(idx,"title",e.target.value)} placeholder={`Task ${idx+1} title`} />
+                  <select style={{ ...sS, width:100, flexShrink:0 }} value={tk.priority} onChange={e=>updateDraftTask(idx,"priority",e.target.value)}>
+                    {["Critical","High","Medium","Low"].map(p=><option key={p}>{p}</option>)}
+                  </select>
+                  {templateDraft.tasks.length > 1 && (
+                    <button onClick={()=>removeDraftTaskRow(idx)} style={{ background:"none", border:"none", cursor:"pointer", color:t.textGhost, fontSize:16, padding:"0 4px", flexShrink:0 }} title="Remove task">×</button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button onClick={addDraftTaskRow} style={{ ...bs, width:"100%", padding:"7px 0", fontSize:12, marginBottom:14 }}>+ Add Task</button>
+            <button
+              style={{ ...btnPrimary, width:"100%", opacity:(templateDraft.name.trim() && templateDraft.tasks.some(tk=>tk.title.trim()))?1:0.6 }}
+              disabled={!(templateDraft.name.trim() && templateDraft.tasks.some(tk=>tk.title.trim()))}
+              onClick={addTemplate}
+            >Add Template</button>
           </div>
         </div>
       )}

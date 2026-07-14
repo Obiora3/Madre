@@ -16,6 +16,7 @@ export {
   getProjectPipeline,
   getPipelineStatuses,
   getTaskPipelines,
+  getTaskTemplates,
   getTaskStatusMeta,
   isTaskActive,
   isTaskComplete,
