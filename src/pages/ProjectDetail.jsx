@@ -39,8 +39,10 @@ import {
   mkInputStyle,
   mkSelectStyle
 } from "./_shared.js";
+import { ProjectReportModal } from "../components/ProjectReportModal.jsx";
 import { sendAssignmentEmail } from "../lib/assignmentNotifications.js";
 import { fetchFiles, uploadFiles, deleteFile, getSignedUrl, formatFileSize, fileIcon } from "../lib/fileStorage.js";
+import { buildProjectReportData, downloadProjectReport, printProjectReport } from "../lib/projectReport.js";
 import { isSupabaseConfigured } from "../lib/supabaseClient.js";
 import { createNotification } from "../lib/notificationHelpers.js";
 
@@ -49,7 +51,7 @@ const uniqueEmails = (items) => [...new Set(items.filter(email => /\S+@\S+\.\S+/
 
 // ─── PROJECT DETAIL ───────────────────────────────────────────────────────────
 export const ProjectDetail = React.memo(function ProjectDetail() {
-  const { projects, setProjects, tasks, setTasks, kpis, clients, users, departments, comments, setComments, currentUser, nav, pageParam: id, whiteLabelSettings, logActivity, isMobile } = useApp();
+  const { projects, setProjects, tasks, setTasks, kpis, clients, users, departments, comments, setComments, events, currentUser, nav, pageParam: id, whiteLabelSettings, logActivity, isMobile } = useApp();
   const CS = ({ USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" })[whiteLabelSettings?.currency] || "₦";
   const onBack = () => nav("projects");
   const { theme: t } = useTheme();
@@ -72,6 +74,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   // ── Project edit state ──────────────────────────────────────────────────────
   const [showEditForm, setShowEditForm] = useState(false);
   const [editForm, setEditForm] = useState(null);
+  const [showProjectReport, setShowProjectReport] = useState(false);
 
   // ── AI state ────────────────────────────────────────────────────────────────
   const [aiLoading, setAiLoading] = useState(false);
@@ -146,6 +149,18 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
       if (url) { const a = document.createElement("a"); a.href = url; a.download = file.name; a.click(); }
     } catch { /* silent */ }
   };
+
+  const projectReport = useMemo(() => buildProjectReportData({
+    projectId: id,
+    projects,
+    tasks,
+    clients,
+    kpis,
+    comments,
+    events,
+    pipelines: taskPipelines,
+    currencySymbol: CS,
+  }), [id, projects, tasks, clients, kpis, comments, events, taskPipelines, CS]);
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
   const taskCommentCount = (tid) => (comments || []).filter(c => c.entity_type === "task" && c.entity_id === tid).length;
@@ -605,9 +620,15 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   return (
     <div>
       {/* Back / Edit row */}
-      <div style={{ display:"flex", gap:8, marginBottom:20 }}>
-        <button onClick={onBack} style={{...bs, fontSize:12}}>← Back to Projects</button>
-        <button onClick={openEdit} style={{...bs, fontSize:12}}>✏ Edit Project</button>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, marginBottom:20, flexWrap:"wrap" }}>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          <button onClick={onBack} style={{...bs, fontSize:12}}>Back to Projects</button>
+          <button onClick={openEdit} style={{...bs, fontSize:12}}>Edit Project</button>
+        </div>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          <button onClick={() => setShowProjectReport(true)} style={{...bs, fontSize:12}}>View Report</button>
+          <button onClick={() => downloadProjectReport(projectReport)} style={{...btnPrimary, padding:"8px 14px", fontSize:12}}>Download Report</button>
+        </div>
       </div>
 
       {/* Project overview card */}
@@ -662,6 +683,64 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
         })()}
         <ProgressBar value={calcProgress(id,tasks,project,taskPipelines)} color="#7C3AED" height={8} />
       </div>
+
+      {projectReport?.standup && (() => {
+        const standup = projectReport.standup;
+        const badgeColor = standup.trajectoryLabel === "Needs attention" ? "#EF4444" : standup.trajectoryLabel === "In progress" ? "#F59E0B" : "#059669";
+        return (
+          <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, marginBottom:20 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:isMobile?"flex-start":"center", gap:12, flexDirection:isMobile?"column":"row", marginBottom:14 }}>
+              <div>
+                <h3 style={{ margin:"0 0 4px", color:t.text, fontSize:15, fontWeight:800 }}>Weekly Standup Overview</h3>
+                <div style={{ fontSize:12, color:t.textFaint }}>Weekly and monthly trajectory from task activity, due dates, blockers, and overdue work.</div>
+              </div>
+              <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+                <Badge label={standup.trajectoryLabel} color={badgeColor} />
+                <button onClick={() => setShowProjectReport(true)} style={{...bs, padding:"6px 12px", fontSize:12}}>Open Details</button>
+              </div>
+            </div>
+            <div style={{ background:t.statBg, borderRadius:10, padding:14, color:t.textSub, fontSize:13, lineHeight:1.65, marginBottom:14 }}>
+              {standup.headline}
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)", gap:12, marginBottom:14 }}>
+              {[
+                ["Previous Week", standup.previousWeek.completedInPeriodCount, `${standup.previousWeek.completedDueCount}/${standup.previousWeek.dueCount} due complete`, null],
+                ["This Week Done", standup.currentWeek.completedInPeriodCount, `${standup.currentWeek.completedDueCount}/${standup.currentWeek.dueCount} due complete`, null],
+                ["Weekly Delta", `${standup.weeklyDelta >= 0 ? "+" : ""}${standup.weeklyDelta}`, "vs last week", standup.weeklyDelta < 0 ? "#EF4444" : "#059669"],
+                ["This Month", `${standup.currentMonth.progressPercent}%`, `${standup.currentMonth.completedDueCount}/${standup.currentMonth.dueCount} due complete`, null],
+                ["Next Week Due", standup.nextWeek.dueCount, `${standup.nextWeek.openDueCount} open`, null],
+              ].map(([label, value, sub, color]) => (
+                <div key={label} style={{ background:t.statBg, borderRadius:10, padding:"10px 12px" }}>
+                  <div style={{ fontSize:10, fontWeight:800, color:t.textGhost, letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:4 }}>{label}</div>
+                  <div style={{ fontSize:18, fontWeight:800, color:color || t.text }}>{value}</div>
+                  <div style={{ fontSize:11, color:t.textFaint, marginTop:3 }}>{sub}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:14 }}>
+              {[
+                ["Weekly Trajectory", standup.weeklyTrajectory],
+                ["Monthly Trajectory", standup.monthlyTrajectory],
+              ].map(([title, periods]) => (
+                <div key={title} style={{ border:`1px solid ${t.border2}`, borderRadius:10, padding:14 }}>
+                  <div style={{ marginBottom:10, fontSize:12, fontWeight:800, color:t.textSub }}>{title}</div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
+                    {periods.map(period => (
+                      <div key={`${title}-${period.label}`}>
+                        <div style={{ display:"flex", justifyContent:"space-between", gap:10, fontSize:11, color:t.textMuted, marginBottom:4 }}>
+                          <span>{period.label}</span>
+                          <span>{period.completedDueCount}/{period.dueCount} due - {period.completedInPeriodCount} done</span>
+                        </div>
+                        <ProgressBar value={period.progressPercent} color={period.openDueCount ? "#F59E0B" : "#059669"} height={5} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Tasks ─────────────────────────────────────────────────────────────── */}
       <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, marginBottom:20 }}>
@@ -794,6 +873,15 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
       )}
 
       {/* ── Modals ────────────────────────────────────────────────────────────── */}
+
+      <ProjectReportModal
+        open={showProjectReport}
+        onClose={() => setShowProjectReport(false)}
+        report={projectReport}
+        onDownload={() => downloadProjectReport(projectReport)}
+        onPrint={() => printProjectReport(projectReport)}
+        theme={t}
+      />
 
       <ConfirmModal
         open={!!fileToDelete}

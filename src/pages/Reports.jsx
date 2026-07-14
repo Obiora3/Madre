@@ -20,6 +20,8 @@ import {
   mkInputStyle,
   mkSelectStyle
 } from "./_shared.js";
+import { ProjectReportModal } from "../components/ProjectReportModal.jsx";
+import { buildProjectReportData, downloadProjectReport, printProjectReport } from "../lib/projectReport.js";
 
 // ─── SVG CHARTS ───────────────────────────────────────────────────────────────
 function BurndownChart({ data, t }) {
@@ -83,7 +85,7 @@ function HBarChart({ items, t }) {
 
 // ─── REPORTS PAGE ─────────────────────────────────────────────────────────────
 export const Reports = React.memo(function Reports() {
-  const { projects, tasks, kpis, clients, users, whiteLabelSettings, isMobile } = useApp();
+  const { projects, tasks, kpis, clients, users, comments, events, whiteLabelSettings, isMobile } = useApp();
   const { theme: t } = useTheme();
   const RATE = whiteLabelSettings?.billing_rate || 150;
   const CURRENCY_SYMBOL = { USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" }[whiteLabelSettings?.currency] || "₦";
@@ -186,6 +188,21 @@ export const Reports = React.memo(function Reports() {
     return Object.entries(weeks).sort(([a],[b]) => a.localeCompare(b)).map(([,v]) => v);
   }, [burnProject, tasks, projectById, taskPipelines]);
 
+  const [reportProjectId, setReportProjectId] = useState("");
+  const [showProjectReport, setShowProjectReport] = useState(false);
+  const selectedReportProjectId = projects.some(p => p.id === reportProjectId) ? reportProjectId : (projects[0]?.id || "");
+  const projectReport = useMemo(() => buildProjectReportData({
+    projectId: selectedReportProjectId,
+    projects,
+    tasks,
+    clients,
+    kpis,
+    comments,
+    events,
+    pipelines: taskPipelines,
+    currencySymbol: CURRENCY_SYMBOL,
+  }), [selectedReportProjectId, projects, tasks, clients, kpis, comments, events, taskPipelines, CURRENCY_SYMBOL]);
+
   // ── AI Client Report ─────────────────────────────────────────────────────
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportClient, setReportClient]       = useState("");
@@ -250,6 +267,28 @@ export const Reports = React.memo(function Reports() {
           <input type="date" style={{...iS, padding:"5px 10px", fontSize:12, flex:isMobile?"1":"none"}} value={dateFrom} onChange={e=>{setDateFrom(e.target.value); setActivePreset("");}} />
           <span style={{ color:t.textFaint, fontSize:12 }}>→</span>
           <input type="date" style={{...iS, padding:"5px 10px", fontSize:12, flex:isMobile?"1":"none"}} value={dateTo} onChange={e=>{setDateTo(e.target.value); setActivePreset("");}} />
+        </div>
+      </div>
+
+      {/* Detailed project report */}
+      <div style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:14, padding:20, marginBottom:20 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:isMobile?"flex-start":"center", gap:14, flexDirection:isMobile?"column":"row" }}>
+          <div>
+            <h3 style={{ margin:"0 0 4px", fontSize:15, fontWeight:800, color:t.text }}>Standup Project Report</h3>
+            <div style={{ fontSize:12, color:t.textFaint }}>View or download weekly and monthly trajectory with task details, assignees, progress, and activity.</div>
+          </div>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap", width:isMobile?"100%":"auto", justifyContent:isMobile?"stretch":"flex-end" }}>
+            <select
+              style={{ ...sS, minWidth:isMobile?"100%":260, padding:"8px 10px", fontSize:12 }}
+              value={selectedReportProjectId}
+              onChange={e=>setReportProjectId(e.target.value)}
+              disabled={!projects.length}
+            >
+              {projects.length ? projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>) : <option value="">No projects yet</option>}
+            </select>
+            <button onClick={() => setShowProjectReport(true)} disabled={!projectReport} style={{ ...bs, padding:"8px 14px", fontSize:12, opacity:projectReport?1:0.55 }}>View Report</button>
+            <button onClick={() => downloadProjectReport(projectReport)} disabled={!projectReport} style={{ ...btnPrimary, padding:"8px 14px", fontSize:12, opacity:projectReport?1:0.55 }}>Download Report</button>
+          </div>
         </div>
       </div>
 
@@ -408,6 +447,15 @@ export const Reports = React.memo(function Reports() {
           );
         }) : <div style={{ color:t.textFaint, fontSize:13 }}>No clients yet.</div>}
       </div>
+
+      <ProjectReportModal
+        open={showProjectReport}
+        onClose={() => setShowProjectReport(false)}
+        report={projectReport}
+        onDownload={() => downloadProjectReport(projectReport)}
+        onPrint={() => printProjectReport(projectReport)}
+        theme={t}
+      />
 
       {/* AI Report modal */}
       <Modal open={showReportModal} onClose={()=>setShowReportModal(false)} title="Generate Client Report" width={700}>
