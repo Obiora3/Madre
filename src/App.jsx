@@ -190,14 +190,12 @@ export default function Madre() {
     { id:"kpis",         label:"KPIs",       icon:"\ud83d\udcca" },
     { id:"timeline",     label:"Timeline",   icon:"\ud83d\udcc5" },
     { id:"reports",      label:"Reports",    icon:"\ud83d\udcc8" },
-    { id:"ai-brief",     label:"AI Brief",   icon:"\u2728" },
     { id:"drive",        label:"Drive",      icon:"\ud83d\udcc2" },
   ];
   const canAccessSettings = ["owner", "admin"].includes((currentUser?.role || "").toLowerCase());
   const advancedItems = [
     { id:"profitability",    label:"Profitability",   icon:"\ud83d\udcb0" },
     { id:"pitches",          label:"Pitch Pipeline",  icon:"\ud83c\udfaf" },
-    { id:"benchmarking",     label:"Benchmarking",    icon:"\ud83d\udd2c" },
     { id:"departments",      label:"Departments",     icon:"\ud83c\udfe2" },
     { id:"delivery-scores",  label:"Delivery Scores", icon:"\u2b50" },
     canAccessSettings ? { id:"settings", label:"Settings", icon:"\u2699\ufe0f" } : null,
