@@ -7,6 +7,7 @@ Madre is a full-featured agency management platform built with Vite + React. It 
 ## Table of Contents
 
 - [Project Structure](#project-structure)
+- [Disabled Sidebar Items](#disabled-sidebar-items)
 - [Authentication & Agencies](#authentication--agencies)
 - [Supabase](#supabase)
 - [Outbound Notifications](#outbound-notifications)
@@ -70,6 +71,22 @@ api/
   claude.js                 Serverless route — AI Brief feature
   notify.js                 Serverless route — email + WhatsApp notifications
 ```
+
+---
+
+## Disabled Sidebar Items
+
+**AI Brief**, **Benchmarking**, and **Pitch Pipeline** are removed from the app UI — no sidebar entry, no Global Search quick-nav, no other in-app link routes to them. Navigation in Madre is pure in-memory React state (no URL routing), so removing every `nav()` call to a page id makes it fully unreachable from the UI.
+
+The code itself is untouched and still in the codebase:
+
+| Page | Component | Route case in `PageRouter.jsx` |
+|---|---|---|
+| AI Brief | `src/pages/AIBrief.jsx` | `case "ai-brief"` |
+| Benchmarking | `src/pages/Benchmarking.jsx` | `case "benchmarking"` |
+| Pitch Pipeline | `src/pages/PitchPipeline.jsx` | `case "pitches"` |
+
+To bring one back, re-add its nav item to `navItems`/`advancedItems` in `src/App.jsx` (and its Global Search quick action in `src/pages/GlobalSearch.jsx` if it had one — AI Brief did).
 
 ---
 
