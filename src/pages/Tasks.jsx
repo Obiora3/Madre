@@ -128,6 +128,7 @@ export const Tasks = React.memo(function Tasks() {
   const accent         = t.accent || "#7C3AED";
 
   const [quickAssignTask, setQuickAssignTask] = useState(null); // { id, rect }
+  const [dragOverCell, setDragOverCell] = useState(null); // MINI: Trello-style drag-and-drop, key = `${projectId}|${status}`
 
   const openQuickAssign = (e, taskId) => {
     e.stopPropagation();
@@ -291,14 +292,30 @@ export const Tasks = React.memo(function Tasks() {
                   const col = status;
                   const cc = statusColor(status);
                   const colTasks = groupTasks.filter(t2 => t2.status === col);
+                  const cellKey = `${projectId}|${col}`;
+                  const cellDragOver = dragOverCell === cellKey;
                   return (
-                    <div key={col} style={{ background:t.statBg, borderRadius:10, padding:8, minHeight:60 }}>
+                    <div key={col}
+                      onDragOver={e => { e.preventDefault(); if (dragOverCell !== cellKey) setDragOverCell(cellKey); }}
+                      onDragLeave={() => setDragOverCell(k => (k === cellKey ? null : k))}
+                      onDrop={e => {
+                        e.preventDefault();
+                        const tid = e.dataTransfer.getData("text/plain");
+                        if (tid) changeTaskStatus(tid, col);
+                        setDragOverCell(null);
+                      }}
+                      style={{ background:cellDragOver ? `${cc}18` : t.statBg, border:`1px dashed ${cellDragOver ? cc : "transparent"}`, borderRadius:10, padding:8, minHeight:60, transition:"background 0.12s, border-color 0.12s" }}
+                    >
                       {colTasks.map(t2 => {
                         const subs    = t2.subtasks || [];
                         const cnt     = (comments||[]).filter(c=>c.entity_type==="task"&&c.entity_id===t2.id).length;
                         const blocked = (t2.blocked_by||[]).some(depId => { const dep = tasks.find(x=>x.id===depId); return dep && !isTaskComplete(dep); });
                         return (
-                          <div key={t2.id} style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:8, padding:10, marginBottom:6 }}>
+                          <div key={t2.id}
+                            draggable
+                            onDragStart={e => { e.dataTransfer.setData("text/plain", t2.id); e.dataTransfer.effectAllowed = "move"; }}
+                            style={{ background:t.card, border:`1px solid ${t.border2}`, borderRadius:8, padding:10, marginBottom:6, cursor:"grab" }}
+                          >
                             <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:4, marginBottom:5 }}>
                               <span style={{ fontSize:12, fontWeight:700, color:isTaskComplete(t2)?t.textFaint:t.text, lineHeight:1.35, textDecoration:isTaskComplete(t2)?"line-through":"none", flex:1 }}>{t2.title}</span>
                               {blocked && <span title="Blocked" style={{ fontSize:12, flexShrink:0 }}>🔒</span>}

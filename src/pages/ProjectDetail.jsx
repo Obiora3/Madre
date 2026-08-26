@@ -97,9 +97,15 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   const [stageForTemplate, setStageForTemplate] = useState("");
 
   // ── View mode (list vs kanban vs stage) ────────────────────────────────────
-  const [taskView, setTaskView] = useState("stage");
+  // MINI: defaults to the Trello-style board, not the stage list.
+  const [taskView, setTaskView] = useState("kanban");
   const [stageCollapsed, setStageCollapsed] = useState({});
   const toggleStageCollapse = (key) => setStageCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
+
+  // ── Kanban drag-and-drop + inline quick-add (MINI: Trello-style board) ──────
+  const [dragOverCol, setDragOverCol] = useState(null);
+  const [quickAddCol, setQuickAddCol] = useState(null);
+  const [quickAddText, setQuickAddText] = useState("");
 
   // ── Project files state ─────────────────────────────────────────────────────
   const [projFiles, setProjFiles]       = useState([]);
@@ -373,6 +379,17 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     if (completesTask) logActivity({ userName: currentUser?.name, eventType: "task_completed", entityType: "task", entityId: tid, entityTitle: task.title });
   };
 
+  // Inline "+ Add card" in a Kanban column — mirrors handleAddTask with just a title.
+  const quickAddTask = (status, title) => {
+    if (!title.trim()) return;
+    const newTask = { ...BLANK_TASK, title:title.trim(), status, id:"t"+Date.now(), project_id:id, assigned_to:{}, created_at:new Date().toISOString() };
+    const newTasks = [...tasks, newTask];
+    setTasks(newTasks);
+    setProjects(projects.map(p => p.id === id ? { ...p, progress:calcProgress(id, newTasks, p, taskPipelines) } : p));
+    logActivity({ userName: currentUser?.name, eventType: "task_added", entityType: "task", entityId: newTask.id, entityTitle: newTask.title });
+    setQuickAddText("");
+  };
+
   const simulateAI = async () => {
     setAiLoading(true); setAiResult(""); setAiError(null);
     try {
@@ -385,14 +402,25 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
     finally { setAiLoading(false); }
   };
 
-  // ── Kanban view ───────────────────────────────────────────────────────────────
+  // ── Kanban view (MINI: Trello-style board — drag cards, quick-add per column) ──
   const KanbanView = () => (
     <div style={{ display:"grid", gridTemplateColumns:`repeat(${KANBAN_COLS.length}, minmax(180px, 1fr))`, gap:12, alignItems:"start", overflowX:"auto" }}>
       {KANBAN_COLS.map(col => {
         const colTasks = projectTasks.filter(t2 => t2.status === col);
         const colColor = taskStatusColor(col);
+        const isDragOver = dragOverCol === col;
         return (
-          <div key={col}>
+          <div key={col}
+            onDragOver={e => { e.preventDefault(); if (dragOverCol !== col) setDragOverCol(col); }}
+            onDragLeave={() => setDragOverCol(c => (c === col ? null : c))}
+            onDrop={e => {
+              e.preventDefault();
+              const tid = e.dataTransfer.getData("text/plain");
+              if (tid) changeTaskStatus(tid, col);
+              setDragOverCol(null);
+            }}
+            style={{ background:isDragOver ? `${colColor}14` : "transparent", border:`1px dashed ${isDragOver ? colColor : "transparent"}`, borderRadius:12, padding:isDragOver ? 5 : 0, margin:isDragOver ? -5 : 0, transition:"background 0.12s, border-color 0.12s" }}
+          >
             <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:10, padding:"0 2px" }}>
               <span style={{ width:8, height:8, borderRadius:"50%", background:colColor, flexShrink:0 }} />
               <span style={{ fontSize:12, fontWeight:700, color:t.textSub }}>{col}</span>
@@ -405,7 +433,9 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
               const subsDone = subs.filter(s=>s.done).length;
               return (
                 <div key={t2.id}
-                  style={{ background:t.statBg, border:`1px solid ${t.border2}`, borderRadius:10, padding:"11px 13px", marginBottom:8, cursor:"pointer", transition:"border-color 0.15s, box-shadow 0.15s" }}
+                  draggable
+                  onDragStart={e => { e.dataTransfer.setData("text/plain", t2.id); e.dataTransfer.effectAllowed = "move"; }}
+                  style={{ background:t.statBg, border:`1px solid ${t.border2}`, borderRadius:10, padding:"11px 13px", marginBottom:8, cursor:"grab", transition:"border-color 0.15s, box-shadow 0.15s" }}
                   onClick={() => openEditTask(t2)}
                 >
                   <div style={{ display:"flex", alignItems:"flex-start", gap:7, marginBottom:7 }}>
@@ -447,8 +477,34 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
                 </div>
               );
             })}
-            {colTasks.length===0 && (
+            {colTasks.length===0 && quickAddCol!==col && (
               <div style={{ border:`1px dashed ${t.border2}`, borderRadius:10, padding:"18px 12px", textAlign:"center", color:t.textGhost, fontSize:12 }}>No tasks</div>
+            )}
+            {quickAddCol === col ? (
+              <div style={{ marginTop:4 }}>
+                <input
+                  autoFocus
+                  value={quickAddText}
+                  onChange={e=>setQuickAddText(e.target.value)}
+                  onKeyDown={e=>{
+                    if (e.key === "Enter") { quickAddTask(col, quickAddText); }
+                    if (e.key === "Escape") { setQuickAddCol(null); setQuickAddText(""); }
+                  }}
+                  placeholder="Card title…"
+                  style={{ ...iS, width:"100%", fontSize:12, padding:"7px 9px", marginBottom:6 }}
+                />
+                <div style={{ display:"flex", gap:6 }}>
+                  <button onClick={()=>{ quickAddTask(col, quickAddText); }} style={{...btnPrimary, padding:"5px 12px", fontSize:11}}>Add card</button>
+                  <button onClick={()=>{ setQuickAddCol(null); setQuickAddText(""); }} style={{...bs, padding:"5px 10px", fontSize:11}}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={()=>{ setQuickAddCol(col); setQuickAddText(""); }}
+                style={{ display:"flex", alignItems:"center", gap:5, width:"100%", background:"transparent", border:"none", borderRadius:8, padding:"7px 6px", marginTop:2, cursor:"pointer", color:t.textMuted, fontSize:12, fontWeight:600, textAlign:"left" }}
+              >
+                + Add card
+              </button>
             )}
           </div>
         );
