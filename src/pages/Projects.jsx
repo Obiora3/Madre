@@ -24,6 +24,7 @@ import {
   FormField,
   Modal,
   ProgressBar,
+  SolidPill,
   StatCard,
   TaskStatusButton,
   btnPrimary,
@@ -36,16 +37,6 @@ import { sendAssignmentEmail } from "../lib/assignmentNotifications.js";
 const BLANK_FORM = { title:"", client_id:"", description:"", stage:"Brief", priority:"Medium", pipeline_id:DEFAULT_PROJECT_PIPELINE_ID, assigneeId:"", start_date:"", due_date:"", status:"Active", progress:0, kpi_summary:"", budget:0, budget_spent:0 };
 
 const CURRENCY_SYMBOLS = { USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" };
-
-// Solid-fill pill (vs. the app-wide outline Badge) - matches the monday.com-style
-// reference for Status/Priority/Timeline cells in the grouped table below.
-function SolidPill({ label, color, style }) {
-  return (
-    <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", background:color, color:"#fff", borderRadius:6, padding:"4px 10px", fontSize:11.5, fontWeight:700, whiteSpace:"nowrap", minWidth:0, ...style }}>
-      {label}
-    </span>
-  );
-}
 
 // ─── LIST VIEW (grouped-by-stage table, monday.com-style per reference) ───────
 function ListView({ projects, tasks, clients, projectPipelines, boardStages, projectStageForBoard, CS, theme:t, nav, onDelete, onAddInStage, isMobile }) {

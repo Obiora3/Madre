@@ -32,6 +32,7 @@ import {
   FormField,
   Modal,
   ProgressBar,
+  SolidPill,
   StatCard,
   TaskStatusButton,
   btnPrimary,
@@ -513,7 +514,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
   );
 
   // ── Stage view ────────────────────────────────────────────────────────────────
-  const STAGE_COLS = "32px 1fr 150px 120px 110px 120px 40px" + (canDeleteTasks ? " 72px" : "");
+  const STAGE_COLS = "32px 1fr 150px 120px 110px 140px 40px" + (canDeleteTasks ? " 72px" : "");
   const StageView = () => {
     const unassigned = projectTasks.filter(t2 => !projectStages.some(s => s.label === t2.project_stage));
     const renderGroup = (key, label, color, stageTasks) => {
@@ -534,7 +535,7 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
             <div style={{ borderLeft:`4px solid ${color}`, marginLeft:0, overflowX:"auto" }}>
               {/* Column headers */}
               <div style={{ display:"grid", gridTemplateColumns:STAGE_COLS, columnGap:12, padding:"7px 14px", background:t.statBg, borderBottom:`1px solid ${t.border2}`, minWidth:700 }}>
-                {["", "Task", "Assigned To", "Status", "Priority", "Due Date", "", ...(canDeleteTasks ? [""] : [])].map((h, i) => (
+                {["", "Task", "Assigned To", "Status", "Priority", "Timeline", "", ...(canDeleteTasks ? [""] : [])].map((h, i) => (
                   <div key={i} style={{ fontSize:10, fontWeight:700, color:t.textGhost, textTransform:"uppercase", letterSpacing:"0.06em" }}>{h}</div>
                 ))}
               </div>
@@ -569,9 +570,11 @@ export const ProjectDetail = React.memo(function ProjectDetail() {
                         </>
                       ) : <span style={{ fontSize:12, color:t.textGhost }}>—</span>}
                     </div>
-                    <Badge label={t2.status} color={statusColor(t2.status)} />
-                    <Badge label={t2.priority} color={priorityColor(t2.priority)} />
-                    <span style={{ fontSize:12, color:t.textFaint }}>{t2.due_date ? fmtDate(t2.due_date) : "—"}</span>
+                    <SolidPill label={t2.status} color={statusColor(t2.status)} />
+                    <SolidPill label={t2.priority} color={priorityColor(t2.priority)} />
+                    {t2.due_date ? (
+                      <SolidPill label={`Due ${fmtDate(t2.due_date)}`} color={t.mode === "dark" ? "#2A2A3D" : "#1F2430"} style={{ borderRadius:99, padding:"4px 12px" }} />
+                    ) : <span style={{ fontSize:12, color:t.textGhost }}>—</span>}
                     <button onClick={() => openEditTask(t2)} title="Edit task" style={{ background:"transparent", border:`1px solid ${t.border2}`, borderRadius:6, padding:"3px 7px", fontSize:11, color:t.textMuted, cursor:"pointer" }}>✏</button>
                     {canDeleteTasks && (
                       <button onClick={() => setTaskToDelete(t2)} style={{ background:"transparent", border:"1px solid #EF444466", borderRadius:6, padding:"3px 8px", fontSize:11, color:"#EF4444", cursor:"pointer" }}>Delete</button>

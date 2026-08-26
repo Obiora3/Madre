@@ -19,6 +19,16 @@ export function Badge({ label, color }) {
   return <span style={{ display:"inline-flex", alignItems:"center", width:"fit-content", background: color + "22", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{label}</span>;
 }
 
+// MINI: solid-fill pill (vs. the outline Badge above) - monday.com-style Status/
+// Priority/Timeline cells, used in grouped table views (Projects List, task Stage view).
+export function SolidPill({ label, color, style }) {
+  return (
+    <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", background:color, color:"#fff", borderRadius:6, padding:"4px 10px", fontSize:11.5, fontWeight:700, whiteSpace:"nowrap", ...style }}>
+      {label}
+    </span>
+  );
+}
+
 export function ThemeToggle() {
   const { theme, toggle } = useTheme();
   const dark = theme.mode === "dark";

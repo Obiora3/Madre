@@ -38,6 +38,7 @@ export {
   FormField,
   Modal,
   ProgressBar,
+  SolidPill,
   StatCard,
   TaskStatusButton
 } from "../components/common.jsx";
