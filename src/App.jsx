@@ -181,24 +181,18 @@ export default function Madre() {
     isMobile,
   ]);
 
+  // MINI: trimmed to the core feature set (Dashboard/Projects/Tasks/Team/Clients).
+  // KPIs, Timeline, Reports, Drive and the advanced/analytics section are left out
+  // of the nav on purpose. The pages themselves are untouched in PageRouter.jsx,
+  // so merging updates from main will not conflict there.
   const navItems = [
     { id:"dashboard",    label:"Dashboard",  icon:"\u229e" },
     { id:"projects",     label:"Projects",   icon:"\ud83d\uddc2" },
     { id:"tasks",        label:"Tasks",      icon:"\u2713" },
     { id:"team",         label:"Team",       icon:"\ud83d\udc65" },
     { id:"clients",      label:"Clients",    icon:"\ud83e\udd1d" },
-    { id:"kpis",         label:"KPIs",       icon:"\ud83d\udcca" },
-    { id:"timeline",     label:"Timeline",   icon:"\ud83d\udcc5" },
-    { id:"reports",      label:"Reports",    icon:"\ud83d\udcc8" },
-    { id:"drive",        label:"Drive",      icon:"\ud83d\udcc2" },
   ];
-  const canAccessSettings = ["owner", "admin"].includes((currentUser?.role || "").toLowerCase());
-  const advancedItems = [
-    { id:"profitability",    label:"Profitability",   icon:"\ud83d\udcb0" },
-    { id:"departments",      label:"Departments",     icon:"\ud83c\udfe2" },
-    { id:"delivery-scores",  label:"Delivery Scores", icon:"\u2b50" },
-    canAccessSettings ? { id:"settings", label:"Settings", icon:"\u2699\ufe0f" } : null,
-  ].filter(Boolean);
+  const advancedItems = [];
 
   const activeId = page === "project-detail" ? "projects" : page;
   const headerHeight = 72;
@@ -250,8 +244,10 @@ export default function Madre() {
                     </button>
                   ))}
                 </div>
+                {advancedItems.length > 0 && <>
                 <div style={{ height:1, background:st.border, margin:"10px 8px 10px" }} />
                 <div style={{ fontSize:10, fontWeight:700, color:st.textGhost, padding:"0 10px 6px", letterSpacing:"0.08em" }}>ADVANCED</div>
+                </>}
                 {advancedItems.map(item => (
                   <button key={item.id} onClick={() => nav(item.id)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"9px 10px", borderRadius:8, border:"none", cursor:"pointer", background:activeId===item.id?st.navActive:"transparent", color:activeId===item.id?st.navActiveText:st.navText, fontWeight:activeId===item.id?700:400, fontSize:13, textAlign:"left", marginBottom:1, transition:"background 0.15s, color 0.15s" }}>
                     <span style={{ fontSize:15 }}>{item.icon}</span>
