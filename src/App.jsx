@@ -258,6 +258,15 @@ export default function Madre() {
                     </button>
                   ))}
                 </div>
+                <div style={{ width:"100%", display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"8px 0 10px", borderTop:`1px solid ${st.border}`, flexShrink:0 }}>
+                  <button onClick={() => nav("profile")} title={`${currentUser.name} · Edit profile`} aria-label="Edit profile" style={{ background:"transparent", border:"none", cursor:"pointer", padding:4, borderRadius:"50%" }}>
+                    <Avatar name={currentUser.name} size={30} />
+                  </button>
+                  <button onClick={auth.signOut} title="Sign Out" aria-label="Sign Out" style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, width:60, padding:"6px 2px", borderRadius:10, border:"none", cursor:"pointer", background:"transparent", color:st.textMuted }}>
+                    <span style={{ fontSize:15, lineHeight:1 }}>⏻</span>
+                    <span style={{ fontSize:9.5, fontWeight:600, lineHeight:1 }}>Sign Out</span>
+                  </button>
+                </div>
               </div>
 
               {/* Panel: workspace switcher + collapsible projects list */}
@@ -307,20 +316,9 @@ export default function Madre() {
                     </>
                   )}
                 </div>
-                <div style={{ padding:"12px 16px", borderTop:`1px solid ${st.border}` }}>
-                  <button onClick={() => nav("profile")} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", background:"transparent", border:"none", cursor:"pointer", padding:"4px 0", borderRadius:8, textAlign:"left" }}>
-                    <Avatar name={currentUser.name} size={32} />
-                    <div style={{ overflow:"hidden", flex:1 }}>
-                      <div style={{ fontSize:12, fontWeight:700, color:st.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{currentUser.name}</div>
-                      <div style={{ fontSize:10, color:st.textFaint }}>{currentUser.role}</div>
-                    </div>
-                    <span style={{ fontSize:11, color:st.textGhost }}>✏</span>
-                  </button>
-                  <button onClick={auth.signOut} style={{ width:"100%", marginTop:10, background:"transparent", border:`1px solid ${st.border2}`, color:st.textMuted, borderRadius:7, padding:"7px 10px", fontSize:12, fontWeight:700, cursor:"pointer" }}>Sign Out</button>
-                  {!whiteLabelSettings.hide_attribution && (
-                    <div style={{ fontSize:10, color:st.textGhost, marginTop:10 }}>Powered by Madre</div>
-                  )}
-                </div>
+                {!whiteLabelSettings.hide_attribution && (
+                  <div style={{ padding:"10px 16px", borderTop:`1px solid ${st.border}`, fontSize:10, color:st.textGhost }}>Powered by Madre</div>
+                )}
               </div>
             </div>
 
