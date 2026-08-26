@@ -37,51 +37,27 @@ const BLANK_FORM = { title:"", client_id:"", description:"", stage:"Brief", prio
 
 const CURRENCY_SYMBOLS = { USD:"$", GBP:"£", EUR:"€", AUD:"A$", NGN:"₦", CAD:"C$" };
 
-const PRIORITY_ORDER = { Critical:0, High:1, Medium:2, Low:3 };
-const STATUS_ORDER   = { Active:0, "On Hold":1, Completed:2, Archived:3, Cancelled:4 };
+// Solid-fill pill (vs. the app-wide outline Badge) - matches the monday.com-style
+// reference for Status/Priority/Timeline cells in the grouped table below.
+function SolidPill({ label, color, style }) {
+  return (
+    <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", background:color, color:"#fff", borderRadius:6, padding:"4px 10px", fontSize:11.5, fontWeight:700, whiteSpace:"nowrap", minWidth:0, ...style }}>
+      {label}
+    </span>
+  );
+}
 
-// ─── LIST VIEW ────────────────────────────────────────────────────────────────
-function ListView({ projects, tasks, clients, users, projectPipelines, CS, theme:t, nav, onDelete, advanceStage, isMobile }) {
-  const [sortBy,  setSortBy]  = useState("title");
-  const [sortDir, setSortDir] = useState(1);
-
-  const sort = (col) => {
-    if (sortBy === col) setSortDir(d => -d);
-    else { setSortBy(col); setSortDir(1); }
-  };
-
-  const sorted = useMemo(() => [...projects].sort((a, b) => {
-    let av, bv;
-    if (sortBy === "title")    { av = a.title?.toLowerCase(); bv = b.title?.toLowerCase(); }
-    else if (sortBy === "client") { av = clients.find(c=>c.id===a.client_id)?.name?.toLowerCase()||""; bv = clients.find(c=>c.id===b.client_id)?.name?.toLowerCase()||""; }
-    else if (sortBy === "status")   { av = STATUS_ORDER[a.status]   ?? 9; bv = STATUS_ORDER[b.status]   ?? 9; }
-    else if (sortBy === "priority") { av = PRIORITY_ORDER[a.priority] ?? 9; bv = PRIORITY_ORDER[b.priority] ?? 9; }
-    else if (sortBy === "progress") { av = calcProgress(a.id, tasks); bv = calcProgress(b.id, tasks); }
-    else if (sortBy === "due")  { av = a.due_date||"9999"; bv = b.due_date||"9999"; }
-    else if (sortBy === "stage"){ av = a.stage?.toLowerCase()||""; bv = b.stage?.toLowerCase()||""; }
-    if (av < bv) return -1 * sortDir;
-    if (av > bv) return  1 * sortDir;
-    return 0;
-  }), [projects, sortBy, sortDir, tasks, clients]);
-
-  const ColHead = ({ id, label, style }) => {
-    const active = sortBy === id;
-    return (
-      <th
-        onClick={() => sort(id)}
-        style={{ padding:"9px 12px", textAlign:"left", fontSize:11, fontWeight:700, color:active?t.accent:t.textGhost, letterSpacing:"0.06em", cursor:"pointer", userSelect:"none", whiteSpace:"nowrap", background:t.statBg, ...style }}
-      >
-        {label.toUpperCase()} {active ? (sortDir===1?"↑":"↓") : ""}
-      </th>
-    );
-  };
+// ─── LIST VIEW (grouped-by-stage table, monday.com-style per reference) ───────
+function ListView({ projects, tasks, clients, projectPipelines, boardStages, projectStageForBoard, CS, theme:t, nav, onDelete, onAddInStage, isMobile }) {
+  const [collapsed, setCollapsed] = useState({});
+  const toggleGroup = (label) => setCollapsed(c => ({ ...c, [label]: !c[label] }));
 
   if (isMobile) {
     return (
       <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-        {sorted.length === 0 ? (
+        {projects.length === 0 ? (
           <div style={{ padding:"36px 0", textAlign:"center", color:t.textFaint, fontSize:13 }}>No projects match the current filter.</div>
-        ) : sorted.map(p => {
+        ) : projects.map(p => {
           const client = clients.find(c => c.id === p.client_id);
           const pipeline = getProjectPipeline(p, projectPipelines);
           const sColor = pipeline.statuses.find(s=>s.label===p.stage)?.color || "#6B7280";
@@ -122,92 +98,100 @@ function ListView({ projects, tasks, clients, users, projectPipelines, CS, theme
   }
 
   return (
-    <div style={{ overflowX:"auto", borderRadius:12, border:`1px solid ${t.border2}` }}>
-      <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
-        <thead>
-          <tr>
-            <ColHead id="title"    label="Project"  style={{ minWidth:200 }} />
-            <ColHead id="client"   label="Client"   style={{ minWidth:120 }} />
-            <ColHead id="stage"    label="Stage"    style={{ minWidth:110 }} />
-            <ColHead id="status"   label="Status"   style={{ minWidth:100 }} />
-            <ColHead id="priority" label="Priority" style={{ minWidth:90 }} />
-            <th style={{ padding:"9px 12px", fontSize:11, fontWeight:700, color:t.textGhost, letterSpacing:"0.06em", background:t.statBg, minWidth:140 }}>ASSIGNEE</th>
-            <ColHead id="progress" label="Progress" style={{ minWidth:130 }} />
-            <ColHead id="due"      label="Due Date" style={{ minWidth:100 }} />
-            <th style={{ padding:"9px 12px", fontSize:11, fontWeight:700, color:t.textGhost, letterSpacing:"0.06em", background:t.statBg, minWidth:80 }}>TASKS</th>
-            <th style={{ padding:"9px 12px", background:t.statBg, width:60 }} />
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.length === 0 ? (
-            <tr><td colSpan={10} style={{ padding:"36px 0", textAlign:"center", color:t.textFaint, fontSize:13 }}>No projects match the current filter.</td></tr>
-          ) : sorted.map((p, i) => {
-            const client   = clients.find(c => c.id === p.client_id);
-            const pipeline = getProjectPipeline(p, projectPipelines);
-            const stageColor = pipeline.statuses.find(s=>s.label===p.stage)?.color || "#6B7280";
-            const progress = calcProgress(p.id, tasks);
-            const taskCount = tasks.filter(t2=>t2.project_id===p.id).length;
-            const isOver = p.budget > 0 && (p.budget_spent||0) > p.budget;
-            const rowBg = i % 2 === 0 ? t.card : t.statBg;
-            return (
-              <tr
-                key={p.id}
-                onClick={() => nav("project-detail", p.id)}
-                style={{ cursor:"pointer", background:rowBg, transition:"background 0.1s" }}
-                onMouseEnter={e=>e.currentTarget.style.background=`${t.accent}10`}
-                onMouseLeave={e=>e.currentTarget.style.background=rowBg}
-              >
-                <td style={{ padding:"11px 12px", borderBottom:`1px solid ${t.divider}` }}>
-                  <div style={{ fontWeight:700, color:t.text, lineHeight:1.3 }}>{p.title}</div>
-                  {p.description && <div style={{ fontSize:11, color:t.textFaint, marginTop:2, maxWidth:220, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.description}</div>}
-                </td>
-                <td style={{ padding:"11px 12px", borderBottom:`1px solid ${t.divider}`, color:t.textMuted }}>{client?.name || "—"}</td>
-                <td style={{ padding:"11px 12px", borderBottom:`1px solid ${t.divider}` }}>
-                  <span style={{ fontSize:11, fontWeight:700, color:stageColor, background:`${stageColor}18`, border:`1px solid ${stageColor}44`, borderRadius:6, padding:"2px 8px" }}>{p.stage}</span>
-                </td>
-                <td style={{ padding:"11px 12px", borderBottom:`1px solid ${t.divider}` }}>
-                  <Badge label={p.status} color={statusColor(p.status)} />
-                </td>
-                <td style={{ padding:"11px 12px", borderBottom:`1px solid ${t.divider}` }}>
-                  <Badge label={p.priority} color={priorityColor(p.priority)} />
-                </td>
-                <td style={{ padding:"11px 12px", borderBottom:`1px solid ${t.divider}` }}>
-                  {p.assigned_to?.name ? (
-                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                      <Avatar name={p.assigned_to.name} size={22} />
-                      <span style={{ fontSize:12, color:t.textMuted, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:90 }}>{p.assigned_to.name}</span>
-                    </div>
-                  ) : <span style={{ color:t.textGhost, fontSize:12 }}>—</span>}
-                </td>
-                <td style={{ padding:"11px 12px", borderBottom:`1px solid ${t.divider}`, minWidth:130 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                    <div style={{ flex:1 }}><ProgressBar value={progress} color={stageColor} height={5} /></div>
-                    <span style={{ fontSize:11, fontWeight:700, color:t.textMuted, flexShrink:0 }}>{progress}%</span>
-                  </div>
-                  {p.budget > 0 && (
-                    <div style={{ fontSize:10, color:isOver?"#EF4444":t.textFaint, marginTop:3 }}>
-                      {CS}{((p.budget_spent||0)/1_000_000).toFixed(1)}M / {CS}{(p.budget/1_000_000).toFixed(1)}M
-                    </div>
-                  )}
-                </td>
-                <td style={{ padding:"11px 12px", borderBottom:`1px solid ${t.divider}`, fontSize:12, color:t.textMuted, whiteSpace:"nowrap" }}>
-                  {p.due_date ? fmtDate(p.due_date) : "—"}
-                </td>
-                <td style={{ padding:"11px 12px", borderBottom:`1px solid ${t.divider}`, textAlign:"center" }}>
-                  <span style={{ fontSize:13, fontWeight:700, color:t.text }}>{taskCount}</span>
-                </td>
-                <td style={{ padding:"11px 12px", borderBottom:`1px solid ${t.divider}` }} onClick={e=>e.stopPropagation()}>
-                  <button
-                    onClick={() => onDelete(p)}
-                    title="Delete project"
-                    style={{ background:"none", border:"none", color:t.textGhost, cursor:"pointer", fontSize:16, padding:"2px 6px", borderRadius:4 }}
-                  >×</button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div style={{ display:"flex", flexDirection:"column", gap:24 }}>
+      {boardStages.map(stage => {
+        const stageProjects = projects.filter(p => projectStageForBoard(p) === stage.label);
+        const isCollapsed = !!collapsed[stage.label];
+        return (
+          <div key={stage.id}>
+            <button
+              onClick={() => toggleGroup(stage.label)}
+              style={{ display:"flex", alignItems:"center", gap:7, width:"100%", background:"transparent", border:"none", cursor:"pointer", padding:"2px 4px 8px", textAlign:"left" }}
+            >
+              <span style={{ fontSize:11, color:stage.color, transform:isCollapsed?"rotate(-90deg)":"rotate(0deg)", transition:"transform 0.15s", display:"inline-block" }}>▾</span>
+              <span style={{ fontSize:15, fontWeight:800, color:stage.color }}>{stage.label}</span>
+              <span style={{ fontSize:12, color:t.textFaint }}>{stageProjects.length}</span>
+            </button>
+            {!isCollapsed && (
+              <div style={{ display:"flex", border:`1px solid ${t.border2}`, borderRadius:10, overflow:"hidden" }}>
+                <div style={{ width:4, flexShrink:0, background:stage.color }} />
+                <div style={{ flex:1, overflowX:"auto", minWidth:0 }}>
+                  <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ padding:"9px 12px", textAlign:"left", fontSize:11, fontWeight:700, color:t.textGhost, letterSpacing:"0.06em", background:t.statBg, minWidth:220 }}>PROJECT</th>
+                        <th style={{ padding:"9px 12px", textAlign:"left", fontSize:11, fontWeight:700, color:t.textGhost, letterSpacing:"0.06em", background:t.statBg, minWidth:150 }}>OWNER</th>
+                        <th style={{ padding:"9px 12px", textAlign:"left", fontSize:11, fontWeight:700, color:t.textGhost, letterSpacing:"0.06em", background:t.statBg, minWidth:110 }}>STATUS</th>
+                        <th style={{ padding:"9px 12px", textAlign:"left", fontSize:11, fontWeight:700, color:t.textGhost, letterSpacing:"0.06em", background:t.statBg, minWidth:100 }}>PRIORITY</th>
+                        <th style={{ padding:"9px 12px", textAlign:"left", fontSize:11, fontWeight:700, color:t.textGhost, letterSpacing:"0.06em", background:t.statBg, minWidth:170 }}>TIMELINE</th>
+                        <th style={{ padding:"9px 12px", background:t.statBg, width:44 }} />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stageProjects.length === 0 ? (
+                        <tr><td colSpan={6} style={{ padding:"18px 12px", textAlign:"center", color:t.textFaint, fontSize:12 }}>No projects in this stage.</td></tr>
+                      ) : stageProjects.map((p, i) => {
+                        const client = clients.find(c => c.id === p.client_id);
+                        const rowBg = i % 2 === 0 ? t.card : t.statBg;
+                        const timeline = p.start_date && p.due_date ? `${fmtDate(p.start_date)} – ${fmtDate(p.due_date)}`
+                          : p.due_date ? `Due ${fmtDate(p.due_date)}` : "—";
+                        return (
+                          <tr
+                            key={p.id}
+                            onClick={() => nav("project-detail", p.id)}
+                            style={{ cursor:"pointer", background:rowBg, transition:"background 0.1s" }}
+                            onMouseEnter={e=>e.currentTarget.style.background=`${t.accent}10`}
+                            onMouseLeave={e=>e.currentTarget.style.background=rowBg}
+                          >
+                            <td style={{ padding:"11px 12px", borderBottom:`1px solid ${t.divider}` }}>
+                              <div style={{ fontWeight:700, color:t.text, lineHeight:1.3 }}>{p.title}</div>
+                              <div style={{ fontSize:11, color:t.textFaint, marginTop:2 }}>{client?.name || "No client"}</div>
+                            </td>
+                            <td style={{ padding:"11px 12px", borderBottom:`1px solid ${t.divider}` }}>
+                              {p.assigned_to?.name ? (
+                                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                                  <Avatar name={p.assigned_to.name} size={22} />
+                                  <span style={{ fontSize:12, color:t.textMuted, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:90 }}>{p.assigned_to.name}</span>
+                                </div>
+                              ) : <span style={{ color:t.textGhost, fontSize:12 }}>—</span>}
+                            </td>
+                            <td style={{ padding:"11px 12px", borderBottom:`1px solid ${t.divider}` }}>
+                              <SolidPill label={p.status} color={statusColor(p.status)} />
+                            </td>
+                            <td style={{ padding:"11px 12px", borderBottom:`1px solid ${t.divider}` }}>
+                              <SolidPill label={p.priority} color={priorityColor(p.priority)} />
+                            </td>
+                            <td style={{ padding:"11px 12px", borderBottom:`1px solid ${t.divider}` }}>
+                              <SolidPill label={timeline} color={t.mode === "dark" ? "#2A2A3D" : "#1F2430"} style={{ borderRadius:99, padding:"4px 12px" }} />
+                            </td>
+                            <td style={{ padding:"11px 12px", borderBottom:`1px solid ${t.divider}` }} onClick={e=>e.stopPropagation()}>
+                              <button
+                                onClick={() => onDelete(p)}
+                                title="Delete project"
+                                style={{ background:"none", border:"none", color:t.textGhost, cursor:"pointer", fontSize:16, padding:"2px 6px", borderRadius:4 }}
+                              >×</button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      <tr>
+                        <td colSpan={6} style={{ padding:0, borderBottom:"none" }}>
+                          <button
+                            onClick={() => onAddInStage(stage.label)}
+                            style={{ display:"block", width:"100%", textAlign:"left", background:"transparent", border:"none", cursor:"pointer", padding:"9px 12px", color:t.textMuted, fontSize:12.5, fontWeight:600 }}
+                          >
+                            + Add project
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -268,6 +252,12 @@ export const Projects = React.memo(function Projects() {
     toast({ message: `"${p.title}" moved to ${nextStage}` });
   };
 
+  // "+ Add project" row inside a stage group (List view) - opens the create form pre-filled with that stage.
+  const openAddInStage = (stageLabel) => {
+    setForm({ ...BLANK_FORM, stage: stageLabel, pipeline_id: pipelineFilter });
+    setShowForm(true);
+  };
+
   return (
     <div>
       {/* Header */}
@@ -291,20 +281,18 @@ export const Projects = React.memo(function Projects() {
         ))}
       </div>
 
-      {/* Pipeline filter (board only) */}
-      {viewMode === "board" && (
-        <div style={{ display:"flex", gap:8, marginBottom:18, flexWrap:"wrap", alignItems:"center" }}>
-          <span style={{ fontSize:11, fontWeight:700, color:t.textGhost, letterSpacing:"0.06em", textTransform:"uppercase" }}>Pipeline</span>
-          {projectPipelines.map(pipeline => {
-            const count = projects.filter(p => (p.pipeline_id || DEFAULT_PROJECT_PIPELINE_ID) === pipeline.id).length;
-            return (
-              <button key={pipeline.id} onClick={()=>setPipelineFilter(pipeline.id)} style={{ ...bs, background:pipelineFilter===pipeline.id?t.navActive:t.toggleBg, color:pipelineFilter===pipeline.id?t.navActiveText:t.textMuted, border:`1px solid ${pipelineFilter===pipeline.id?t.accent:t.border2}`, padding:"6px 12px", fontSize:12 }}>
-                {pipeline.name} <span style={{ opacity:0.7 }}>({count})</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {/* Pipeline filter - drives grouping in both Board and List views */}
+      <div style={{ display:"flex", gap:8, marginBottom:18, flexWrap:"wrap", alignItems:"center" }}>
+        <span style={{ fontSize:11, fontWeight:700, color:t.textGhost, letterSpacing:"0.06em", textTransform:"uppercase" }}>Pipeline</span>
+        {projectPipelines.map(pipeline => {
+          const count = projects.filter(p => (p.pipeline_id || DEFAULT_PROJECT_PIPELINE_ID) === pipeline.id).length;
+          return (
+            <button key={pipeline.id} onClick={()=>setPipelineFilter(pipeline.id)} style={{ ...bs, background:pipelineFilter===pipeline.id?t.navActive:t.toggleBg, color:pipelineFilter===pipeline.id?t.navActiveText:t.textMuted, border:`1px solid ${pipelineFilter===pipeline.id?t.accent:t.border2}`, padding:"6px 12px", fontSize:12 }}>
+              {pipeline.name} <span style={{ opacity:0.7 }}>({count})</span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* ── Board view ── */}
       {viewMode === "board" && (
@@ -362,19 +350,20 @@ export const Projects = React.memo(function Projects() {
         </div>
       )}
 
-      {/* ── List view ── */}
+      {/* ── List view (grouped-by-stage table) ── */}
       {viewMode === "list" && (
         <ListView
           projects={filtered}
           tasks={tasks}
           clients={clients}
-          users={users}
           projectPipelines={projectPipelines}
+          boardStages={boardStages}
+          projectStageForBoard={projectStageForBoard}
           CS={CS}
           theme={t}
           nav={nav}
           onDelete={setConfirmDelete}
-          advanceStage={advanceStage}
+          onAddInStage={openAddInStage}
           isMobile={isMobile}
         />
       )}
