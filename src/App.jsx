@@ -83,6 +83,7 @@ export default function Madre() {
   const [page, setPage]               = useState("dashboard");
   const [pageParam, setPageParam]     = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  const [projectsSectionOpen, setProjectsSectionOpen] = useState(true); // MINI: collapsible Projects list in sidebar panel
   const contentRef = useRef(null);
 
   // ── Auth must come before data so agency_id is available ────────────────
@@ -222,70 +223,89 @@ export default function Madre() {
               <div onClick={() => setSidebarOpen(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:190, backdropFilter:"blur(2px)" }} />
             )}
 
-            {/* Sidebar (MINI: icon rail + workspace/projects panel, à la Notion/ClickUp) */}
+            {/* Sidebar (MINI: icon rail + workspace/projects panel, monday.com-style per reference) */}
             <div style={isMobile ? {
-              position:"fixed", top:0, left:0, height:"100vh", width:268,
-              transform: sidebarOpen ? "translateX(0)" : "translateX(-278px)",
+              position:"fixed", top:0, left:0, height:"100vh", width:288,
+              transform: sidebarOpen ? "translateX(0)" : "translateX(-298px)",
               zIndex:200, transition:"transform 0.25s ease, background 0.3s ease",
               display:"flex", flexDirection:"row", overflow:"hidden",
               boxShadow: sidebarOpen ? "4px 0 24px rgba(0,0,0,0.18)" : "none",
             } : {
-              width: sidebarOpen ? 268 : 0, minWidth: sidebarOpen ? 268 : 0,
+              width: sidebarOpen ? 288 : 0, minWidth: sidebarOpen ? 288 : 0,
               display:"flex", flexDirection:"row", overflow:"hidden",
               transition:"width 0.25s ease, min-width 0.25s ease, background 0.3s ease", flexShrink:0,
             }}>
-              {/* Rail: icon-only top-level nav */}
-              <div style={{ width:64, minWidth:64, height:"100%", display:"flex", flexDirection:"column", alignItems:"center", background:st.statBg, borderRight:`1px solid ${st.border}`, overflow:"hidden" }}>
+              {/* Rail: icon + label, top-level nav */}
+              <div style={{ width:72, minWidth:72, height:"100%", display:"flex", flexDirection:"column", alignItems:"center", background:st.statBg, borderRight:`1px solid ${st.border}`, overflow:"hidden" }}>
                 <div style={{ height:headerHeight, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                  <img src="/logo.png" alt="logo" style={{ width:34, height:34, objectFit:"contain" }} />
+                  <img src="/logo.png" alt="logo" style={{ width:30, height:30, objectFit:"contain" }} />
                 </div>
-                <div className="app-sidebar-scroll" style={{ flex:1, overflowY:"auto", overflowX:"hidden", width:"100%", display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:"6px 0" }}>
+                <div className="app-sidebar-scroll" style={{ flex:1, overflowY:"auto", overflowX:"hidden", width:"100%", display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"4px 0" }}>
                   {navItems.map(item => (
-                    <button key={item.id} onClick={() => nav(item.id)} title={item.label} aria-label={item.label} style={{ display:"flex", alignItems:"center", justifyContent:"center", width:40, height:40, borderRadius:10, border:"none", cursor:"pointer", background:activeId===item.id?st.navActive:"transparent", color:activeId===item.id?st.navActiveText:st.navText, fontSize:18, flexShrink:0, transition:"background 0.15s, color 0.15s" }}>
-                      {item.icon}
+                    <button key={item.id} onClick={() => nav(item.id)} title={item.label} aria-label={item.label} style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, width:60, padding:"7px 2px", borderRadius:10, border:"none", cursor:"pointer", background:activeId===item.id?st.navActive:"transparent", color:activeId===item.id?st.navActiveText:st.navText, flexShrink:0, transition:"background 0.15s, color 0.15s" }}>
+                      <span style={{ fontSize:17, lineHeight:1 }}>{item.icon}</span>
+                      <span style={{ fontSize:9.5, fontWeight:600, lineHeight:1 }}>{item.label}</span>
                     </button>
                   ))}
                   {advancedItems.length > 0 && (
-                    <div style={{ width:28, height:1, background:st.border, margin:"6px 0" }} />
+                    <div style={{ width:36, height:1, background:st.border, margin:"6px 0" }} />
                   )}
                   {advancedItems.map(item => (
-                    <button key={item.id} onClick={() => nav(item.id)} title={item.label} aria-label={item.label} style={{ display:"flex", alignItems:"center", justifyContent:"center", width:40, height:40, borderRadius:10, border:"none", cursor:"pointer", background:activeId===item.id?st.navActive:"transparent", color:activeId===item.id?st.navActiveText:st.navText, fontSize:16, flexShrink:0, position:"relative" }}>
-                      {item.icon}
-                      {item.badge && <span style={{ position:"absolute", top:2, right:2, width:7, height:7, borderRadius:"50%", background:st.accent }} />}
+                    <button key={item.id} onClick={() => nav(item.id)} title={item.label} aria-label={item.label} style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, width:60, padding:"7px 2px", borderRadius:10, border:"none", cursor:"pointer", background:activeId===item.id?st.navActive:"transparent", color:activeId===item.id?st.navActiveText:st.navText, flexShrink:0, position:"relative" }}>
+                      <span style={{ fontSize:16, lineHeight:1 }}>{item.icon}</span>
+                      <span style={{ fontSize:9.5, fontWeight:600, lineHeight:1 }}>{item.label}</span>
+                      {item.badge && <span style={{ position:"absolute", top:4, right:8, width:7, height:7, borderRadius:"50%", background:st.accent }} />}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Panel: workspace header + projects list */}
-              <div style={{ width:204, minWidth:204, height:"100%", background:st.surface, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-                <div style={{ height:headerHeight, boxSizing:"border-box", padding:"0 16px", display:"flex", alignItems:"center", gap:9, flexShrink:0 }}>
-                  <img src="/logo.png" alt="" style={{ width:26, height:26, objectFit:"contain", borderRadius:6, flexShrink:0 }} />
-                  <div style={{ overflow:"hidden" }}>
-                    <div style={{ fontSize:13, fontWeight:800, color:st.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{whiteLabelSettings.agency_name || "Workspace"}</div>
-                    <div style={{ fontSize:10, color:st.textFaint }}>Workspace</div>
+              {/* Panel: workspace switcher + collapsible projects list */}
+              <div style={{ width:216, minWidth:216, height:"100%", background:st.surface, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+                <div style={{ height:headerHeight, boxSizing:"border-box", padding:"0 16px", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+                  <span style={{ fontSize:14, fontWeight:800, color:st.text }}>Workspace</span>
+                  <button onClick={() => setSidebarOpen(false)} title="Collapse sidebar" aria-label="Collapse sidebar" style={{ background:"transparent", border:"none", color:st.textMuted, cursor:"pointer", fontSize:14, padding:4, lineHeight:1 }}>«</button>
+                </div>
+                <div style={{ padding:"0 12px 10px" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <div style={{ flex:1, minWidth:0, display:"flex", alignItems:"center", gap:8, border:`1px solid ${st.border2}`, borderRadius:9, padding:"7px 9px", background:st.statBg }}>
+                      <Avatar name={whiteLabelSettings.agency_name || "Workspace"} size={22} />
+                      <span style={{ fontSize:12.5, fontWeight:700, color:st.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{whiteLabelSettings.agency_name || "Workspace"}</span>
+                    </div>
+                    <button onClick={() => nav("projects")} title="Add project" aria-label="Add project" style={{ width:32, height:32, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", background:"transparent", border:`1px solid ${st.border2}`, borderRadius:9, color:st.textMuted, cursor:"pointer", fontSize:15 }}>+</button>
                   </div>
                 </div>
                 <div style={{ height:1, background:st.border, margin:"0 16px" }} />
-                <div className="app-sidebar-scroll" style={{ flex:1, overflowY:"auto", padding:"14px 12px 10px" }}>
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 4px 6px" }}>
-                    <span style={{ fontSize:10, fontWeight:700, color:st.textGhost, letterSpacing:"0.08em" }}>PROJECTS</span>
-                    <button onClick={() => nav("projects")} title="View all / add project" aria-label="View all projects" style={{ background:"transparent", border:"none", color:st.textMuted, cursor:"pointer", fontSize:14, lineHeight:1, padding:"2px 4px" }}>+</button>
-                  </div>
-                  {projects.length === 0 ? (
-                    <div style={{ padding:"8px 6px", fontSize:12, color:st.textFaint }}>
-                      No projects yet.{" "}
-                      <button onClick={() => nav("projects")} style={{ background:"none", border:"none", color:st.accent, cursor:"pointer", fontSize:12, fontWeight:700, textDecoration:"underline", padding:0 }}>Add one</button>
-                    </div>
-                  ) : projects.map(p => {
-                    const isActive = page === "project-detail" && pageParam === p.id;
-                    return (
-                      <button key={p.id} onClick={() => nav("project-detail", p.id)} style={{ display:"flex", alignItems:"center", gap:8, width:"100%", padding:"7px 8px", borderRadius:8, border:"none", cursor:"pointer", background:isActive?st.navActive:"transparent", color:isActive?st.navActiveText:st.navText, fontWeight:isActive?700:400, fontSize:12.5, textAlign:"left", marginBottom:1, transition:"background 0.15s, color 0.15s" }}>
-                        <span style={{ width:7, height:7, borderRadius:"50%", background:statusColor(p.status), flexShrink:0 }} />
-                        <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.title}</span>
+                <div className="app-sidebar-scroll" style={{ flex:1, overflowY:"auto", padding:"12px 12px 10px" }}>
+                  <button
+                    onClick={() => setProjectsSectionOpen(o => !o)}
+                    style={{ display:"flex", alignItems:"center", gap:6, width:"100%", background:"transparent", border:"none", cursor:"pointer", padding:"2px 4px 8px", color:st.text, fontSize:13, fontWeight:700, textAlign:"left" }}
+                  >
+                    <span style={{ fontSize:10, color:st.textMuted, transform:projectsSectionOpen?"rotate(0deg)":"rotate(-90deg)", transition:"transform 0.15s", display:"inline-block" }}>▾</span>
+                    Projects
+                  </button>
+                  {projectsSectionOpen && (
+                    projects.length === 0 ? (
+                      <div style={{ padding:"4px 6px 8px", fontSize:12, color:st.textFaint }}>
+                        No projects yet.{" "}
+                        <button onClick={() => nav("projects")} style={{ background:"none", border:"none", color:st.accent, cursor:"pointer", fontSize:12, fontWeight:700, textDecoration:"underline", padding:0 }}>Add one</button>
+                      </div>
+                    ) : <>
+                      {projects.map(p => {
+                        const isActive = page === "project-detail" && pageParam === p.id;
+                        return (
+                          <button key={p.id} onClick={() => nav("project-detail", p.id)} style={{ display:"flex", alignItems:"center", gap:8, width:"100%", padding:"7px 8px", borderRadius:8, border:"none", cursor:"pointer", background:isActive?st.navActive:"transparent", color:isActive?st.navActiveText:st.navText, fontWeight:isActive?700:400, fontSize:12.5, textAlign:"left", marginBottom:1, transition:"background 0.15s, color 0.15s" }}>
+                            <span style={{ width:16, height:16, borderRadius:5, background:`${statusColor(p.status)}22`, border:`1px solid ${statusColor(p.status)}55`, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:9 }}>🗂</span>
+                            <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.title}</span>
+                          </button>
+                        );
+                      })}
+                      <button onClick={() => nav("projects")} style={{ display:"flex", alignItems:"center", gap:8, width:"100%", padding:"7px 8px", borderRadius:8, border:"none", cursor:"pointer", background:"transparent", color:st.textMuted, fontSize:12.5, textAlign:"left", marginTop:2 }}>
+                        <span style={{ width:16, textAlign:"center", flexShrink:0 }}>+</span>
+                        Add project
                       </button>
-                    );
-                  })}
+                    </>
+                  )}
                 </div>
                 <div style={{ padding:"12px 16px", borderTop:`1px solid ${st.border}` }}>
                   <button onClick={() => nav("profile")} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", background:"transparent", border:"none", cursor:"pointer", padding:"4px 0", borderRadius:8, textAlign:"left" }}>
