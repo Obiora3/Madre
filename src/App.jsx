@@ -83,6 +83,7 @@ export default function Madre() {
   const [page, setPage]               = useState("dashboard");
   const [pageParam, setPageParam]     = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  const [panelOpen, setPanelOpen] = useState(true); // MINI: collapses just the workspace/projects panel, rail stays put
   const [projectsSectionOpen, setProjectsSectionOpen] = useState(true); // MINI: collapsible Projects list in sidebar panel
   const contentRef = useRef(null);
 
@@ -225,21 +226,30 @@ export default function Madre() {
 
             {/* Sidebar (MINI: icon rail + workspace/projects panel, monday.com-style per reference) */}
             <div style={isMobile ? {
-              position:"fixed", top:0, left:0, height:"100vh", width:288,
+              position:"fixed", top:0, left:0, height:"100vh", width:72 + (panelOpen?216:0),
               transform: sidebarOpen ? "translateX(0)" : "translateX(-298px)",
-              zIndex:200, transition:"transform 0.25s ease, background 0.3s ease",
+              zIndex:200, transition:"transform 0.25s ease, width 0.2s ease, background 0.3s ease",
               display:"flex", flexDirection:"row", overflow:"hidden",
               boxShadow: sidebarOpen ? "4px 0 24px rgba(0,0,0,0.18)" : "none",
             } : {
-              width: sidebarOpen ? 288 : 0, minWidth: sidebarOpen ? 288 : 0,
+              width: sidebarOpen ? (72 + (panelOpen?216:0)) : 0,
+              minWidth: sidebarOpen ? (72 + (panelOpen?216:0)) : 0,
               display:"flex", flexDirection:"row", overflow:"hidden",
-              transition:"width 0.25s ease, min-width 0.25s ease, background 0.3s ease", flexShrink:0,
+              transition:"width 0.2s ease, min-width 0.2s ease, background 0.3s ease", flexShrink:0,
             }}>
               {/* Rail: icon + label, top-level nav */}
               <div style={{ width:72, minWidth:72, height:"100%", display:"flex", flexDirection:"column", alignItems:"center", background:st.statBg, borderRight:`1px solid ${st.border}`, overflow:"hidden" }}>
                 <div style={{ height:headerHeight, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
                   <img src="/logo.png" alt="logo" style={{ width:30, height:30, objectFit:"contain" }} />
                 </div>
+                <button
+                  onClick={() => setPanelOpen(o => !o)}
+                  title={panelOpen ? "Collapse panel" : "Expand panel"}
+                  aria-label={panelOpen ? "Collapse panel" : "Expand panel"}
+                  style={{ width:32, height:24, display:"flex", alignItems:"center", justifyContent:"center", background:"transparent", border:`1px solid ${st.border2}`, borderRadius:7, color:st.textMuted, cursor:"pointer", fontSize:11, margin:"0 0 6px", flexShrink:0 }}
+                >
+                  {panelOpen ? "«" : "»"}
+                </button>
                 <div className="app-sidebar-scroll" style={{ flex:1, overflowY:"auto", overflowX:"hidden", width:"100%", display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"4px 0" }}>
                   {navItems.map(item => (
                     <button key={item.id} onClick={() => nav(item.id)} title={item.label} aria-label={item.label} style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, width:60, padding:"7px 2px", borderRadius:10, border:"none", cursor:"pointer", background:activeId===item.id?st.navActive:"transparent", color:activeId===item.id?st.navActiveText:st.navText, flexShrink:0, transition:"background 0.15s, color 0.15s" }}>
@@ -270,10 +280,9 @@ export default function Madre() {
               </div>
 
               {/* Panel: workspace switcher + collapsible projects list */}
-              <div style={{ width:216, minWidth:216, height:"100%", background:st.surface, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-                <div style={{ height:headerHeight, boxSizing:"border-box", padding:"0 16px", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+              <div style={{ width:panelOpen?216:0, minWidth:panelOpen?216:0, height:"100%", background:st.surface, display:"flex", flexDirection:"column", overflow:"hidden", transition:"width 0.2s ease, min-width 0.2s ease" }}>
+                <div style={{ height:headerHeight, boxSizing:"border-box", padding:"0 16px", display:"flex", alignItems:"center", flexShrink:0 }}>
                   <span style={{ fontSize:14, fontWeight:800, color:st.text }}>Workspace</span>
-                  <button onClick={() => setSidebarOpen(false)} title="Collapse sidebar" aria-label="Collapse sidebar" style={{ background:"transparent", border:"none", color:st.textMuted, cursor:"pointer", fontSize:14, padding:4, lineHeight:1 }}>«</button>
                 </div>
                 <div style={{ padding:"0 12px 10px" }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8 }}>
