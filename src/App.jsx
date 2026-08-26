@@ -12,6 +12,7 @@ import { DARK, LIGHT, ThemeContext } from "./theme.js";
 import { ToastContainer, ToastContext } from "./toast.jsx";
 import { Avatar, NotificationBell, ThemeToggle } from "./components/common.jsx";
 import { GlobalSearch, PageRouter } from "./pages/index.jsx";
+import { statusColor } from "./lib/helpers.js";
 import "./app.css";
 
 // ─── BREADCRUMBS ──────────────────────────────────────────────────────────────
@@ -221,55 +222,85 @@ export default function Madre() {
               <div onClick={() => setSidebarOpen(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:190, backdropFilter:"blur(2px)" }} />
             )}
 
-            {/* Sidebar */}
+            {/* Sidebar (MINI: icon rail + workspace/projects panel, à la Notion/ClickUp) */}
             <div style={isMobile ? {
-              position:"fixed", top:0, left:0, height:"100vh", width:260,
-              transform: sidebarOpen ? "translateX(0)" : "translateX(-270px)",
+              position:"fixed", top:0, left:0, height:"100vh", width:268,
+              transform: sidebarOpen ? "translateX(0)" : "translateX(-278px)",
               zIndex:200, transition:"transform 0.25s ease, background 0.3s ease",
-              background:st.surface, display:"flex", flexDirection:"column", overflow:"hidden",
+              display:"flex", flexDirection:"row", overflow:"hidden",
               boxShadow: sidebarOpen ? "4px 0 24px rgba(0,0,0,0.18)" : "none",
             } : {
-              width: sidebarOpen ? 220 : 0, minWidth: sidebarOpen ? 220 : 0,
-              background:st.surface, display:"flex", flexDirection:"column", overflow:"hidden",
+              width: sidebarOpen ? 268 : 0, minWidth: sidebarOpen ? 268 : 0,
+              display:"flex", flexDirection:"row", overflow:"hidden",
               transition:"width 0.25s ease, min-width 0.25s ease, background 0.3s ease", flexShrink:0,
             }}>
-              <div style={{ height:headerHeight, boxSizing:"border-box", padding:"0 16px", display:"flex", alignItems:"center" }}>
-                <img src="/logo.png" alt="logo" style={{ width:70, height:70, objectFit:"contain" }} />
-              </div>
-              <div style={{ height:1, background:st.border, margin:"0 16px" }} />
-              <div className="app-sidebar-scroll" style={{ flex:1, overflowY:"auto", padding:"14px 12px 10px" }}>
-                <div style={{ marginBottom:8 }}>
+              {/* Rail: icon-only top-level nav */}
+              <div style={{ width:64, minWidth:64, height:"100%", display:"flex", flexDirection:"column", alignItems:"center", background:st.statBg, borderRight:`1px solid ${st.border}`, overflow:"hidden" }}>
+                <div style={{ height:headerHeight, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                  <img src="/logo.png" alt="logo" style={{ width:34, height:34, objectFit:"contain" }} />
+                </div>
+                <div className="app-sidebar-scroll" style={{ flex:1, overflowY:"auto", overflowX:"hidden", width:"100%", display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:"6px 0" }}>
                   {navItems.map(item => (
-                    <button key={item.id} onClick={() => nav(item.id)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"9px 10px", borderRadius:8, border:"none", cursor:"pointer", background:activeId===item.id?st.navActive:"transparent", color:activeId===item.id?st.navActiveText:st.navText, fontWeight:activeId===item.id?700:400, fontSize:13, textAlign:"left", marginBottom:1, transition:"background 0.15s, color 0.15s" }}>
-                      <span style={{ fontSize:16 }}>{item.icon}</span>{item.label}
+                    <button key={item.id} onClick={() => nav(item.id)} title={item.label} aria-label={item.label} style={{ display:"flex", alignItems:"center", justifyContent:"center", width:40, height:40, borderRadius:10, border:"none", cursor:"pointer", background:activeId===item.id?st.navActive:"transparent", color:activeId===item.id?st.navActiveText:st.navText, fontSize:18, flexShrink:0, transition:"background 0.15s, color 0.15s" }}>
+                      {item.icon}
+                    </button>
+                  ))}
+                  {advancedItems.length > 0 && (
+                    <div style={{ width:28, height:1, background:st.border, margin:"6px 0" }} />
+                  )}
+                  {advancedItems.map(item => (
+                    <button key={item.id} onClick={() => nav(item.id)} title={item.label} aria-label={item.label} style={{ display:"flex", alignItems:"center", justifyContent:"center", width:40, height:40, borderRadius:10, border:"none", cursor:"pointer", background:activeId===item.id?st.navActive:"transparent", color:activeId===item.id?st.navActiveText:st.navText, fontSize:16, flexShrink:0, position:"relative" }}>
+                      {item.icon}
+                      {item.badge && <span style={{ position:"absolute", top:2, right:2, width:7, height:7, borderRadius:"50%", background:st.accent }} />}
                     </button>
                   ))}
                 </div>
-                {advancedItems.length > 0 && <>
-                <div style={{ height:1, background:st.border, margin:"10px 8px 10px" }} />
-                <div style={{ fontSize:10, fontWeight:700, color:st.textGhost, padding:"0 10px 6px", letterSpacing:"0.08em" }}>ADVANCED</div>
-                </>}
-                {advancedItems.map(item => (
-                  <button key={item.id} onClick={() => nav(item.id)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"9px 10px", borderRadius:8, border:"none", cursor:"pointer", background:activeId===item.id?st.navActive:"transparent", color:activeId===item.id?st.navActiveText:st.navText, fontWeight:activeId===item.id?700:400, fontSize:13, textAlign:"left", marginBottom:1, transition:"background 0.15s, color 0.15s" }}>
-                    <span style={{ fontSize:15 }}>{item.icon}</span>
-                    <span style={{ flex:1 }}>{item.label}</span>
-                    {item.badge && <span style={{ fontSize:9, background:st.accent, color:"#fff", borderRadius:4, padding:"1px 5px", fontWeight:800 }}>{item.badge}</span>}
-                  </button>
-                ))}
               </div>
-              <div style={{ padding:"12px 16px", borderTop:`1px solid ${st.border}` }}>
-                <button onClick={() => nav("profile")} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", background:"transparent", border:"none", cursor:"pointer", padding:"4px 0", borderRadius:8, textAlign:"left" }}>
-                  <Avatar name={currentUser.name} size={32} />
-                  <div style={{ overflow:"hidden", flex:1 }}>
-                    <div style={{ fontSize:12, fontWeight:700, color:st.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{currentUser.name}</div>
-                    <div style={{ fontSize:10, color:st.textFaint }}>{currentUser.role}</div>
+
+              {/* Panel: workspace header + projects list */}
+              <div style={{ width:204, minWidth:204, height:"100%", background:st.surface, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+                <div style={{ height:headerHeight, boxSizing:"border-box", padding:"0 16px", display:"flex", alignItems:"center", gap:9, flexShrink:0 }}>
+                  <img src="/logo.png" alt="" style={{ width:26, height:26, objectFit:"contain", borderRadius:6, flexShrink:0 }} />
+                  <div style={{ overflow:"hidden" }}>
+                    <div style={{ fontSize:13, fontWeight:800, color:st.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{whiteLabelSettings.agency_name || "Workspace"}</div>
+                    <div style={{ fontSize:10, color:st.textFaint }}>Workspace</div>
                   </div>
-                  <span style={{ fontSize:11, color:st.textGhost }}>✏</span>
-                </button>
-                <button onClick={auth.signOut} style={{ width:"100%", marginTop:10, background:"transparent", border:`1px solid ${st.border2}`, color:st.textMuted, borderRadius:7, padding:"7px 10px", fontSize:12, fontWeight:700, cursor:"pointer" }}>Sign Out</button>
-                {!whiteLabelSettings.hide_attribution && (
-                  <div style={{ fontSize:10, color:st.textGhost, marginTop:10 }}>Powered by Madre</div>
-                )}
+                </div>
+                <div style={{ height:1, background:st.border, margin:"0 16px" }} />
+                <div className="app-sidebar-scroll" style={{ flex:1, overflowY:"auto", padding:"14px 12px 10px" }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 4px 6px" }}>
+                    <span style={{ fontSize:10, fontWeight:700, color:st.textGhost, letterSpacing:"0.08em" }}>PROJECTS</span>
+                    <button onClick={() => nav("projects")} title="View all / add project" aria-label="View all projects" style={{ background:"transparent", border:"none", color:st.textMuted, cursor:"pointer", fontSize:14, lineHeight:1, padding:"2px 4px" }}>+</button>
+                  </div>
+                  {projects.length === 0 ? (
+                    <div style={{ padding:"8px 6px", fontSize:12, color:st.textFaint }}>
+                      No projects yet.{" "}
+                      <button onClick={() => nav("projects")} style={{ background:"none", border:"none", color:st.accent, cursor:"pointer", fontSize:12, fontWeight:700, textDecoration:"underline", padding:0 }}>Add one</button>
+                    </div>
+                  ) : projects.map(p => {
+                    const isActive = page === "project-detail" && pageParam === p.id;
+                    return (
+                      <button key={p.id} onClick={() => nav("project-detail", p.id)} style={{ display:"flex", alignItems:"center", gap:8, width:"100%", padding:"7px 8px", borderRadius:8, border:"none", cursor:"pointer", background:isActive?st.navActive:"transparent", color:isActive?st.navActiveText:st.navText, fontWeight:isActive?700:400, fontSize:12.5, textAlign:"left", marginBottom:1, transition:"background 0.15s, color 0.15s" }}>
+                        <span style={{ width:7, height:7, borderRadius:"50%", background:statusColor(p.status), flexShrink:0 }} />
+                        <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.title}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ padding:"12px 16px", borderTop:`1px solid ${st.border}` }}>
+                  <button onClick={() => nav("profile")} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", background:"transparent", border:"none", cursor:"pointer", padding:"4px 0", borderRadius:8, textAlign:"left" }}>
+                    <Avatar name={currentUser.name} size={32} />
+                    <div style={{ overflow:"hidden", flex:1 }}>
+                      <div style={{ fontSize:12, fontWeight:700, color:st.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{currentUser.name}</div>
+                      <div style={{ fontSize:10, color:st.textFaint }}>{currentUser.role}</div>
+                    </div>
+                    <span style={{ fontSize:11, color:st.textGhost }}>✏</span>
+                  </button>
+                  <button onClick={auth.signOut} style={{ width:"100%", marginTop:10, background:"transparent", border:`1px solid ${st.border2}`, color:st.textMuted, borderRadius:7, padding:"7px 10px", fontSize:12, fontWeight:700, cursor:"pointer" }}>Sign Out</button>
+                  {!whiteLabelSettings.hide_attribution && (
+                    <div style={{ fontSize:10, color:st.textGhost, marginTop:10 }}>Powered by Madre</div>
+                  )}
+                </div>
               </div>
             </div>
 
