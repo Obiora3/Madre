@@ -1,6 +1,7 @@
 import { React, useApp } from "./_shared.js";
 import { AIBrief } from "./AIBrief.jsx";
 import { Benchmarking } from "./Benchmarking.jsx";
+import { Calendar } from "./Calendar.jsx";
 import { Clients } from "./Clients.jsx";
 import { Dashboard } from "./Dashboard.jsx";
 import { DeliveryScores } from "./DeliveryScores.jsx";
@@ -26,6 +27,7 @@ export const PageRouter = React.memo(function PageRouter() {
     case "projects":        return <Projects />;
     case "project-detail":  return <ProjectDetail />;
     case "tasks":           return <Tasks />;
+    case "calendar":        return <Calendar />;
     case "team":            return <Team />;
     case "clients":         return <Clients />;
     case "kpis":            return <KPIs />;

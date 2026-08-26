@@ -16,7 +16,7 @@ import "./app.css";
 
 // ─── BREADCRUMBS ──────────────────────────────────────────────────────────────
 const PAGE_LABELS = {
-  dashboard:"Dashboard", projects:"Projects", tasks:"Tasks", team:"Team",
+  dashboard:"Dashboard", projects:"Projects", tasks:"Tasks", calendar:"Calendar", team:"Team",
   clients:"Clients", kpis:"KPIs", timeline:"Timeline", reports:"Reports",
   "ai-brief":"AI Brief", profitability:"Profitability", pitches:"Pitch Pipeline",
   benchmarking:"Benchmarking", departments:"Departments",
@@ -189,6 +189,7 @@ export default function Madre() {
     { id:"dashboard",    label:"Dashboard",  icon:"\u229e" },
     { id:"projects",     label:"Projects",   icon:"\ud83d\uddc2" },
     { id:"tasks",        label:"Tasks",      icon:"\u2713" },
+    { id:"calendar",     label:"Calendar",   icon:"\ud83d\udcc5" },
     { id:"team",         label:"Team",       icon:"\ud83d\udc65" },
     { id:"clients",      label:"Clients",    icon:"\ud83e\udd1d" },
   ];
