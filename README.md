@@ -57,6 +57,16 @@ Row-level security limits every member to their own workspace.
 The first person to sign up chooses **Create workspace** and becomes admin. Everyone else signs up,
 chooses **Join a team** and enters the code shown in Settings.
 
+## Demo data
+
+`supabase/seed.sql` creates a demo workspace (join code `DEMO2026`) with 5 team members, 4 clients,
+6 projects, 29 tasks, comments and activity history. Due dates are relative to the day it runs, so there are
+always overdue, due-today and blocked tasks to test with. Paste it into the Supabase SQL editor to load it;
+re-running it resets the demo. Supabase preview branches run it automatically.
+
+Every demo user's password is `MadreDemo2026!`. Sign in as `ada@example.com` (admin), or as
+`tunde@`, `chioma@`, `ifeanyi@` or `zainab@example.com` (members).
+
 ## Scripts
 
 | Command | |
