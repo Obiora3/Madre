@@ -1,6 +1,6 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
-import claudeHandler from "./api/claude.js";
+import tailwindcss from "@tailwindcss/vite";
 import notifyHandler from "./api/notify.js";
 
 function createJsonResponse(res) {
@@ -39,10 +39,9 @@ function parseJsonBody(req) {
 
 function localApiPlugin() {
   return {
-    name: "agencyflow-local-api",
+    name: "madre-local-api",
     configureServer(server) {
       const handlers = {
-        "/api/claude": claudeHandler,
         "/api/notify": notifyHandler,
       };
 
@@ -64,7 +63,7 @@ export default defineConfig(({ mode }) => {
   Object.assign(process.env, loadEnv(mode, process.cwd(), ""));
 
   return {
-    plugins: [react(), localApiPlugin()],
+    plugins: [react(), tailwindcss(), localApiPlugin()],
     server: {
       port: 5174,
       host: "0.0.0.0"
